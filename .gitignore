@@ -1,0 +1,36 @@
+# MATLAB / Simulink
+*.asv
+*.autosave
+*.slxc
+slprj/
+sfprj/
+*.mex*
+*.tf
+*.ld_script
+*.log
+*.tmp
+*.bak
+*.p
+generated/
+
+# Simulink Code Generation
+*_ert_rtw/
+*_grt_rtw/
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Large Data & Binary Files
+*.mat
+# Exceptions (Add necessary model/data files here)
+!TPS_Table.mat
+!HDC_Model.mat
+!DAB_Parameters.sldd
+
+# Simulation Results & Artifacts
+Results/
+*.original
+*.backup*
+Comparison_Results.mat
+SimAfter.mat
