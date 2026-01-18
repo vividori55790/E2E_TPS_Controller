@@ -22,7 +22,8 @@ This directory contains MATLAB scripts for simulating, optimizing, and verifying
 Scripts for tuning PI controller parameters using Model-in-the-Loop (MIL) simulation.
 
 - **`Auto_Optimize_And_Verify.m`** ⭐ (권장):
-  - 최적화 + 다중 시나리오 검증을 한 번에 실행
+  - **2-Stage Grid Search** 알고리즘 적용 (Coarse 5×5 → Fine 5×5)
+  - 기존 대비 시뮬레이션 횟수 50% 감소 (100 → 50)
   - 7개 시나리오 (전압/전류/배터리 변동) 자동 검증
   - Pass/Fail 리포트 및 시각화 제공
 - **`Optimize_Controller_MIL.m`**:
