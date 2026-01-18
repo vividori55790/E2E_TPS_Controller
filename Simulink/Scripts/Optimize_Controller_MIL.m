@@ -12,40 +12,53 @@ fprintf('=================================================================\n');
 fprintf('  PI Controller Optimization (MIL v2 - Battery Model)\n');
 fprintf('=================================================================\n\n');
 
-%% ==================== System Parameters ====================
-params.n = 4.0;             % 변압기 권선비 (N_pri / N_sec)
-params.L = 50e-6;           % 누설 인덕턴스 (H)
-params.fs = 80e3;           % 스위칭 주파수 (Hz)
-params.C_out = 500e-6;      % 출력 커패시터 (F)
-params.efficiency = 0.95;   % 효율
+%% ==================== Load Configuration ====================
+config = DAB_System_Config();
 
-Ts_ctrl = 1/params.fs;      % 제어기 샘플링 주기 (스위칭 주파수와 동일)
+% Plant Parameters
+params.n = config.plant.n;
+params.L = config.plant.L;
+params.fs = config.plant.fs;
+params.C_out = config.plant.C_out;
+params.efficiency = config.plant.efficiency;
 
-%% ==================== Operating Conditions ====================
-V_in = 400;                 % 1차측(HV) 전압 (V)
-V_batt = 100;               % 배터리 공칭 전압 (Back-EMF) (V)
-R_batt = 0.1;               % 배터리 내부 저항 (Ohm) - 출력 변수 역할
-V_out_init = V_batt;        % 초기 출력 전압 = 배터리 전압
-Phi_int_deg = 15;           % 내부 위상 (고정)
+% Operating Conditions
+V_in = config.hv.V_nom;
+V_batt = config.battery.V_nom;
+R_batt = config.battery.R_internal;
+V_out_init = V_batt;
+Phi_int_deg = config.controller.Phi_int_deg;
 
-I_ref = 10;                 % 목표 전류 (A)
-I_ref_init = 0;             % 스텝 전 전류 지령 (A)
+% Test Conditions
+I_ref = config.test.I_ref;
+I_ref_init = config.test.I_ref_init;
 
-%% ==================== Simulation Setup ====================
-dt = 10e-6;                 % MIL 타임스텝 (10us)
-sim_time = 0.100;           % 시뮬레이션 시간 (100ms)
-time_vec = 0:dt:sim_time;
-n_steps = length(time_vec);
-step_start = 0.010;         % 10ms에서 스텝 인가
+% Simulation Settings
+dt = config.sim.dt;
+sim_time = config.sim.time;
+step_start = config.sim.step_start;
 
-%% ==================== Tuning Range ====================
-% 확장된 탐색 범위
-Kp_range = linspace(0.1, 3.0, 10);    % Kp: 0.1 ~ 3.0
-Ki_range = linspace(100, 1000, 10);   % Ki: 100 ~ 1000 (고속 응답 필요)
+% Optimization Settings
+Kp_range = linspace(config.optim.Kp_range(1), config.optim.Kp_range(2), config.optim.n_points);
+Ki_range = linspace(config.optim.Ki_range(1), config.optim.Ki_range(2), config.optim.n_points);
 
+% Cost Function Weights
+w_os = config.optim.weight_overshoot;
+w_ss = config.optim.weight_ss_error;
+w_st = config.optim.weight_settling;
+
+% Targets
+target_os = config.optim.target_overshoot;
+target_ss = config.optim.target_ss_error;
+
+fprintf('설정 파일 로드 완료: DAB_System_Config.m\n');
 fprintf('탐색 공간: Kp [%.2f ~ %.2f], Ki [%.0f ~ %.0f]\n', ...
     min(Kp_range), max(Kp_range), min(Ki_range), max(Ki_range));
 fprintf('총 조합: %d개\n\n', length(Kp_range) * length(Ki_range));
+
+%% ==================== Simulation Setup ====================
+time_vec = 0:dt:sim_time;
+n_steps = length(time_vec);
 
 %% ==================== Initialize Result Matrices ====================
 cost_matrix = zeros(length(Kp_range), length(Ki_range));
@@ -79,7 +92,7 @@ for i = 1:length(Kp_range)
         
         % --- Main Simulation Loop ---
         for k = 1:n_steps
-            % 1. 전류 피드백 계산 (배터리 모델: I = (V_out - V_batt) / R_batt)
+            % 1. 전류 피드백 계산 (배터리 모델)
             I_fb = (V_out - V_batt) / R_batt;
             
             % 2. 스텝 지령
@@ -110,7 +123,7 @@ for i = 1:length(Kp_range)
         
         % --- Performance Metrics (스텝 이후) ---
         step_idx = find(time_vec >= step_start, 1);
-        ss_idx = floor(0.85 * n_steps);  % 마지막 15%를 정상상태로 간주
+        ss_idx = floor(0.85 * n_steps);
         
         I_ss = mean(I_hist(ss_idx:end));
         I_peak = max(I_hist(step_idx:end));
@@ -119,7 +132,7 @@ for i = 1:length(Kp_range)
         ss_error = abs(I_ss - I_ref) / I_ref * 100;
         
         % Settling Time (2% 기준)
-        settling_time = sim_time - step_start;  % 기본값 (못찾으면 전체시간)
+        settling_time = sim_time - step_start;
         for sk = step_idx:n_steps
             if all(abs(I_hist(sk:end) - I_ref) < 0.02 * I_ref)
                 settling_time = time_vec(sk) - step_start;
@@ -128,17 +141,12 @@ for i = 1:length(Kp_range)
         end
         
         % --- Cost Function ---
-        % 목표: 오버슈트 < 5%, 정상오차 < 2%, 정착시간 < 30ms
-        w_os = 5.0;
-        w_ss = 15.0;    % 정상상태 오차 매우 중요 (가중치 증가)
-        w_st = 1.0;
-        
         penalty = 0;
-        if overshoot > 5
-            penalty = penalty + (overshoot - 5)^2;
+        if overshoot > target_os
+            penalty = penalty + (overshoot - target_os)^2;
         end
-        if ss_error > 2
-            penalty = penalty + (ss_error - 2)^2 * 10;  % 정상오차 패널티 강화
+        if ss_error > target_ss
+            penalty = penalty + (ss_error - target_ss)^2 * 10;
         end
         
         cost = w_os * overshoot + w_ss * ss_error + w_st * (settling_time * 100) + penalty;
@@ -180,11 +188,11 @@ fprintf('  Kp = %.3f\n', best_Kp);
 fprintf('  Ki = %.1f\n', best_Ki);
 fprintf('\n성능 지표:\n');
 fprintf('  오버슈트:      %.2f %%', best_results.overshoot);
-if best_results.overshoot < 5, fprintf(' ✓\n'); else, fprintf(' ✗\n'); end
+if best_results.overshoot < target_os, fprintf(' ✓\n'); else, fprintf(' ✗\n'); end
 fprintf('  정상상태 오차: %.2f %%', best_results.ss_error);
-if best_results.ss_error < 2, fprintf(' ✓\n'); else, fprintf(' ✗\n'); end
+if best_results.ss_error < target_ss, fprintf(' ✓\n'); else, fprintf(' ✗\n'); end
 fprintf('  정착시간:      %.3f sec', best_results.settling_time);
-if best_results.settling_time < 0.03, fprintf(' ✓\n'); else, fprintf(' ✗\n'); end
+if best_results.settling_time < config.optim.target_settling, fprintf(' ✓\n'); else, fprintf(' ✗\n'); end
 fprintf('  Cost:          %.1f\n', best_cost);
 fprintf('=================================================================\n\n');
 
@@ -270,7 +278,6 @@ legend('\phi_{ext}', '스텝', 'Location', 'best');
 %% ==================== Update Controller File ====================
 fprintf('제어기 파일 업데이트 중...\n');
 
-% 상위 폴더의 DAB_Controller_System.m 경로
 controller_file = fullfile('..', 'DAB_Controller_System.m');
 
 try
@@ -281,7 +288,6 @@ try
     content = fread(fid, '*char')';
     fclose(fid);
     
-    % Kp, Ki 값 업데이트
     content = regexprep(content, '(Kp\s*=\s*)[\d.]+', sprintf('$1%.3f', best_Kp));
     content = regexprep(content, '(Ki\s*=\s*)[\d.]+', sprintf('$1%.1f', best_Ki));
     
@@ -291,6 +297,31 @@ try
     
     fprintf('  ✓ %s 업데이트 완료\n', controller_file);
     fprintf('    Kp = %.3f, Ki = %.1f\n', best_Kp, best_Ki);
+catch ME
+    fprintf('  ✗ 업데이트 실패: %s\n', ME.message);
+end
+
+%% ==================== Update Config File ====================
+fprintf('\n설정 파일 업데이트 중...\n');
+
+config_file = fullfile('..', 'DAB_System_Config.m');
+
+try
+    fid = fopen(config_file, 'r');
+    if fid == -1
+        error('파일을 열 수 없습니다: %s', config_file);
+    end
+    content = fread(fid, '*char')';
+    fclose(fid);
+    
+    content = regexprep(content, '(config\.controller\.Kp\s*=\s*)[\d.]+', sprintf('$1%.3f', best_Kp));
+    content = regexprep(content, '(config\.controller\.Ki\s*=\s*)[\d.]+', sprintf('$1%.1f', best_Ki));
+    
+    fid = fopen(config_file, 'w');
+    fwrite(fid, content, 'char');
+    fclose(fid);
+    
+    fprintf('  ✓ %s 업데이트 완료\n', config_file);
 catch ME
     fprintf('  ✗ 업데이트 실패: %s\n', ME.message);
 end

@@ -1,7 +1,7 @@
 % =========================================================================
 % Run_Simulink_Compare_MIL.m
 % Control_Logic.slx 실행 후 MIL 결과와 비교 (다이나믹 시나리오 적용)
-% Comparison_Results.mat 저장하지 않음 - Simulink Data Inspector 사용 권장
+% 중앙 설정 파일 (DAB_System_Config.m) 사용
 % =========================================================================
 
 clear; clc; close all;
@@ -10,38 +10,53 @@ fprintf('=================================================================\n');
 fprintf('  Simulink vs MIL Comparison (Dynamic Scenario)\n');
 fprintf('=================================================================\n\n');
 
-%% 1. 시나리오 생성 실행
-fprintf('=== STEP 0: 시나리오 생성 ===\n');
-run('Create_Scenario.m'); % SIM_TIME, Ref_... 변수 생성
-fprintf('시나리오 로드 완료 (%d steps, %.3f sec)\n', length(Ref_VH.Data), SIM_TIME);
+%% ==================== Load Configuration ====================
+config = DAB_System_Config();
+fprintf('설정 파일 로드 완료: DAB_System_Config.m\n');
 
-%% Parameters (시뮬레이션과 동일하게)
-V_pri_DC = 400;
-V_batt_nom = 100;
-P_rated = 5000;
-f_sw = 80e3;
+%% ==================== Extract Parameters from Config ====================
+% Plant Parameters
+params.n = config.plant.n;
+params.L = config.plant.L;
+params.fs = config.plant.fs;
+params.C_out = config.plant.C_out;
+params.efficiency = config.plant.efficiency;
+
+% Operating Conditions
+V_pri_DC = config.hv.V_nom;
+V_batt_nom = config.battery.V_nom;
+R_batt = config.battery.R_internal;
+P_rated = config.plant.P_rated;
+f_sw = config.plant.fs;
 Ts = 1/f_sw;
-N_pri = 4;
+N_pri = config.plant.n;
 N_sec = 1;
-L_leakage = 50e-6;
-C_dc_link = 500e-6;
+L_leakage = config.plant.L;
+C_dc_link = config.plant.C_out;
+
+% Controller Parameters
+Kp = config.controller.Kp;
+Ki = config.controller.Ki;
+Phi_int_deg = config.controller.Phi_int_deg;
+V_HV_Threshold = config.controller.V_HV_Threshold;
+V_HV_Hysteresis = config.controller.V_HV_Hysteresis;
+Ups_Target_Current = config.controller.Ups_Target_Current;
+
+% Legacy parameters (for Simulink compatibility)
 R_wire = 1e-3;
 Ron_mosfet = 5e-3;
 R_snubber = 1e5;
 C_snubber = inf;
-I_ess_cmd = 10;
+I_ess_cmd = config.test.I_ref;
 kp_voltage = 5;
 ki_voltage = 5000;
-R_batt = 0.1;  % 배터리 내부저항 (Ohm)
 
-%% MIL Parameters
-params.n = N_pri / N_sec;
-params.L = L_leakage;
-params.fs = f_sw;
-params.C_out = C_dc_link;
-params.efficiency = 0.95;
+%% ==================== Create Scenario ====================
+fprintf('=== STEP 0: 시나리오 생성 ===\n');
+run('Create_Scenario.m');
+fprintf('시나리오 로드 완료 (%d steps, %.3f sec)\n', length(Ref_VH.Data), SIM_TIME);
 
-%% Load TPS Table
+%% ==================== Load TPS Table ====================
 if isfile('TPS_Table.mat')
     load('TPS_Table.mat', 'TPS_Table');
     fprintf('TPS Table 로드 완료\n');
@@ -52,12 +67,12 @@ else
     error('TPS_Table.mat을 찾을 수 없습니다.');
 end
 
-%% MATLAB 경로에 현재 디렉토리 추가
+%% ==================== Setup Paths ====================
 addpath(pwd);
 addpath('..');
 addpath('../Data');
 
-%% Base Workspace에 파라미터 할당
+%% ==================== Assign to Base Workspace ====================
 assignin('base', 'V_pri_DC', V_pri_DC);
 assignin('base', 'V_batt_nom', V_batt_nom);
 assignin('base', 'P_rated', P_rated);
@@ -77,7 +92,7 @@ assignin('base', 'ki_voltage', ki_voltage);
 assignin('base', 'TPS_Table', TPS_Table);
 fprintf('파라미터 Base Workspace에 할당 완료\n');
 
-%% Simulink 실행
+%% ==================== Run Simulink ====================
 fprintf('\n=== STEP 1: Simulink 실행 ===\n');
 
 original_dir = pwd;
@@ -100,7 +115,6 @@ try
     fprintf('모델 로드 중: Control_Logic.slx\n');
     load_system('Control_Logic');
 
-    % MATLAB System Block 찾기 및 설정
     sys_blocks = find_system('Control_Logic', 'MatchFilter', @Simulink.match.internal.filterOutInactiveVariantSubsystemChoices, 'BlockType', 'MATLABSystem');
     if ~isempty(sys_blocks)
         blk = sys_blocks{1};
@@ -131,34 +145,24 @@ catch ME
     sim_elapsed = 0;
 end
 
-%% MIL 실행
+%% ==================== Run MIL ====================
 fprintf('\n=== STEP 2: MIL 실행 (Dynamic Loop) ===\n');
 
-dt_mil = 10e-6;
+dt_mil = config.sim.dt;
 time_vec = 0:dt_mil:SIM_TIME;
 n_steps = length(time_vec);
 
-% Controller Parameters (DAB_Controller_System.m과 동일하게)
-Kp = 0.900;
-Ki = 200.0;
-Phi_int_deg = 15;
-V_HV_Threshold = 350;
-V_HV_Hysteresis = 370;
-Ups_Target_Current = 10;
 PowerLossState = 0;
-
 V_out = V_batt_nom;
 integrator = 0;
 
 % Scenario Interpolation
 if exist('Ref_VH', 'var')
     V_high_data = Ref_VH.Data;
-    V_high_time = Ref_VH.Time;
     I_cmd_data = Ref_I_ess_cmd.Data;
-    I_cmd_time = Ref_I_ess_cmd.Time;
 else
-    V_high_data = 400 * ones(n_steps, 1);
-    I_cmd_data = 10 * ones(n_steps, 1);
+    V_high_data = V_pri_DC * ones(n_steps, 1);
+    I_cmd_data = config.test.I_ref * ones(n_steps, 1);
     fprintf('Warning: Scenario data not found, using constants.\n');
 end
 
@@ -171,21 +175,20 @@ mil.mode = zeros(n_steps, 1);
 mil.V_in = zeros(n_steps, 1);
 mil.I_ref = zeros(n_steps, 1);
 
-fprintf('MIL 시뮬레이션 실행 중...\n');
+fprintf('MIL 시뮬레이션 실행 중 (Kp=%.3f, Ki=%.1f)...\n', Kp, Ki);
 tic;
 
 for k = 1:n_steps
     t_curr = time_vec(k);
 
-    % 1. Get Inputs from Scenario
     idx = min(round(t_curr / dt_mil) + 1, length(V_high_data));
     V_in = V_high_data(idx);
     I_cmd_user = I_cmd_data(idx);
 
-    % 2. Current Feedback (배터리 모델)
+    % Current Feedback (배터리 모델)
     I_fb = (V_out - V_batt_nom) / R_batt;
 
-    % 3. Mode Selection Logic (Hysteresis)
+    % Mode Selection Logic
     if V_in < V_HV_Threshold
         PowerLossState = 1;
     elseif V_in > V_HV_Hysteresis
@@ -198,10 +201,9 @@ for k = 1:n_steps
         Iref = I_cmd_user;
     end
 
-    % 4. PI Control
+    % PI Control
     error_sig = Iref - I_fb;
 
-    % 모드 전환 시 적분기 리셋
     if PowerLossState == 1 && abs(error_sig) > 5
         integrator = 0;
     end
@@ -209,7 +211,7 @@ for k = 1:n_steps
     integrator = integrator + error_sig * dt_mil;
     phi_pi = Kp * error_sig + Ki * integrator;
 
-    % HDC Feedforward (Optional)
+    % HDC Feedforward
     phi_hdc = 0;
     if exist('HDC_Model_Struct', 'var') && ~isempty(HDC_Model_Struct)
         try
@@ -224,12 +226,12 @@ for k = 1:n_steps
     phi_ext_deg = phi_pi + phi_hdc;
     phi_ext_deg = max(-90, min(90, phi_ext_deg));
 
-    % 5. Plant Logic (배터리 모델)
+    % Plant Logic
     [V_out_next, ~, ~, ~] = DAB_Plant_TPS_v2(V_in, V_out, phi_ext_deg, ...
                                              Phi_int_deg, R_batt, V_batt_nom, dt_mil, params);
     V_out = V_out_next;
 
-    % 6. Save Results
+    % Save Results
     mil.V_out(k) = V_out;
     mil.I_out(k) = (V_out - V_batt_nom) / R_batt;
     mil.phi_ext(k) = phi_ext_deg;
@@ -241,7 +243,7 @@ end
 mil_elapsed = toc;
 fprintf('✓ MIL 완료! (%.3f sec 소요)\n', mil_elapsed);
 
-%% 결과 플롯 (Comparison_Results.mat 저장하지 않음)
+%% ==================== Plot Results ====================
 fprintf('\n=== STEP 3: 결과 비교 및 플롯 ===\n');
 
 figure('Name', 'Simulink vs MIL (Dynamic Test)', 'Position', [50 50 1200 800]);
@@ -266,7 +268,7 @@ plot(mil.time*1000, mil.I_out, 'b-', 'LineWidth', 1.5); hold on;
 plot(mil.time*1000, mil.I_ref, 'r--', 'LineWidth', 2);
 grid on;
 ylabel('Output Current (A)');
-title('Output Current (MIL)');
+title(sprintf('Output Current (MIL) - Kp=%.3f, Ki=%.1f', Kp, Ki));
 legend('I_{out}', 'I_{ref}');
 
 % 3. Phase Shift
@@ -277,7 +279,7 @@ ylabel('Phase Shift (deg)');
 xlabel('Time (ms)');
 title('Control Action: Phase Shift (MIL)');
 
-%% MIL 성능 지표 계산
+%% ==================== MIL Performance Analysis ====================
 fprintf('\n=== MIL 성능 분석 ===\n');
 ss_idx = floor(0.85 * n_steps);
 I_ss = mean(mil.I_out(ss_idx:end));
@@ -287,7 +289,7 @@ ss_error = abs(I_ss - I_ref_final) / I_ref_final * 100;
 fprintf('정상상태 전류: %.2f A (목표: %.2f A)\n', I_ss, I_ref_final);
 fprintf('정상상태 오차: %.2f %%\n', ss_error);
 
-%% 안내 메시지
+%% ==================== Info Message ====================
 fprintf('\n=================================================================\n');
 fprintf('  Simulink 결과는 Data Inspector에서 확인하세요.\n');
 fprintf('  (Simulation Data Inspector 열기: Simulink > Analysis > Data Inspector)\n');

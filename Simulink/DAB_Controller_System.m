@@ -21,8 +21,8 @@ classdef DAB_Controller_System < matlab.System
     end
 
     properties
-        Kp = 0.900;               % 비례 이득
-        Ki = 200.0;                % 적분 이득
+        Kp = 0.100;               % 비례 이득
+        Ki = 1000.0;                % 적분 이득
         Ups_Target_Current = 10;% UPS 모드 목표 전류 (A)
     end
 

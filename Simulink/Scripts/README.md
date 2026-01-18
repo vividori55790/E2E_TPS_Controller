@@ -2,6 +2,21 @@
 
 This directory contains MATLAB scripts for simulating, optimizing, and verifying the DAB Converter control logic.
 
+## 0. Configuration System (신규)
+
+모든 스크립트는 중앙 설정 파일을 사용합니다.
+
+- **`../DAB_System_Config.m`**:
+  - 모든 시스템 파라미터를 중앙 집중 관리
+  - Plant, Battery, Controller, Simulation 설정 포함
+  - 파라미터 변경 시 이 파일만 수정하면 됨
+
+  ```matlab
+  config = DAB_System_Config();
+  params = config.plant;
+  V_batt = config.battery.V_nom;
+  ```
+
 ## 1. Controller Optimization (MIL)
 
 Scripts for tuning PI controller parameters using Model-in-the-Loop (MIL) simulation.
