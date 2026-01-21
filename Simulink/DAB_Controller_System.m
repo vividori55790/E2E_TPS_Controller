@@ -7,7 +7,7 @@ classdef DAB_Controller_System < matlab.System
     %   - DPS: 전류 크기에 따른 가변 내부위상 (5~25°)
     %   - 모드 전환 시 적분기 리셋 개선
     %
-    % 입력: V_HV, I_HV, V_LV, I_LV, I_ess_cmd
+    % 입력: V_HV, I_HV, V_LV, I_LV, I_ess_cmd, Kp_ext, Ki_ext, Kpv, Kiv
     % 출력: t1, t3, t5, t7, mode_active, status_flag, I_cmd_out, phi_ext_out,
     %       D1_out, D2_out, integrator_out
 
@@ -26,20 +26,13 @@ classdef DAB_Controller_System < matlab.System
         Psi_Max = 25;           % 최대 내부 위상 (대전력)
         I_Base = 10;            % 내부위상 계산용 기준 전류 (A)
         
-        % HDC Control Parameters
-        EnableHDC = false; 
-        HDC_Model = struct(); 
+        % [주석 처리됨] HDC Control Parameters
+        % TODO: 사용자가 복구시키라고 할 때까지 주석으로 유지할 것
+        % EnableHDC = false; 
+        % HDC_Model = struct(); 
     end
 
     properties
-        % 전류 PI 이득 (외부 위상용, 공통)
-        Kp_ext = 2.0;           % 비례 이득
-        Ki_ext = 30.0;          % 적분 이득
-        
-        % 전압 PI 이득 (UPS 모드 전용, Cascade 외부루프)
-        Kpv = -4.0;             % 전압 비례 이득 (음수: V↓ → 방전)
-        Kiv = -400.0;           % 전압 적분 이득
-        
         % 전류 지령 제한
         I_ESS_Max = 10;         % ESS 모드 최대 전류 (±10 A)
         I_UPS_Max = 30;         % UPS 모드 최대 전류 (±30 A, 대부하 대응)
@@ -70,7 +63,7 @@ classdef DAB_Controller_System < matlab.System
 
         function [t1, t3, t5, t7, mode_active, status_flag, I_cmd_out, phi_ext_out, ...
                   D1_out, D2_out, integrator_out] = ...
-                stepImpl(obj, V_HV, I_HV, V_LV, I_LV, I_ess_cmd)
+                stepImpl(obj, V_HV, I_HV, V_LV, I_LV, I_ess_cmd, Kp_ext, Ki_ext, Kpv, Kiv)
             
             % --- 1. 파라미터 계산 ---
             Ts = 1 / obj.Fs;
@@ -124,7 +117,8 @@ classdef DAB_Controller_System < matlab.System
                 obj.Integrator_v = obj.Integrator_v + err_v * Ts;
                 
                 % 전압 PI 출력 = 전류 지령
-                I_ups_cmd = obj.Kpv * err_v + obj.Kiv * obj.Integrator_v;
+                % 전압 PI 출력 = 전류 지령
+                I_ups_cmd = Kpv * err_v + Kiv * obj.Integrator_v;
 
                 % 양방향 허용 (방전/충전 모두, ±I_UPS_Max)
                 I_ups_cmd = max(-obj.I_UPS_Max, min(obj.I_UPS_Max, I_ups_cmd));
@@ -144,35 +138,36 @@ classdef DAB_Controller_System < matlab.System
                 obj.Integrator_ext = 0;
             end
 
-            phi_pi = obj.Kp_ext * err_ext + obj.Ki_ext * obj.Integrator_ext;
+            phi_pi = Kp_ext * err_ext + Ki_ext * obj.Integrator_ext;
             
-            % --- 5.5. HDC Feedforward (기존 로직 유지) ---
+            % --- 5.5. HDC Feedforward ---
+            % [주석 처리됨] TODO: 사용자가 복구시키라고 할 때까지 주석으로 유지할 것
             phi_hdc = 0;
-            if obj.EnableHDC && ~isempty(obj.HDC_Model) && isfield(obj.HDC_Model, 'W')
-                 % HDC Prediction (Inlined)
-                 P_target = V_LV * Iref; 
-                 model = obj.HDC_Model;
-                 
-                 % 1. Quantize Inputs
-                 idx_v = floor( (V_HV - model.min_V)/(model.max_V - model.min_V) * (model.L_levels-1) ) + 1;
-                 idx_v = max(1, min(model.L_levels, idx_v));
-                 
-                 idx_p = floor( (P_target - model.min_P)/(model.max_P - model.min_P) * (model.L_levels-1) ) + 1;
-                 idx_p = max(1, min(model.L_levels, idx_p));
-                 
-                 % 2. Retrieve & Bind
-                 hv_v = model.Level_Item_V(idx_v, :);
-                 hv_p = model.Level_Item_P(idx_p, :);
-                 
-                 query_hv = hv_v .* hv_p;
-                 
-                 % 3. Query (Dot Product)
-                 Output = query_hv * model.W; 
-                 
-                 % 4. D3 to Phase
-                 d3_pred = Output(3);
-                 phi_hdc = d3_pred * 360; 
-            end
+            % if obj.EnableHDC && ~isempty(obj.HDC_Model) && isfield(obj.HDC_Model, 'W')
+            %      % HDC Prediction (Inlined)
+            %      P_target = V_LV * Iref; 
+            %      model = obj.HDC_Model;
+            %      
+            %      % 1. Quantize Inputs
+            %      idx_v = floor( (V_HV - model.min_V)/(model.max_V - model.min_V) * (model.L_levels-1) ) + 1;
+            %      idx_v = max(1, min(model.L_levels, idx_v));
+            %      
+            %      idx_p = floor( (P_target - model.min_P)/(model.max_P - model.min_P) * (model.L_levels-1) ) + 1;
+            %      idx_p = max(1, min(model.L_levels, idx_p));
+            %      
+            %      % 2. Retrieve & Bind
+            %      hv_v = model.Level_Item_V(idx_v, :);
+            %      hv_p = model.Level_Item_P(idx_p, :);
+            %      
+            %      query_hv = hv_v .* hv_p;
+            %      
+            %      % 3. Query (Dot Product)
+            %      Output = query_hv * model.W; 
+            %      
+            %      % 4. D3 to Phase
+            %      d3_pred = Output(3);
+            %      phi_hdc = d3_pred * 360; 
+            % end
             
             phi_raw = phi_pi + phi_hdc;
             
