@@ -1,824 +1,698 @@
-% =========================================================================
-% GA_Optimize_Controller.m (v2.0)
-% 유전 알고리즘을 사용한 DAB 제어기 파라미터 최적화
-% =========================================================================
-% 개선사항:
-%   - Kp, Ki 범위 100배 확장
-%   - 실제 Simulink 출력 (out.Current_Low, out.I_cmd_out 등) 직접 사용
-%   - 적분기 포화, 위상 변동 등 추가 평가 지표
-%   - 수렴 시 조기 종료, 병렬 처리 지원
-% =========================================================================
+%% GA_Optimize_Controller.m
+% DAB Converter Controller Optimization using Genetic Algorithm (GA)
+% Target: Optimize Kp_ext, Ki_ext for ESS Current Control
+% Updated: 2026-01-23
+%
+% [주요 기능]
+% - 매 세대마다 터미널에 상세 성능 지표 출력
+% - 매 세대마다 전류 그래프 실시간 플롯
+% - 모든 성능 지표를 CSV/MAT 파일로 저장
+% - 자동 저장 및 재개 기능
 
-clear; clc; close all;
-
-fprintf('=================================================================\n');
-fprintf('  DAB Controller GA Optimization v2.0\n');
-fprintf('  Using Genetic Algorithm for Kp, Ki Tuning\n');
-fprintf('=================================================================\n\n');
-
-%% ==================== GA Settings ====================
-% 최적화 대상: [Kp_ext, Ki_ext, Kpv, Kiv]
-% Kp_ext, Ki_ext: 전류 PI (양수)
-% Kpv, Kiv: 전압 PI (음수, UPS 모드용)
-
-% 하한: [Kp_ext_min, Ki_ext_min, Kpv_min, Kiv_min]
-lb = [0.1, 1, -50.0, -5000];
-
-% 상한: [Kp_ext_max, Ki_ext_max, Kpv_max, Kiv_max]
-ub = [50.0, 5000, -0.1, -10];
-
-nvars = 4;  % 변수 개수: 4개
-
-% GA 옵션 설정 (개선됨)
-options = optimoptions('ga', ...
-    'Display', 'iter', ...
-    'PopulationSize', 30, ...           % 개체 수 증가
-    'MaxGenerations', 50, ...           % 최대 세대 증가
-    'MaxStallGenerations', 10, ...      % 10세대 동안 개선 없으면 종료
-    'FunctionTolerance', 1e-6, ...      % 수렴 허용오차
-    'EliteCount', 3, ...                % 엘리트 수
-    'CrossoverFraction', 0.8, ...       % 교차 비율
-    'MutationFcn', {@mutationadaptfeasible}, ...
-    'UseParallel', false, ...           % 병렬 처리 (true로 변경 시 parpool 필요)
-    'PlotFcn', {@gaplotbestf, @gaplotmeanscores, @gaplotstopping}, ...
-    'OutputFcn', @ga_output_callback);   % 진행 상황 출력
-
-%% ==================== Global Variables ====================
-global best_result sim_count;
-best_result = struct('Kp_ext', 0, 'Ki_ext', 0, 'Kpv', 0, 'Kiv', 0, 'cost', inf, 'metrics', []);
-sim_count = 0;
-
-%% ==================== Initial Setup (한 번만) ====================
-fprintf('=== 초기 설정 ===\n');
-
-% Scripts 폴더 확인 및 경로 설정
-script_dir = fileparts(mfilename('fullpath'));
-if isempty(script_dir)
-    script_dir = pwd;
-end
-
-% 상위 폴더로 이동하여 Config 로드
-cd(script_dir);
-addpath('..');
-addpath('../Modules');
-addpath('../Data');
-
-% 시나리오 생성
-fprintf('시나리오 생성 중...\n');
-run('Create_Scenario.m');
-
-% Config 로드
-config = DAB_System_Config();
-
-% Base Workspace에 필요한 파라미터 할당
-setup_base_workspace(config);
-
-% 모델 경로로 이동
-modules_dir = fullfile(script_dir, '..', 'Modules');
-cd(modules_dir);
-
-% 모델 로드
-fprintf('Simulink 모델 로드 중...\n');
-load_system('Control_Logic');
-
-% Normal 모드 설정 (Rapid Accel 빌드 오류 회피)
-fprintf('Normal 시뮬레이션 모드 설정...\n');
-set_param('Control_Logic', 'SimulationMode', 'normal');
-fprintf('✓ Normal 모드 활성화 (안정적)\n');
-
-% 초기 테스트 시뮬레이션 (모델 정상 동작 확인)
-fprintf('초기 테스트 시뮬레이션...\n');
-try
-    sim('Control_Logic', 'StopTime', '0.1');
+function GA_Optimize_Controller()
+    %% 0. 환경 설정
+    clear; clc; close all;
     
-    % Base Workspace에서 'out' 변수 가져오기 (To Workspace 블록 출력)
-    if evalin('base', 'exist(''out'', ''var'')')
-        out = evalin('base', 'out');
-        fprintf('\n✓ Base Workspace에서 out 변수 발견\n');
-        
-        % out 구조체의 필드 확인
-        fprintf('\n사용 가능한 출력 필드:\n');
-        out_fields = fieldnames(out);
-        for i = 1:length(out_fields)
-            fprintf('  - out.%s\n', out_fields{i});
+    scriptPath = fileparts(mfilename('fullpath'));
+    if isempty(scriptPath), scriptPath = pwd; end
+    addpath(scriptPath); 
+    addpath(fullfile(scriptPath, '..'));
+    addpath(fullfile(scriptPath, '..', 'Modules'));
+    addpath(fullfile(scriptPath, '..', 'Data'));
+    
+    % 결과 저장 폴더 생성
+    resultDir = fullfile(scriptPath, 'GA_Results');
+    if ~exist(resultDir, 'dir')
+        mkdir(resultDir);
+    end
+    
+    % 타임스탬프로 파일명 생성
+    timestamp = datestr(now, 'yyyy-mm-dd_HH-MM-SS');
+    saveFile = fullfile(resultDir, sprintf('GA_Progress_%s.mat', timestamp));
+    logFile = fullfile(resultDir, sprintf('GA_Log_%s.txt', timestamp));
+    metricsFile = fullfile(resultDir, sprintf('GA_Metrics_%s.csv', timestamp));
+    
+    % 로그 파일 초기화
+    logID = fopen(logFile, 'w');
+    fprintf(logID, '===========================================\n');
+    fprintf(logID, 'DAB Controller GA Optimization Log\n');
+    fprintf(logID, 'Started: %s\n', datestr(now));
+    fprintf(logID, '===========================================\n\n');
+    fclose(logID);
+    
+    % CSV 헤더 작성
+    csvID = fopen(metricsFile, 'w');
+    fprintf(csvID, 'EvalNum,Kp,Ki,Cost,ISE,ITAE,IAE,Overshoot_pct,Undershoot_pct,');
+    fprintf(csvID, 'RiseTime_ms,SettlingTime_ms,PeakTime_ms,SteadyStateError_pct,');
+    fprintf(csvID, 'PeakValue,TargetValue,Valid\n');
+    fclose(csvID);
+    
+    %% 1. 시나리오 및 모델 초기화
+    disp('===========================================');
+    disp('  DAB Controller GA Optimization');
+    disp('  [Enhanced with Real-time Monitoring]');
+    disp('===========================================');
+    writeLog(logFile, 'Initializing optimization...');
+    
+    % Create_Scenario 실행
+    try
+        run(fullfile(scriptPath, 'Create_Scenario.m'));
+        disp('>>> Scenario Loaded.');
+        writeLog(logFile, 'Scenario loaded successfully');
+    catch ME
+        msg = sprintf('Create_Scenario.m 실행 실패: %s', ME.message);
+        writeLog(logFile, msg);
+        error(msg);
+    end
+    
+    % 모델 확인 및 로드
+    modelName = 'Control_Logic';
+    if ~bdIsLoaded(modelName)
+        try
+            load_system(modelName);
+            disp(['>>> Model "' modelName '" loaded.']);
+            writeLog(logFile, sprintf('Model "%s" loaded', modelName));
+        catch
+            msg = sprintf('Model "%s" not found!', modelName);
+            writeLog(logFile, msg);
+            error(msg);
         end
-        fprintf('\n');
-        
-        % 핵심 필드 확인
-        required_fields = {'Current_Low', 'I_cmd_out', 'Integrator_out', 'Phi_ext_out', 'Status_flag'};
-        for i = 1:length(required_fields)
-            if isfield(out, required_fields{i})
-                fprintf('✓ %s 확인됨\n', required_fields{i});
-            else
-                fprintf('✗ %s 없음\n', required_fields{i});
-            end
-        end
-    else
-        fprintf('✗ Base Workspace에 out 변수가 없습니다.\n');
-        fprintf('  To Workspace 블록이 out으로 설정되어 있는지 확인하세요.\n');
     end
     
-    fprintf('\n✓ 모델 테스트 완료\n');
-catch ME
-    fprintf('✗ 모델 테스트 실패: %s\n', ME.message);
-    fprintf('\n=== 상세 오류 정보 ===\n');
-    for i = 1:length(ME.cause)
-        fprintf('원인 %d: %s\n', i, ME.cause{i}.message);
-    end
-    fprintf('\n스택 트레이스:\n');
-    for i = 1:min(5, length(ME.stack))
-        fprintf('  %s (line %d)\n', ME.stack(i).name, ME.stack(i).line);
-    end
-    fprintf('\n모델을 직접 열어서 확인해보세요:\n');
-    fprintf('  >> open_system(''Control_Logic'')\n');
-    return;
-end
-
-cd(script_dir);
-
-%% ==================== Run GA ====================
-fprintf('\n=================================================================\n');
-fprintf('  유전 알고리즘 최적화 시작\n');
-fprintf('=================================================================\n');
-fprintf('  Kp 범위: [%.4f, %.1f]  (100배 확장)\n', lb(1), ub(1));
-fprintf('  Ki 범위: [%.4f, %.1f]  (100배 확장)\n', lb(2), ub(2));
-fprintf('  Population: %d, Max Generations: %d\n', ...
-    options.PopulationSize, options.MaxGenerations);
-fprintf('  조기 종료: %d 세대 연속 무개선 시\n', options.MaxStallGenerations);
-fprintf('  초반 무시 구간: 0 ~ 100ms (과도 응답)\n');
-fprintf('=================================================================\n\n');
-
-tic;
-
-try
-    [x_opt, fval, exitflag, output] = ga(@(x) fitness_function(x, script_dir), ...
-        nvars, [], [], [], [], lb, ub, [], options);
-catch ME
-    % Ctrl+C로 중단되었거나 오류 발생
-    fprintf('\n\n=================================================================\n');
-    fprintf('  최적화 중단됨 (Ctrl+C 또는 오류)\n');
-    fprintf('=================================================================\n');
-    fprintf('오류 메시지: %s\n', ME.message);
+    %% 2. ===== 하드코딩된 지령치 (DO NOT DELETE) =====
+    STEP_TIME = 0.02;      % Step 발생 시점 [s]
+    REF_CURRENT = 10.0;    % 목표 전류 [A]
+    SIM_TIME = 0.05;       % 시뮬레이션 시간 [s]
     
-    % 현재까지 찾은 최적값 사용
-    global best_result;
-    if ~isinf(best_result.cost)
-        fprintf('\n현재까지 찾은 최적값:\n');
-        fprintf('  Kp_ext: %.6f\n', best_result.Kp_ext);
-        fprintf('  Ki_ext: %.6f\n', best_result.Ki_ext);
-        fprintf('  Kpv: %.6f\n', best_result.Kpv);
-        fprintf('  Kiv: %.6f\n', best_result.Kiv);
-        fprintf('  Cost: %.6f\n', best_result.cost);
-        x_opt = [best_result.Kp_ext, best_result.Ki_ext, best_result.Kpv, best_result.Kiv];
-        fval = best_result.cost;
-    else
-        fprintf('최적값을 찾지 못했습니다. 기본값 사용.\n');
-        x_opt = [2.0, 30.0, -4.0, -400.0];  % 기본값
-        fval = inf;
+    % 지령치 타임시리즈 생성
+    t_cmd = [0, STEP_TIME - 1e-6, STEP_TIME, SIM_TIME];
+    v_cmd = [0, 0, REF_CURRENT, REF_CURRENT];
+    RefCurrentTS = timeseries(v_cmd(:), t_cmd(:));
+    
+    fprintf('>>> Reference: Step to %.1fA at t=%.3fs\n', REF_CURRENT, STEP_TIME);
+    writeLog(logFile, sprintf('Reference: Step to %.1fA at t=%.3fs', REF_CURRENT, STEP_TIME));
+    
+    %% 3. 실시간 플롯 Figure 생성
+    figHandle = figure('Name', 'GA Real-time Monitor', 'Position', [50, 50, 1200, 600]);
+    
+    % 왼쪽: 전류 응답 플롯
+    ax1 = subplot(1,2,1);
+    hold(ax1, 'on');
+    grid(ax1, 'on');
+    xlabel(ax1, 'Time [ms]');
+    ylabel(ax1, 'Current [A]');
+    title(ax1, 'Current Response (Best Individual)');
+    xlim(ax1, [0, SIM_TIME*1000]);
+    
+    % 오른쪽: Cost 히스토리 플롯
+    ax2 = subplot(1,2,2);
+    hold(ax2, 'on');
+    grid(ax2, 'on');
+    xlabel(ax2, 'Evaluation #');
+    ylabel(ax2, 'Cost');
+    title(ax2, 'Cost History');
+    
+    drawnow;
+    
+    %% 4. GA 설정
+    nVars = 2;  % [Kp, Ki]
+    lb = [0.01, 1.0];
+    ub = [50.0, 5000.0];
+    
+    % 전역 변수로 평가 카운터 및 데이터 저장
+    evalData = struct();
+    evalData.count = 0;
+    evalData.bestCost = inf;
+    evalData.bestParams = [0, 0];
+    evalData.costHistory = [];
+    evalData.allMetrics = [];
+    
+    options = optimoptions('ga', ...
+        'PopulationSize', 10, ...
+        'MaxGenerations', 20, ...
+        'Display', 'iter', ...
+        'UseParallel', false, ...
+        'PlotFcn', [], ...  % 기본 플롯 비활성화 (우리 플롯 사용)
+        'OutputFcn', @(options, state, flag) gaOutputFcn(options, state, flag, ...
+            saveFile, logFile, modelName, RefCurrentTS, SIM_TIME, STEP_TIME, ...
+            figHandle, ax1, ax2, metricsFile));
+    
+    writeLog(logFile, sprintf('GA Settings: PopSize=%d, MaxGen=%d', 10, 20));
+    writeLog(logFile, sprintf('Search bounds: Kp=[%.2f, %.2f], Ki=[%.2f, %.2f]', lb(1), ub(1), lb(2), ub(2)));
+    
+    %% 5. GA 실행
+    disp(' ');
+    disp('>>> Starting GA Optimization...');
+    disp('>>> 매 세대마다 Best Individual의 성능 지표가 출력됩니다.');
+    disp(' ');
+    writeLog(logFile, 'Starting GA optimization...');
+    
+    % 비용 함수
+    costFcn = @(x) evaluateCostWithMetrics(x, modelName, RefCurrentTS, SIM_TIME, STEP_TIME, metricsFile);
+    
+    t_start = tic;
+    [x_best, fval, exitflag, output] = ga(costFcn, nVars, [], [], [], [], lb, ub, [], options);
+    elapsed = toc(t_start);
+    
+    %% 6. 최종 결과 출력
+    fprintf('\n');
+    disp('===========================================================');
+    disp('                    OPTIMIZATION COMPLETE!                  ');
+    disp('===========================================================');
+    fprintf('  Total Time:     %.2f sec (%.2f min)\n', elapsed, elapsed/60);
+    fprintf('  Generations:    %d\n', output.generations);
+    fprintf('  Function Evals: %d\n', output.funccount);
+    fprintf('-----------------------------------------------------------\n');
+    fprintf('  BEST PARAMETERS:\n');
+    fprintf('    Kp = %.6f\n', x_best(1));
+    fprintf('    Ki = %.6f\n', x_best(2));
+    fprintf('  BEST COST: %.6f\n', fval);
+    disp('===========================================================');
+    
+    writeLog(logFile, '');
+    writeLog(logFile, '===========================================');
+    writeLog(logFile, 'Optimization Complete!');
+    writeLog(logFile, sprintf('Time: %.2f sec, Generations: %d', elapsed, output.generations));
+    writeLog(logFile, sprintf('Best Kp: %.6f, Best Ki: %.6f', x_best(1), x_best(2)));
+    writeLog(logFile, sprintf('Best Cost: %.6f', fval));
+    
+    %% 7. 최종 검증 및 상세 성능 분석
+    disp(' ');
+    disp('>>> Running final verification with detailed analysis...');
+    
+    [finalCost, finalMetrics, t_sim, I_meas, I_ref] = evaluateWithFullMetrics(...
+        x_best, modelName, RefCurrentTS, SIM_TIME, STEP_TIME);
+    
+    % 최종 성능 지표 출력
+    disp('-----------------------------------------------------------');
+    disp('              FINAL PERFORMANCE METRICS                    ');
+    disp('-----------------------------------------------------------');
+    fprintf('  ISE (Integral Squared Error):    %.6f\n', finalMetrics.ISE);
+    fprintf('  ITAE (Integral Time Abs Error):  %.6f\n', finalMetrics.ITAE);
+    fprintf('  IAE (Integral Abs Error):        %.6f\n', finalMetrics.IAE);
+    fprintf('  Overshoot:                       %.2f %%\n', finalMetrics.Overshoot);
+    fprintf('  Undershoot:                      %.2f %%\n', finalMetrics.Undershoot);
+    fprintf('  Rise Time (10%%-90%%):            %.3f ms\n', finalMetrics.RiseTime * 1000);
+    fprintf('  Settling Time (2%%):              %.3f ms\n', finalMetrics.SettlingTime * 1000);
+    fprintf('  Peak Time:                       %.3f ms\n', finalMetrics.PeakTime * 1000);
+    fprintf('  Steady-State Error:              %.2f %%\n', finalMetrics.SteadyStateError);
+    fprintf('  Peak Value:                      %.3f A\n', finalMetrics.PeakValue);
+    fprintf('  Target Value:                    %.3f A\n', finalMetrics.TargetValue);
+    disp('-----------------------------------------------------------');
+    
+    writeLog(logFile, sprintf('Final ISE: %.6f, ITAE: %.6f', finalMetrics.ISE, finalMetrics.ITAE));
+    writeLog(logFile, sprintf('Overshoot: %.2f%%, Settling: %.3fms', finalMetrics.Overshoot, finalMetrics.SettlingTime*1000));
+    
+    %% 8. 최종 플롯 생성
+    figure('Name', 'Final Optimized Response', 'Position', [100, 100, 1000, 700]);
+    
+    % 상단: 전류 응답
+    subplot(3,1,1);
+    plot(t_sim*1000, I_ref, 'k--', 'LineWidth', 2, 'DisplayName', 'Reference');
+    hold on;
+    plot(t_sim*1000, I_meas, 'b-', 'LineWidth', 1.5, 'DisplayName', 'Measured');
+    
+    % 오버슈트/정착 시간 표시
+    if finalMetrics.Overshoot > 0
+        plot(finalMetrics.PeakTime*1000, finalMetrics.PeakValue, 'r*', 'MarkerSize', 12, 'LineWidth', 2, 'DisplayName', 'Peak');
     end
-    output.generations = 0;
-end
-
-elapsed = toc;
-
-%% ==================== Results ====================
-fprintf('\n=================================================================\n');
-fprintf('  최적화 완료!\n');
-fprintf('=================================================================\n');
-fprintf('  최적 Kp_ext: %.6f (전류 비례)\n', x_opt(1));
-fprintf('  최적 Ki_ext: %.6f (전류 적분)\n', x_opt(2));
-fprintf('  최적 Kpv:    %.6f (전압 비례, UPS)\n', x_opt(3));
-fprintf('  최적 Kiv:    %.6f (전압 적분, UPS)\n', x_opt(4));
-fprintf('  최적 비용 함수 값: %.6f\n', fval);
-fprintf('  총 소요 시간: %.1f 분\n', elapsed/60);
-fprintf('  총 시뮬레이션 횟수: %d\n', sim_count);
-fprintf('  세대 수: %d\n', output.generations);
-fprintf('=================================================================\n');
-
-% 최적 결과 상세 출력
-if ~isinf(best_result.cost)
-    fprintf('\n=== 최적 결과 상세 ===\n');
-    fprintf('  추종 오차 (RMS): %.4f A\n', best_result.metrics.tracking_error);
-    fprintf('  오버슈트: %.2f %%\n', best_result.metrics.overshoot);
-    fprintf('  정상상태 오차: %.2f %%\n', best_result.metrics.ss_error);
-    fprintf('  적분기 포화율: %.1f %%\n', best_result.metrics.integrator_saturation);
-end
-
-%% ==================== Apply Optimal Values ====================
-fprintf('\n최적값을 DAB_Controller_System.m에 적용하시겠습니까?\n');
-fprintf('  Kp_ext: %.6f -> %.6f\n', 2.0, x_opt(1));
-fprintf('  Ki_ext: %.6f -> %.6f\n', 30.0, x_opt(2));
-fprintf('  Kpv:    %.6f -> %.6f\n', -4.0, x_opt(3));
-fprintf('  Kiv:    %.6f -> %.6f\n', -400.0, x_opt(4));
-
-user_input = input('적용하려면 Y를 입력하세요: ', 's');
-if strcmpi(user_input, 'Y')
-    apply_optimal_values(x_opt(1), x_opt(2), x_opt(3), x_opt(4), script_dir);
-    fprintf('✓ 최적값 적용 완료!\n');
-else
-    fprintf('적용을 취소했습니다.\n');
-    fprintf('수동 적용: DAB_Controller_System.m 에서\n');
-    fprintf('  Kp_ext = %.6f;\n', x_opt(1));
-    fprintf('  Ki_ext = %.6f;\n', x_opt(2));
-    fprintf('  Kpv = %.6f;\n', x_opt(3));
-    fprintf('  Kiv = %.6f;\n', x_opt(4));
-end
-
-%% ==================== Verify with Optimal Values ====================
-fprintf('\n최적 파라미터로 검증 시뮬레이션 실행 중...\n');
-run_verification(x_opt, script_dir);
-
-%% ==================== Save Results ====================
-results.optimal_Kp_ext = x_opt(1);
-results.optimal_Ki_ext = x_opt(2);
-results.optimal_Kpv = x_opt(3);
-results.optimal_Kiv = x_opt(4);
-results.cost = fval;
-results.elapsed_time = elapsed;
-results.generations = output.generations;
-results.sim_count = sim_count;
-results.best_metrics = best_result.metrics;
-results.timestamp = datetime('now');
-
-save('GA_Optimization_Results.mat', 'results');
-fprintf('\n결과가 GA_Optimization_Results.mat에 저장되었습니다.\n');
-
-%% ==================== Fitness Function ====================
-function cost = fitness_function(x, script_dir)
-    % x = [Kp_ext, Ki_ext, Kpv, Kiv]
-    Kp_ext = x(1);
-    Ki_ext = x(2);
-    Kpv = x(3);
-    Kiv = x(4);
     
-    global best_result sim_count;
-    sim_count = sim_count + 1;
+    grid on;
+    xlabel('Time [ms]');
+    ylabel('Current [A]');
+    title(sprintf('Step Response (Kp=%.4f, Ki=%.4f)', x_best(1), x_best(2)));
+    legend('Location', 'southeast');
+    xlim([0, SIM_TIME*1000]);
     
-    % 유효성 검사 (Kp_ext, Ki_ext는 양수, Kpv, Kiv는 음수)
-    if Kp_ext <= 0 || Ki_ext <= 0 || Kpv >= 0 || Kiv >= 0
-        cost = 1e8;
+    % 중단: 오차
+    subplot(3,1,2);
+    error_sig = I_ref - I_meas;
+    plot(t_sim*1000, error_sig, 'r-', 'LineWidth', 1.5);
+    hold on;
+    yline(0, 'k--');
+    grid on;
+    xlabel('Time [ms]');
+    ylabel('Error [A]');
+    title('Tracking Error');
+    xlim([0, SIM_TIME*1000]);
+    
+    % 하단: 성능 지표 텍스트
+    subplot(3,1,3);
+    axis off;
+    text(0.1, 0.9, sprintf('Performance Summary (Kp=%.4f, Ki=%.4f)', x_best(1), x_best(2)), ...
+        'FontSize', 14, 'FontWeight', 'bold');
+    text(0.1, 0.7, sprintf('ISE: %.6f    ITAE: %.6f    IAE: %.6f', ...
+        finalMetrics.ISE, finalMetrics.ITAE, finalMetrics.IAE), 'FontSize', 11);
+    text(0.1, 0.5, sprintf('Overshoot: %.2f%%    Undershoot: %.2f%%', ...
+        finalMetrics.Overshoot, finalMetrics.Undershoot), 'FontSize', 11);
+    text(0.1, 0.3, sprintf('Rise Time: %.3f ms    Settling Time: %.3f ms', ...
+        finalMetrics.RiseTime*1000, finalMetrics.SettlingTime*1000), 'FontSize', 11);
+    text(0.1, 0.1, sprintf('Steady-State Error: %.2f%%    Peak: %.3f A', ...
+        finalMetrics.SteadyStateError, finalMetrics.PeakValue), 'FontSize', 11);
+    
+    drawnow;
+    
+    % 플롯 저장
+    plotFile = fullfile(resultDir, sprintf('GA_FinalPlot_%s.fig', timestamp));
+    savefig(gcf, plotFile);
+    
+    pngFile = fullfile(resultDir, sprintf('GA_FinalPlot_%s.png', timestamp));
+    saveas(gcf, pngFile);
+    
+    %% 9. 최종 결과 저장
+    finalResult = struct();
+    finalResult.Kp = x_best(1);
+    finalResult.Ki = x_best(2);
+    finalResult.Cost = fval;
+    finalResult.Elapsed = elapsed;
+    finalResult.Generations = output.generations;
+    finalResult.FuncCount = output.funccount;
+    finalResult.ExitFlag = exitflag;
+    finalResult.Timestamp = timestamp;
+    finalResult.RefCurrent = REF_CURRENT;
+    finalResult.StepTime = STEP_TIME;
+    finalResult.SimTime = SIM_TIME;
+    finalResult.Metrics = finalMetrics;
+    
+    % .mat 파일로 저장
+    finalFile = fullfile(resultDir, sprintf('GA_Final_%s.mat', timestamp));
+    save(finalFile, 'finalResult', 'x_best', 'fval', 'exitflag', 'output', 't_sim', 'I_meas', 'I_ref');
+    
+    assignin('base', 'GA_Result', finalResult);
+    
+    fprintf('\n>>> Results saved to:\n');
+    fprintf('    - Workspace:  GA_Result\n');
+    fprintf('    - MAT File:   %s\n', finalFile);
+    fprintf('    - Metrics:    %s\n', metricsFile);
+    fprintf('    - Log:        %s\n', logFile);
+    fprintf('    - Plot:       %s\n', pngFile);
+    
+    writeLog(logFile, sprintf('All results saved. Completed: %s', datestr(now)));
+    
+    disp(' ');
+    disp('>>> Optimization complete! All results and metrics saved.');
+end
+
+%% =========================================================================
+%  비용 함수 (성능 지표 계산 + CSV 저장)
+%  =========================================================================
+function cost = evaluateCostWithMetrics(params, modelName, RefCurrentTS, simTime, stepTime, metricsFile)
+    persistent evalCount
+    if isempty(evalCount)
+        evalCount = 0;
+    end
+    evalCount = evalCount + 1;
+    
+    Kp = params(1);
+    Ki = params(2);
+    
+    % 파라미터 할당
+    t_gain = [0, simTime];
+    Ref_Kp_ext = timeseries([Kp, Kp], t_gain);
+    Ref_Ki_ext = timeseries([Ki, Ki], t_gain);
+    
+    assignin('base', 'Ref_Kp_ext', Ref_Kp_ext);
+    assignin('base', 'Ref_Ki_ext', Ref_Ki_ext);
+    assignin('base', 'Kp_ext', Kp);
+    assignin('base', 'Ki_ext', Ki);
+    
+    % 시뮬레이션 실행
+    try
+        simOut = sim(modelName, 'StopTime', num2str(simTime), ...
+                     'SimulationMode', 'accelerator', ...
+                     'FastRestart', 'off');
+        [t, I_meas] = extractCurrentSignal(simOut);
+        I_ref = resampleReference(RefCurrentTS, t);
+        validSim = true;
+    catch
+        cost = 1e6;
+        saveMetricsToCSV(metricsFile, evalCount, Kp, Ki, cost, [], false);
         return;
     end
     
-    try
-        % Modules 폴더로 이동
-        modules_dir = fullfile(script_dir, '..', 'Modules');
-        cd(modules_dir);
-        
-        % === From Workspace를 통한 개별 파라미터 전달 ===
-        % 각 제어계수를 별도의 timeseries로 생성
-        SIM_TIME = evalin('base', 'SIM_TIME');
-        
-        % 시간 벡터 (시작, 끝)
-        t_params = [0; SIM_TIME];
-        
-        % 개별 파라미터 timeseries 생성 및 Base Workspace에 할당
-        ts_Kp = timeseries(repmat(Kp_ext, 2, 1), t_params);
-        ts_Kp.Name = 'Kp_ext';
-        assignin('base', 'Kp_ext', ts_Kp);
-        
-        ts_Ki = timeseries(repmat(Ki_ext, 2, 1), t_params);
-        ts_Ki.Name = 'Ki_ext';
-        assignin('base', 'Ki_ext', ts_Ki);
-        
-        ts_Kpv = timeseries(repmat(Kpv, 2, 1), t_params);
-        ts_Kpv.Name = 'Kpv';
-        assignin('base', 'Kpv', ts_Kpv);
-        
-        ts_Kiv = timeseries(repmat(Kiv, 2, 1), t_params);
-        ts_Kiv.Name = 'Kiv';
-        assignin('base', 'Kiv', ts_Kiv);
-        
-        % UseExternalParams 플래그도 설정 (MATLAB System 블록에서 사용)
-        assignin('base', 'UseExternalParams', true);
-        
-        % 시뮬레이션 (결과는 Base Workspace의 'out'에 저장됨)
-        sim('Control_Logic', 'StopTime', num2str(SIM_TIME));
-        
-        % Base Workspace에서 out 가져오기
-        out = evalin('base', 'out');
-        
-        cd(script_dir);
-        
-        % 실제 Simulink 출력으로 성능 평가
-        [cost, metrics] = evaluate_performance_v2(out);
-        
-        % 최적 결과 업데이트
-        if cost < best_result.cost
-            best_result.Kp_ext = Kp_ext;
-            best_result.Ki_ext = Ki_ext;
-            best_result.Kpv = Kpv;
-            best_result.Kiv = Kiv;
-            best_result.cost = cost;
-            best_result.metrics = metrics;
-            fprintf('  *** 새로운 최적값! Kp=%.3f, Ki=%.1f, Kpv=%.2f, Kiv=%.1f, Cost=%.4f ***\n', ...
-                Kp_ext, Ki_ext, Kpv, Kiv, cost);
-        end
-        
-        % 진행 상황 출력 (10회마다)
-        if mod(sim_count, 10) == 0
-            fprintf('  [%d] Kp=%.3f, Ki=%.1f, Kpv=%.2f, Kiv=%.1f -> Cost=%.4f\n', ...
-                sim_count, Kp_ext, Ki_ext, Kpv, Kiv, cost);
-        end
-        
-    catch ME
-        cd(script_dir);
-        fprintf('  [오류] Kp=%.3f, Ki=%.1f, Kpv=%.2f, Kiv=%.1f: %s\n', ...
-            Kp_ext, Ki_ext, Kpv, Kiv, ME.message);
-        cost = 1e7;  % 큰 패널티
+    % 데이터 유효성 검사
+    if isempty(t) || length(t) < 10
+        cost = 1e6;
+        saveMetricsToCSV(metricsFile, evalCount, Kp, Ki, cost, [], false);
+        return;
     end
+    
+    % 크기 맞추기
+    n = min(length(t), min(length(I_meas), length(I_ref)));
+    t = t(1:n); I_meas = I_meas(1:n); I_ref = I_ref(1:n);
+    t = t(:); I_meas = I_meas(:); I_ref = I_ref(:);
+    
+    % 성능 지표 계산
+    metrics = calculateAllMetrics(t, I_meas, I_ref, stepTime);
+    
+    % 비용 계산 (가중합)
+    cost = 2.0 * (metrics.ISE / 50) + ...
+           1.0 * (metrics.ITAE / 0.5) + ...
+           3.0 * (metrics.Overshoot / 100) + ...
+           1.5 * (metrics.SettlingTime / 0.03);
+    
+    if isnan(cost) || isinf(cost)
+        cost = 1e6;
+    end
+    
+    % === 첫 번째 개체 평가 시에만 시험 출력 ===
+    if evalCount == 1
+        fprintf('\n');
+        fprintf('┌─────────────────────────────────────────────────────────────┐\n');
+        fprintf('│           [시험 출력] 첫 번째 개체 평가 결과                │\n');
+        fprintf('├─────────────────────────────────────────────────────────────┤\n');
+        fprintf('│  Parameters:  Kp = %8.4f,  Ki = %8.2f                  │\n', Kp, Ki);
+        fprintf('│  Cost:        %.6f                                       │\n', cost);
+        fprintf('├─────────────────────────────────────────────────────────────┤\n');
+        fprintf('│  Performance Metrics:                                       │\n');
+        fprintf('│    ISE:             %.6f                                  │\n', metrics.ISE);
+        fprintf('│    ITAE:            %.6f                                  │\n', metrics.ITAE);
+        fprintf('│    IAE:             %.6f                                  │\n', metrics.IAE);
+        fprintf('│    Overshoot:       %.2f %%                                 │\n', metrics.Overshoot);
+        fprintf('│    Undershoot:      %.2f %%                                 │\n', metrics.Undershoot);
+        fprintf('│    Rise Time:       %.3f ms                                │\n', metrics.RiseTime * 1000);
+        fprintf('│    Settling Time:   %.3f ms                                │\n', metrics.SettlingTime * 1000);
+        fprintf('│    Peak Time:       %.3f ms                                │\n', metrics.PeakTime * 1000);
+        fprintf('│    SS Error:        %.2f %%                                 │\n', metrics.SteadyStateError);
+        fprintf('│    Peak Value:      %.3f A                                 │\n', metrics.PeakValue);
+        fprintf('│    Target Value:    %.3f A                                 │\n', metrics.TargetValue);
+        fprintf('└─────────────────────────────────────────────────────────────┘\n');
+        fprintf('>>> 이후부터는 세대(Generation)별로 Best Individual만 출력됩니다.\n\n');
+    end
+    
+    % CSV에 저장
+    saveMetricsToCSV(metricsFile, evalCount, Kp, Ki, cost, metrics, true);
 end
 
-%% ==================== Performance Evaluation v2 ====================
-function [cost, metrics] = evaluate_performance_v2(out)
-    % 실제 Simulink 출력 사용:
-    %   out.Current_Low      - LV 전류 (피드백)
-    %   out.I_cmd_out        - 전류 지령
-    %   out.Integrator_out   - 적분기 상태
-    %   out.Phi_ext_out      - 외부 위상
-    %   out.Status_flag      - 모드 (0:ESS, 1:UPS)
-    
-    IGNORE_TIME = 0.1;  % 첫 100ms 무시 (과도 응답)
-    
+%% =========================================================================
+%  상세 성능 지표 계산 함수
+%  =========================================================================
+function metrics = calculateAllMetrics(t, I_meas, I_ref, stepTime)
     metrics = struct();
     
-    try
-        % === 핵심 데이터 추출 (timeseries 형식) ===
-        % Current_Low (LV 전류)
-        if isfield(out, 'Current_Low') && isa(out.Current_Low, 'timeseries')
-            t = out.Current_Low.Time;
-            I_LV = out.Current_Low.Data(:);
-        else
-            cost = 1e8;
-            metrics.error = 'Current_Low not found or not timeseries';
-            return;
+    error_sig = I_ref - I_meas;
+    
+    % Step 시점 검출
+    [~, step_idx] = max(abs(diff(I_ref)));
+    t_step = t(step_idx);
+    idx_after = t > t_step;
+    t_after = t(idx_after);
+    I_after = I_meas(idx_after);
+    
+    % Target 값
+    if any(idx_after)
+        target = mean(I_ref(idx_after));
+    else
+        target = max(I_ref);
+    end
+    metrics.TargetValue = target;
+    
+    % 1. ISE (Integral Squared Error)
+    metrics.ISE = trapz(t, error_sig.^2);
+    
+    % 2. ITAE (Integral Time Absolute Error)
+    metrics.ITAE = trapz(t, t .* abs(error_sig));
+    
+    % 3. IAE (Integral Absolute Error)
+    metrics.IAE = trapz(t, abs(error_sig));
+    
+    % 4. Overshoot
+    metrics.Overshoot = 0;
+    metrics.PeakValue = 0;
+    metrics.PeakTime = 0;
+    if abs(target) > 0.1 && any(idx_after)
+        [peak, peakIdx] = max(I_after);
+        metrics.PeakValue = peak;
+        metrics.PeakTime = t_after(peakIdx);
+        if peak > target
+            metrics.Overshoot = (peak - target) / target * 100;
         end
-        
-        % I_cmd_out (전류 지령)
-        if isfield(out, 'I_cmd_out') && isa(out.I_cmd_out, 'timeseries')
-            I_ref = out.I_cmd_out.Data(:);
-        else
-            cost = 1e8;
-            metrics.error = 'I_cmd_out not found or not timeseries';
-            return;
+    end
+    
+    % 5. Undershoot (최소값이 0 이하로 내려가는 경우)
+    metrics.Undershoot = 0;
+    if any(idx_after)
+        minVal = min(I_after);
+        if minVal < 0
+            metrics.Undershoot = abs(minVal) / target * 100;
         end
+    end
+    
+    % 6. Rise Time (10% ~ 90%)
+    metrics.RiseTime = 0;
+    if abs(target) > 0.1 && any(idx_after)
+        val10 = 0.1 * target;
+        val90 = 0.9 * target;
         
-        % Integrator_out (적분기 상태)
-        if isfield(out, 'Integrator_out') && isa(out.Integrator_out, 'timeseries')
-            integrator = out.Integrator_out.Data(:);
-        else
-            integrator = zeros(size(t));
+        idx10 = find(I_meas >= val10, 1, 'first');
+        idx90 = find(I_meas >= val90, 1, 'first');
+        
+        if ~isempty(idx10) && ~isempty(idx90) && idx90 > idx10
+            metrics.RiseTime = t(idx90) - t(idx10);
         end
-        
-        % Phi_ext_out (외부 위상)
-        if isfield(out, 'Phi_ext_out') && isa(out.Phi_ext_out, 'timeseries')
-            phi_ext = out.Phi_ext_out.Data(:);
-        else
-            phi_ext = zeros(size(t));
+    end
+    
+    % 7. Settling Time (2% band)
+    metrics.SettlingTime = 0;
+    if abs(target) > 0.1 && any(idx_after)
+        tol = 0.02 * abs(target);
+        within = abs(I_after - target) <= tol;
+        if ~all(within)
+            last_out = find(~within, 1, 'last');
+            metrics.SettlingTime = t_after(last_out) - t_step;
         end
-        
-        % Status_flag (모드)
-        if isfield(out, 'Status_flag') && isa(out.Status_flag, 'timeseries')
-            mode = out.Status_flag.Data(:);
-        else
-            mode = zeros(size(t));
+    end
+    
+    % 8. Steady-State Error (마지막 10% 데이터 평균)
+    metrics.SteadyStateError = 0;
+    if any(idx_after)
+        n_after = length(I_after);
+        n_ss = max(1, round(n_after * 0.1));
+        I_ss = mean(I_after(end-n_ss+1:end));
+        if abs(target) > 0.1
+            metrics.SteadyStateError = abs(target - I_ss) / target * 100;
         end
-        
-        % === 무시 구간 이후 데이터만 사용 ===
-        valid_idx = t >= IGNORE_TIME;
-        t_valid = t(valid_idx);
-        I_LV_valid = I_LV(valid_idx);
-        I_ref_valid = I_ref(valid_idx);
-        integrator_valid = integrator(valid_idx);
-        phi_valid = phi_ext(valid_idx);
-        
-        if length(I_LV_valid) < 10
-            cost = 1e8;
-            metrics.error = 'Insufficient data after ignore period';
-            return;
-        end
-        
-        % === 1. 추종 오차 (Tracking Error) ===
-        error_signal = I_ref_valid - I_LV_valid;
-        tracking_error = sqrt(mean(error_signal.^2));  % RMS Error
-        metrics.tracking_error = tracking_error;
-        
-        % === 2. 오버슈트 (Overshoot) ===
-        overshoot = calculate_overshoot_v2(t_valid, I_LV_valid, I_ref_valid);
-        metrics.overshoot = overshoot;
-        
-        % === 3. 정상상태 오차 (Steady-State Error) ===
-        % 마지막 10% 구간의 평균
-        ss_start_idx = round(0.9 * length(t_valid));
-        I_ss = mean(I_LV_valid(ss_start_idx:end));
-        I_ref_final = I_ref_valid(end);
-        
-        if abs(I_ref_final) > 0.1
-            ss_error = abs(I_ss - I_ref_final) / abs(I_ref_final) * 100;
-        else
-            ss_error = abs(I_ss - I_ref_final) * 10;  % 작은 값일 때 스케일링
-        end
-        metrics.ss_error = ss_error;
-        
-        % === 4. 정착 시간 (Settling Time) ===
-        settling_time = calculate_settling_time_v2(t_valid, I_LV_valid, I_ref_valid);
-        metrics.settling_time = settling_time;
-        
-        % === 5. 적분기 포화율 (Integrator Saturation) ===
-        % 적분기가 Anti-windup 한계(±3.0)에 도달한 비율
-        INTEGRATOR_MAX = 3.0;
-        saturation_count = sum(abs(integrator_valid) >= INTEGRATOR_MAX * 0.95);
-        integrator_saturation = saturation_count / length(integrator_valid) * 100;
-        metrics.integrator_saturation = integrator_saturation;
-        
-        % === 6. 위상 변동 (Phase Variation) ===
-        % 위상의 급격한 변화는 불안정을 나타냄
-        phi_diff = diff(phi_valid);
-        phase_variation = std(phi_diff);
-        metrics.phase_variation = phase_variation;
-        
-        % === 7. 진동 검출 (Oscillation Detection) ===
-        % 영점 교차 횟수로 진동 감지
-        zero_crossings = sum(abs(diff(sign(error_signal))) > 0);
-        oscillation_index = zero_crossings / length(error_signal) * 100;
-        metrics.oscillation_index = oscillation_index;
-        
-        % === 비용 함수 (가중합) ===
-        w_track = 15.0;         % 추종 오차 (가장 중요)
-        w_overshoot = 8.0;      % 오버슈트
-        w_ss = 20.0;            % 정상상태 오차 (매우 중요)
-        w_settling = 3.0;       % 정착 시간
-        w_saturation = 5.0;     % 적분기 포화
-        w_oscillation = 2.0;    % 진동
-        
-        cost = w_track * tracking_error + ...
-               w_overshoot * overshoot + ...
-               w_ss * ss_error + ...
-               w_settling * settling_time * 10 + ...  % 초 단위를 스케일링
-               w_saturation * integrator_saturation / 10 + ...
-               w_oscillation * oscillation_index;
-        
-        % === 불안정 시스템 큰 패널티 ===
-        if any(abs(I_LV_valid) > 100)  % 전류 폭주
-            cost = cost + 1e6;
-        end
-        if any(isnan(I_LV_valid)) || any(isinf(I_LV_valid))
-            cost = cost + 1e7;
-        end
-        if tracking_error > 50  % 추종 실패
-            cost = cost + 1e5;
-        end
-        
-    catch ME
-        cost = 1e8;
-        metrics.error = ME.message;
     end
 end
 
-%% ==================== Helper Functions ====================
-function overshoot = calculate_overshoot_v2(t, I_out, I_ref)
-    % 오버슈트 계산 (개선됨)
-    overshoot = 0;
+%% =========================================================================
+%  전체 성능 평가 (최종 검증용)
+%  =========================================================================
+function [cost, metrics, t, I_meas, I_ref] = evaluateWithFullMetrics(params, modelName, RefCurrentTS, simTime, stepTime)
+    Kp = params(1);
+    Ki = params(2);
     
-    % 레퍼런스 변화 감지
-    ref_diff = diff(I_ref);
-    ref_changes = find(abs(ref_diff) > 0.5);
+    t_gain = [0, simTime];
+    Ref_Kp_ext = timeseries([Kp, Kp], t_gain);
+    Ref_Ki_ext = timeseries([Ki, Ki], t_gain);
     
-    for i = 1:length(ref_changes)
-        idx = ref_changes(i);
-        
-        % 변화 후 충분한 데이터 확보
-        window_end = min(idx + 500, length(I_out));  % ~5ms window
-        if window_end - idx < 50
-            continue;
-        end
-        
-        % 새로운 목표값 (변화 후 안정된 값)
-        I_ref_new = I_ref(min(idx + 20, length(I_ref)));
-        I_window = I_out(idx:window_end);
-        
-        if abs(I_ref_new) < 0.1
-            continue;  % 0 근처는 무시
-        end
-        
-        if I_ref_new > 0
-            peak = max(I_window);
-            os = (peak - I_ref_new) / abs(I_ref_new) * 100;
+    assignin('base', 'Ref_Kp_ext', Ref_Kp_ext);
+    assignin('base', 'Ref_Ki_ext', Ref_Ki_ext);
+    assignin('base', 'Kp_ext', Kp);
+    assignin('base', 'Ki_ext', Ki);
+    
+    simOut = sim(modelName, 'StopTime', num2str(simTime), 'SimulationMode', 'accelerator');
+    [t, I_meas] = extractCurrentSignal(simOut);
+    I_ref = resampleReference(RefCurrentTS, t);
+    
+    n = min(length(t), min(length(I_meas), length(I_ref)));
+    t = t(1:n); I_meas = I_meas(1:n); I_ref = I_ref(1:n);
+    t = t(:); I_meas = I_meas(:); I_ref = I_ref(:);
+    
+    metrics = calculateAllMetrics(t, I_meas, I_ref, stepTime);
+    
+    cost = 2.0 * (metrics.ISE / 50) + ...
+           1.0 * (metrics.ITAE / 0.5) + ...
+           3.0 * (metrics.Overshoot / 100) + ...
+           1.5 * (metrics.SettlingTime / 0.03);
+end
+
+%% =========================================================================
+%  CSV 저장 함수
+%  =========================================================================
+function saveMetricsToCSV(metricsFile, evalNum, Kp, Ki, cost, metrics, valid)
+    csvID = fopen(metricsFile, 'a');
+    if csvID > 0
+        if valid && ~isempty(metrics)
+            fprintf(csvID, '%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%d\n', ...
+                evalNum, Kp, Ki, cost, ...
+                metrics.ISE, metrics.ITAE, metrics.IAE, ...
+                metrics.Overshoot, metrics.Undershoot, ...
+                metrics.RiseTime*1000, metrics.SettlingTime*1000, metrics.PeakTime*1000, ...
+                metrics.SteadyStateError, metrics.PeakValue, metrics.TargetValue, 1);
         else
-            peak = min(I_window);
-            os = (I_ref_new - peak) / abs(I_ref_new) * 100;
+            fprintf(csvID, '%d,%.6f,%.6f,%.6f,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,0\n', ...
+                evalNum, Kp, Ki, cost);
         end
-        
-        overshoot = max(overshoot, max(0, os));
+        fclose(csvID);
     end
 end
 
-function settling = calculate_settling_time_v2(t, I_out, I_ref)
-    % 정착 시간 계산 (5% 밴드 기준)
-    settling = 0;
-    tolerance = 0.05;  % 5%
+%% =========================================================================
+%  GA OutputFcn: 각 세대마다 플롯 및 터미널 출력
+%  =========================================================================
+function [state, options, optchanged] = gaOutputFcn(options, state, flag, ...
+    saveFile, logFile, modelName, RefCurrentTS, simTime, stepTime, figHandle, ax1, ax2, metricsFile)
     
-    ref_diff = diff(I_ref);
-    ref_changes = find(abs(ref_diff) > 0.5);
-    
-    for i = 1:length(ref_changes)
-        idx = ref_changes(i);
-        
-        if idx + 100 > length(I_ref)
-            continue;
-        end
-        
-        I_ref_new = I_ref(min(idx + 20, length(I_ref)));
-        band = max(abs(I_ref_new) * tolerance, 0.2);  % 최소 0.2A 밴드
-        
-        % 정착 지점 찾기
-        for j = idx:length(I_out)-50
-            remaining = I_out(j:end);
-            if all(abs(remaining - I_ref_new) <= band)
-                local_settling = t(j) - t(idx);
-                settling = max(settling, local_settling);
-                break;
-            end
-        end
-    end
-    
-    % 정착하지 못한 경우 큰 값
-    if settling == 0 && ~isempty(ref_changes)
-        settling = 1.0;  % 1초 (큰 패널티)
-    end
-end
-
-function [state, options, optchanged] = ga_output_callback(options, state, flag)
-    % GA 진행 상황 콜백
     optchanged = false;
     
+    persistent costHistory bestCostEver bestParamsEver
+    
+    if strcmp(flag, 'init')
+        costHistory = [];
+        bestCostEver = inf;
+        bestParamsEver = [0, 0];
+    end
+    
     if strcmp(flag, 'iter')
-        if mod(state.Generation, 5) == 0
-            fprintf('\n=== 세대 %d 완료 ===\n', state.Generation);
-            fprintf('  현재 최적: %.4f\n', state.Best(end));
-            fprintf('  평균 비용: %.4f\n', mean(state.Score));
+        gen = state.Generation;
+        
+        % 현재 세대의 최적 개체
+        [minScore, minIdx] = min(state.Score);
+        bestParams = state.Population(minIdx, :);
+        
+        % 전체 최적 갱신
+        if minScore < bestCostEver
+            bestCostEver = minScore;
+            bestParamsEver = bestParams;
         end
+        
+        costHistory = [costHistory; minScore];
+        
+        % 터미널에 상세 정보 출력
+        fprintf('\n');
+        fprintf('┌─────────────────────────────────────────────────────────────┐\n');
+        fprintf('│  Generation %3d                                             │\n', gen);
+        fprintf('├─────────────────────────────────────────────────────────────┤\n');
+        fprintf('│  Best in Gen:  Kp = %8.4f,  Ki = %8.2f                │\n', bestParams(1), bestParams(2));
+        fprintf('│  Gen Cost:     %.6f                                     │\n', minScore);
+        fprintf('│  Best Overall: Kp = %8.4f,  Ki = %8.2f  (Cost: %.4f) │\n', ...
+            bestParamsEver(1), bestParamsEver(2), bestCostEver);
+        fprintf('└─────────────────────────────────────────────────────────────┘\n');
+        
+        % 최적 개체로 시뮬레이션하여 플롯
+        try
+            t_gain = [0, simTime];
+            Ref_Kp_ext = timeseries([bestParamsEver(1), bestParamsEver(1)], t_gain);
+            Ref_Ki_ext = timeseries([bestParamsEver(2), bestParamsEver(2)], t_gain);
+            assignin('base', 'Ref_Kp_ext', Ref_Kp_ext);
+            assignin('base', 'Ref_Ki_ext', Ref_Ki_ext);
+            
+            simOut = sim(modelName, 'StopTime', num2str(simTime), 'SimulationMode', 'accelerator');
+            [t, I_meas] = extractCurrentSignal(simOut);
+            I_ref = resampleReference(RefCurrentTS, t);
+            
+            % 성능 지표 계산
+            n = min(length(t), min(length(I_meas), length(I_ref)));
+            t = t(1:n); I_meas = I_meas(1:n); I_ref = I_ref(1:n);
+            metrics = calculateAllMetrics(t(:), I_meas(:), I_ref(:), stepTime);
+            
+            % 터미널에 성능 지표 추가 출력
+            fprintf('   ➤ Overshoot: %.2f%%  |  Settling: %.2f ms  |  SSE: %.2f%%\n', ...
+                metrics.Overshoot, metrics.SettlingTime*1000, metrics.SteadyStateError);
+            
+            % 플롯 업데이트
+            if isvalid(figHandle)
+                % 전류 응답 플롯 업데이트
+                cla(ax1);
+                plot(ax1, t*1000, I_ref, 'k--', 'LineWidth', 2, 'DisplayName', 'Reference');
+                plot(ax1, t*1000, I_meas, 'b-', 'LineWidth', 1.5, 'DisplayName', 'Measured');
+                title(ax1, sprintf('Gen %d: Kp=%.3f, Ki=%.1f (OS=%.1f%%, Ts=%.1fms)', ...
+                    gen, bestParamsEver(1), bestParamsEver(2), metrics.Overshoot, metrics.SettlingTime*1000));
+                legend(ax1, 'Location', 'southeast');
+                
+                % Cost 히스토리 플롯
+                cla(ax2);
+                plot(ax2, 1:length(costHistory), costHistory, 'b-o', 'LineWidth', 1.5, 'MarkerFaceColor', 'b');
+                xlabel(ax2, 'Generation');
+                ylabel(ax2, 'Best Cost');
+                title(ax2, sprintf('Cost History (Current: %.4f)', minScore));
+                
+                drawnow;
+            end
+            
+        catch ME
+            fprintf('   (Plot update failed: %s)\n', ME.message);
+        end
+        
+        % 로그에 기록
+        writeLog(logFile, sprintf('Gen %d: Kp=%.4f, Ki=%.2f, Cost=%.6f', gen, bestParams(1), bestParams(2), minScore));
+        
+        % Progress 파일 저장
+        saveData = struct();
+        saveData.Generation = gen;
+        saveData.BestFval = bestCostEver;
+        saveData.BestParams = bestParamsEver;
+        saveData.Population = state.Population;
+        saveData.Score = state.Score;
+        saveData.CostHistory = costHistory;
+        saveData.Timestamp = datestr(now);
+        save(saveFile, 'saveData');
+    end
+    
+    if strcmp(flag, 'done')
+        writeLog(logFile, 'GA optimization finished.');
+        fprintf('\n>>> GA optimization loop finished.\n');
     end
 end
 
-function setup_base_workspace(config)
-    % Base Workspace에 필요한 파라미터 할당
+%% =========================================================================
+%  신호 추출 함수
+%  =========================================================================
+function [t, y] = extractCurrentSignal(simOut)
+    names = {'Current_Low', 'I_LV', 'I_out', 'I_ess'};
+    raw = [];
     
-    % Plant Parameters
-    assignin('base', 'V_pri_DC', config.hv.V_nom);
-    assignin('base', 'V_batt_nom', config.battery.V_nom);
-    assignin('base', 'P_rated', config.plant.P_rated);
-    assignin('base', 'f_sw', config.plant.fs);
-    assignin('base', 'Ts', 1/config.plant.fs);
-    assignin('base', 'N_pri', config.plant.n);
-    assignin('base', 'N_sec', 1);
-    assignin('base', 'L_leakage', config.plant.L);
-    assignin('base', 'C_dc_link', config.plant.C_out);
-    assignin('base', 'R_wire', 1e-3);
-    assignin('base', 'Ron_mosfet', 5e-3);
-    assignin('base', 'R_snubber', 1e5);
-    assignin('base', 'C_snubber', inf);
-    assignin('base', 'I_ess_cmd', config.test.I_ref);
-    assignin('base', 'kp_voltage', 5);
-    assignin('base', 'ki_voltage', 5000);
-    
-    % TPS Table 로드
-    tps_paths = {'TPS_Table.mat', '../TPS_Table.mat', fullfile('..', 'TPS_Table.mat')};
-    for i = 1:length(tps_paths)
-        if isfile(tps_paths{i})
-            load(tps_paths{i}, 'TPS_Table');
-            assignin('base', 'TPS_Table', TPS_Table);
+    for i = 1:length(names)
+        if isprop(simOut, names{i})
+            raw = simOut.(names{i});
             break;
         end
     end
     
-    fprintf('✓ Base Workspace 파라미터 설정 완료\n');
-end
-
-function apply_optimal_values(Kp_ext, Ki_ext, Kpv, Kiv, script_dir)
-    % DAB_Controller_System.m에 최적값 적용 (기본값 변경)
-    
-    controller_file = fullfile(script_dir, '..', 'DAB_Controller_System.m');
-    
-    if ~isfile(controller_file)
-        fprintf('제어기 파일을 찾을 수 없습니다: %s\n', controller_file);
-        return;
-    end
-    
-    % 파일 읽기
-    fid = fopen(controller_file, 'r');
-    content = fread(fid, '*char')';
-    fclose(fid);
-    
-    % Kp_ext 값 교체
-    content = regexprep(content, ...
-        'Kp_ext = [\d.-]+;', ...
-        sprintf('Kp_ext = %.6f;', Kp_ext));
-    
-    % Ki_ext 값 교체
-    content = regexprep(content, ...
-        'Ki_ext = [\d.-]+;', ...
-        sprintf('Ki_ext = %.6f;', Ki_ext));
-    
-    % Kpv 값 교체
-    content = regexprep(content, ...
-        'Kpv = [\d.-]+;', ...
-        sprintf('Kpv = %.6f;', Kpv));
-    
-    % Kiv 값 교체
-    content = regexprep(content, ...
-        'Kiv = [\d.-]+;', ...
-        sprintf('Kiv = %.6f;', Kiv));
-    
-    % 파일 쓰기
-    fid = fopen(controller_file, 'w');
-    fwrite(fid, content);
-    fclose(fid);
-    
-    fprintf('✓ DAB_Controller_System.m 기본값 업데이트 완료\n');
-end
-
-function run_verification(x_opt, script_dir)
-    % 최적 파라미터로 검증 시뮬레이션 실행
-    Kp_ext = x_opt(1);
-    Ki_ext = x_opt(2);
-    Kpv = x_opt(3);
-    Kiv = x_opt(4);
-    
-    fprintf('\n=================================================================\n');
-    fprintf('  검증 시뮬레이션\n');
-    fprintf('  Kp_ext=%.4f, Ki_ext=%.2f, Kpv=%.4f, Kiv=%.2f\n', ...
-        Kp_ext, Ki_ext, Kpv, Kiv);
-    fprintf('=================================================================\n');
-    
-    modules_dir = fullfile(script_dir, '..', 'Modules');
-    cd(modules_dir);
-    
-    % === From Workspace를 통한 파라미터 전달 ===
-    SIM_TIME = evalin('base', 'SIM_TIME');
-    
-    % 시간 벡터 (시작, 끝)
-    t_params = [0; SIM_TIME];
-    
-    % 개별 파라미터 timeseries 생성 및 Base Workspace에 할당
-    ts_Kp = timeseries(repmat(Kp_ext, 2, 1), t_params);
-    ts_Kp.Name = 'Kp_ext';
-    assignin('base', 'Kp_ext', ts_Kp);
-    
-    ts_Ki = timeseries(repmat(Ki_ext, 2, 1), t_params);
-    ts_Ki.Name = 'Ki_ext';
-    assignin('base', 'Ki_ext', ts_Ki);
-    
-    ts_Kpv = timeseries(repmat(Kpv, 2, 1), t_params);
-    ts_Kpv.Name = 'Kpv';
-    assignin('base', 'Kpv', ts_Kpv);
-    
-    ts_Kiv = timeseries(repmat(Kiv, 2, 1), t_params);
-    ts_Kiv.Name = 'Kiv';
-    assignin('base', 'Kiv', ts_Kiv);
-    
-    % UseExternalParams 플래그 설정
-    assignin('base', 'UseExternalParams', true);
-    
-    fprintf('✓ From Workspace로 제어기 파라미터 설정 완료 (개별 변수)\n');
-    
-    % 시뮬레이션 (결과는 Base Workspace의 'out'에 저장됨)
-    sim('Control_Logic', 'StopTime', num2str(SIM_TIME));
-    
-    % Base Workspace에서 out 가져오기
-    out = evalin('base', 'out');
-    
-    cd(script_dir);
-    
-    % 결과 플롯
-    figure('Name', 'GA Optimization Verification', 'Position', [50 50 1600 1000]);
-    
-    % timeseries 데이터 추출 (To Workspace 출력)
-    % out.Current_Low.Data, out.Current_Low.Time 형태
-    
-    % 시간축 추출 (ms로 변환) - 첫 번째 유효한 timeseries에서 가져옴
-    if isfield(out, 'Current_Low') && isa(out.Current_Low, 'timeseries')
-        t = out.Current_Low.Time * 1000;  % ms로 변환
-    elseif isfield(out, 'Voltage_High') && isa(out.Voltage_High, 'timeseries')
-        t = out.Voltage_High.Time * 1000;
-    else
-        t = (0:0.001:1)' * 1000;  % fallback
-    end
-    
-    % 1. 전류 추종 (핵심)
-    subplot(3,3,1);
-    if isfield(out, 'Current_Low') && isfield(out, 'I_cmd_out')
-        I_lv = out.Current_Low.Data(:);
-        I_ref = out.I_cmd_out.Data(:);
-        t_curr = out.Current_Low.Time * 1000;
-        plot(t_curr, I_lv, 'b-', 'LineWidth', 1.5); hold on;
-        plot(t_curr, I_ref, 'r--', 'LineWidth', 2);
-        xlabel('Time (ms)'); ylabel('Current (A)');
-        title('Current Tracking (out.Current\_Low vs out.I\_cmd\_out)');
-        legend('I_{LV}', 'I_{ref}', 'Location', 'best');
-        grid on;
-        
-        % 100ms 이후 RMS 오차 표시
-        valid_idx = out.Current_Low.Time >= 0.1;
-        if any(valid_idx)
-            error_sig = I_ref(valid_idx) - I_lv(valid_idx);
-            rms_err = sqrt(mean(error_sig.^2));
-            text(0.02, 0.95, sprintf('RMS Error (>100ms): %.3f A', rms_err), ...
-                'Units', 'normalized', 'FontSize', 9, 'BackgroundColor', 'w');
+    if isempty(raw) && isprop(simOut, 'yout')
+        try
+            raw = simOut.yout.get('Current_Low');
+        catch
         end
     end
     
-    % 2. HV 전압
-    subplot(3,3,2);
-    if isfield(out, 'Voltage_High') && isa(out.Voltage_High, 'timeseries')
-        plot(out.Voltage_High.Time * 1000, out.Voltage_High.Data, 'k-', 'LineWidth', 1.5);
-        xlabel('Time (ms)'); ylabel('Voltage (V)');
-        title('High-Side Voltage (out.Voltage\_High)');
-        grid on;
+    if isempty(raw)
+        error('Current signal not found in simulation output.');
     end
     
-    % 3. LV 전압
-    subplot(3,3,3);
-    if isfield(out, 'Voltage_Low') && isa(out.Voltage_Low, 'timeseries')
-        plot(out.Voltage_Low.Time * 1000, out.Voltage_Low.Data, 'Color', [0 0.5 0], 'LineWidth', 1.5);
-        xlabel('Time (ms)'); ylabel('Voltage (V)');
-        title('Low-Side Voltage (out.Voltage\_Low)');
-        grid on;
+    if isa(raw, 'timeseries')
+        y = squeeze(raw.Data);
+        t = raw.Time;
+    elseif isstruct(raw)
+        y = squeeze(raw.signals.values);
+        t = raw.time;
+    else
+        y = squeeze(raw);
+        t = simOut.tout;
     end
     
-    % 4. 외부 위상
-    subplot(3,3,4);
-    if isfield(out, 'Phi_ext_out') && isa(out.Phi_ext_out, 'timeseries')
-        plot(out.Phi_ext_out.Time * 1000, out.Phi_ext_out.Data, 'm-', 'LineWidth', 1.5);
-        xlabel('Time (ms)'); ylabel('Phase (deg)');
-        title('External Phase Shift (out.Phi\_ext\_out)');
-        grid on;
+    y = y(:);
+    t = t(:);
+end
+
+%% =========================================================================
+%  Reference 리샘플링 함수
+%  =========================================================================
+function I_ref = resampleReference(RefTS, t_query)
+    t_query = t_query(:);
+    resampled = resample(RefTS, t_query);
+    I_ref = squeeze(resampled.Data);
+    I_ref = I_ref(:);
+end
+
+%% =========================================================================
+%  로그 파일 작성 헬퍼 함수
+%  =========================================================================
+function writeLog(logFile, message)
+    logID = fopen(logFile, 'a');
+    if logID > 0
+        fprintf(logID, '[%s] %s\n', datestr(now, 'HH:MM:SS'), message);
+        fclose(logID);
     end
-    
-    % 5. 적분기 상태 (Anti-windup 확인)
-    subplot(3,3,5);
-    if isfield(out, 'Integrator_out') && isa(out.Integrator_out, 'timeseries')
-        plot(out.Integrator_out.Time * 1000, out.Integrator_out.Data, 'g-', 'LineWidth', 1.5);
-        hold on;
-        yline(3.0, 'r--', 'LineWidth', 1.5);
-        yline(-3.0, 'r--', 'LineWidth', 1.5);
-        xlabel('Time (ms)'); ylabel('Integrator State');
-        title('PI Integrator (out.Integrator\_out) - Clamp ±3.0');
-        legend('Integrator', 'Clamp Limit', 'Location', 'best');
-        grid on;
-    end
-    
-    % 6. 모드 상태
-    subplot(3,3,6);
-    if isfield(out, 'Status_flag') && isa(out.Status_flag, 'timeseries')
-        stairs(out.Status_flag.Time * 1000, out.Status_flag.Data, 'r-', 'LineWidth', 2);
-        xlabel('Time (ms)'); ylabel('Mode');
-        title('Operating Mode (out.Status\_flag)');
-        ylim([-0.5 1.5]);
-        yticks([0 1]);
-        yticklabels({'ESS (0)', 'UPS (1)'});
-        grid on;
-    end
-    
-    % 7. Duty Ratio D1
-    subplot(3,3,7);
-    if isfield(out, 'D1_out') && isa(out.D1_out, 'timeseries')
-        plot(out.D1_out.Time * 1000, out.D1_out.Data, 'c-', 'LineWidth', 1.5);
-        xlabel('Time (ms)'); ylabel('D1');
-        title('Primary Duty (out.D1\_out)');
-        grid on;
-    end
-    
-    % 8. Duty Ratio D2
-    subplot(3,3,8);
-    if isfield(out, 'D2_out') && isa(out.D2_out, 'timeseries')
-        plot(out.D2_out.Time * 1000, out.D2_out.Data, 'Color', [1 0.5 0], 'LineWidth', 1.5);
-        xlabel('Time (ms)'); ylabel('D2');
-        title('Secondary Duty (out.D2\_out)');
-        grid on;
-    end
-    
-    % 9. 추적 오차
-    subplot(3,3,9);
-    if isfield(out, 'Current_Low') && isfield(out, 'I_cmd_out')
-        I_lv = out.Current_Low.Data(:);
-        I_ref = out.I_cmd_out.Data(:);
-        t_curr = out.Current_Low.Time * 1000;
-        error_sig = I_ref - I_lv;
-        plot(t_curr, error_sig, 'b-', 'LineWidth', 1);
-        xlabel('Time (ms)'); ylabel('Error (A)');
-        title('Tracking Error (I_{ref} - I_{LV})');
-        
-        % 100ms 무시 구간 표시
-        xline(100, 'r--', 'LineWidth', 2);
-        text(110, max(error_sig)*0.9, '← 무시 구간', 'FontSize', 9, 'Color', 'r');
-        grid on;
-    end
-    
-    sgtitle(sprintf('GA Optimized Controller Verification (Kp=%.4f, Ki=%.2f, Kpv=%.2f, Kiv=%.2f)', ...
-        Kp_ext, Ki_ext, Kpv, Kiv), 'FontSize', 14);
-    
-    fprintf('\n✓ 검증 완료! Figure에서 결과를 확인하세요.\n');
-    fprintf('  - 빨간 점선은 100ms 무시 구간을 나타냅니다.\n');
-    fprintf('  - 적분기가 ±3.0 한계에서 Clamping 되는지 확인하세요.\n');
 end

@@ -1,30 +1,41 @@
 classdef DAB_Controller_System < matlab.System
     % DAB_Controller_System
-    % DAB 컨버터 자동 모드 전환 (ESS <-> UPS) 및 DPS 위상 제어기
+    % DAB 컨버터 자동 모드 전환 (ESS <-> UPS) 및 SPS 위상 제어기
     %
-    % 개선사항 (v2.0):
-    %   - UPS 모드: Cascade 제어 (전압 외부루프 + 전류 내부루프)
-    %   - DPS: 전류 크기에 따른 가변 내부위상 (5~25°)
-    %   - 모드 전환 시 적분기 리셋 개선
+    % 개선사항 (v3.0 - SPS Mode):
+    %   - SPS (Single Phase Shift) 제어만 사용
+    %   - 위상 출력을 360도 각도로 출력 (시간 대신)
+    %   - D1, D2는 SPS 고정값 (50%)으로 출력
     %
     % 입력: V_HV, I_HV, V_LV, I_LV, I_ess_cmd, Kp_ext, Ki_ext, Kpv, Kiv
-    % 출력: t1, t3, t5, t7, mode_active, status_flag, I_cmd_out, phi_ext_out,
-    %       D1_out, D2_out, integrator_out
+    % 출력: phi1_deg, phi3_deg, phi5_deg, phi7_deg, mode_active, status_flag, 
+    %       I_cmd_out, phi_ext_out, D1_out, D2_out, integrator_out
+    %
+    % 출력 위상 설명 (모두 0~360도 범위):
+    %   - phi1_deg: Primary Bridge Leg A 기준 위상 (항상 0도)
+    %   - phi3_deg: Primary Bridge Leg B 위상 (SPS: 180도 고정)
+    %   - phi5_deg: Secondary Bridge Leg A 위상 (외부 위상에 의해 결정)
+    %   - phi7_deg: Secondary Bridge Leg B 위상 (SPS: phi5 + 180도)
 
     % =========================================================================
     % 1. Public, Tunable Properties (블록 더블클릭 시 설정 가능한 파라미터)
     % =========================================================================
     properties(Nontunable)
         Fs = 80e3;              % 스위칭 주파수 (Hz)
+        Ts_ctrl = 1e-7;         % 제어기 샘플 시간 (초) - Simulink 솔버와 동일하게 설정
         
         % HV 전압 목표 및 밴드 범위
         V_HV_Ref = 380;         % UPS 모드 HV 전압 목표 (V)
-        V_HV_Band = 1;          % ±1V 범위 (379~381V가 정상)
+        V_HV_Band = 30;         % ±30V 범위 (350~410V가 정상)
         
-        % DPS 내부위상 범위
-        Psi_Min = 5;            % 최소 내부 위상 (경부하)
-        Psi_Max = 25;           % 최대 내부 위상 (대전력)
-        I_Base = 10;            % 내부위상 계산용 기준 전류 (A)
+        % [SPS 모드] 내부 위상 고정값 (TPS/DPS 사용 안함)
+        % D1, D2 = 0.5 (50%) 고정 → 180도 위상차
+        SPS_Inner_Phase = 180;  % Primary/Secondary 내부 위상 (도)
+        
+        % [주석 처리됨] DPS 내부위상 범위 - TPS/DPS 제어 시 사용
+        % Psi_Min = 5;            % 최소 내부 위상 (경부하)
+        % Psi_Max = 25;           % 최대 내부 위상 (대전력)
+        % I_Base = 10;            % 내부위상 계산용 기준 전류 (A)
         
         % [주석 처리됨] HDC Control Parameters
         % TODO: 사용자가 복구시키라고 할 때까지 주석으로 유지할 것
@@ -61,13 +72,12 @@ classdef DAB_Controller_System < matlab.System
             obj.PreviousMode = 0;
         end
 
-        function [t1, t3, t5, t7, mode_active, status_flag, I_cmd_out, phi_ext_out, ...
-                  D1_out, D2_out, integrator_out] = ...
+        function [phi1_deg, phi3_deg, phi5_deg, phi7_deg, mode_active, status_flag, ...
+                  I_cmd_out, phi_ext_out, D1_out, D2_out, integrator_out] = ...
                 stepImpl(obj, V_HV, I_HV, V_LV, I_LV, I_ess_cmd, Kp_ext, Ki_ext, Kpv, Kiv)
             
             % --- 1. 파라미터 계산 ---
-            Ts = 1 / obj.Fs;
-            deg2time = Ts / 360;
+            Ts = obj.Ts_ctrl;  % 제어기 샘플 시간 사용 (적분기용)
 
             % --- 2. 정전 감지 (밴드 기반) ---
             % 379~381 V : 정상 → ESS
@@ -111,12 +121,13 @@ classdef DAB_Controller_System < matlab.System
 
                 % *** Cascade 제어: 전압 외부루프 → 전류 지령 생성 ***
                 % HV 전압을 V_HV_Ref (380V)로 정확히 유지
-                % V_HV < 379 → err_v > 0 → I_ups_cmd < 0 (강한 방전)
-                % V_HV > 381 → err_v < 0 → I_ups_cmd > 0 (강한 충전)
+                % V_HV < 350V (저전압) → err_v > 0 → I_ups_cmd > 0 (양수 전류)
+                %   → 양수 위상 → LV→HV 전력 전달 (배터리 방전으로 HV 전압 올림)
+                % V_HV > 410V (과전압) → err_v < 0 → I_ups_cmd < 0 (음수 전류)
+                %   → 음수 위상 → HV→LV 전력 전달 (배터리 충전으로 HV 전압 내림)
                 err_v = obj.V_HV_Ref - V_HV;
                 obj.Integrator_v = obj.Integrator_v + err_v * Ts;
                 
-                % 전압 PI 출력 = 전류 지령
                 % 전압 PI 출력 = 전류 지령
                 I_ups_cmd = Kpv * err_v + Kiv * obj.Integrator_v;
 
@@ -130,6 +141,7 @@ classdef DAB_Controller_System < matlab.System
             I_cmd_out = Iref;
 
             % --- 5. 전류 PI → 외부 위상(phi_ext_deg) ---
+            % Positive Feedback(발산) 방지를 위해 오차 부호 반전
             err_ext = Iref - I_fb;
             obj.Integrator_ext = obj.Integrator_ext + err_ext * Ts;
             
@@ -171,60 +183,67 @@ classdef DAB_Controller_System < matlab.System
             
             phi_raw = phi_pi + phi_hdc;
             
-            % Saturation (Clamping)
+            % Saturation (Clamping): 외부 위상 ±90도 제한
             phi_ext_deg = max(-90, min(90, phi_raw));
             
             phi_ext_out = phi_ext_deg;
 
-            % --- 6. DPS: 전류 크기에 따른 내부 위상 조절 ---
-            % 내부위상 범위: Psi_Min ~ Psi_Max (기본 5~25도)
-            % 전류가 작을수록 Psi_Min (순환전류 최소)
-            % 전류가 클수록 Psi_Max (소프트스위칭, ZVS 확보)
+            % =====================================================================
+            % --- 6. SPS 제어: 고정 내부 위상 사용 ---
+            % =====================================================================
+            % SPS에서는 D1 = D2 = 0.5 (50% 듀티)
+            % 이는 Primary와 Secondary 각각 180도 위상차 고정
             
-            I_mag = abs(I_fb); % 실제 흐르는 전류 크기
-            I_norm = min(1, I_mag / obj.I_Base); % 정규화 (0~1)
+            % [주석 처리됨] TPS/DPS: 전류 크기에 따른 내부 위상 조절
+            % I_mag = abs(I_fb); % 실제 흐르는 전류 크기
+            % I_norm = min(1, I_mag / obj.I_Base); % 정규화 (0~1)
+            % phi_int_deg = obj.Psi_Min + (obj.Psi_Max - obj.Psi_Min) * I_norm;
+            
+            % SPS 고정 내부 위상 (180도)
+            phi_int_deg = obj.SPS_Inner_Phase;
 
-            % 선형 매핑: I_norm = 0 → phi_int = Psi_Max (25도) - 역방향
-            %            I_norm = 1 → phi_int = Psi_Min (5도)
-            % → 수정: 경부하에서 작게, 대부하에서 크게
-            phi_int_deg = obj.Psi_Min + (obj.Psi_Max - obj.Psi_Min) * I_norm;
-
-            % --- 7. 내부/외부 위상 조합 → 게이트 타이밍 ---
-            t_int = phi_int_deg * deg2time;
-            t_ext = abs(phi_ext_deg) * deg2time;
-
-            % 외부 위상의 부호로 전력 방향 결정
-            if phi_ext_deg >= 0
-                t1_base = 0;
-                t5_base = t_ext;
-            else
-                t5_base = 0;
-                t1_base = t_ext;
-            end
-
-            t1 = t1_base;
-            t3 = t1 + t_int;
-            t5 = t5_base;
-            t7 = t5 + t_int;
-
-            % 주기 초과 시 Modulo 연산
-            t_max = max([t1, t3, t5, t7]);
-            if t_max > Ts
-                t1 = mod(t1, Ts);
-                t3 = mod(t3, Ts);
-                t5 = mod(t5, Ts);
-                t7 = mod(t7, Ts);
-            end
+            % =====================================================================
+            % --- 7. 위상 계산 (360도 각도 출력) ---
+            % =====================================================================
+            % SPS 제어 기준:
+            % - Primary Bridge: Leg A (S1) = 0도, Leg B (S3) = 180도 (고정)
+            % - Secondary Bridge: Leg A (S5) = phi_ext, Leg B (S7) = phi_ext + 180도
+            %
+            % 전력 전달 방향:
+            % - phi_ext > 0: Primary → Secondary (방전, LV에서 HV로)
+            % - phi_ext < 0: Secondary → Primary (충전, HV에서 LV로)
+            
+            % Primary Bridge 위상 (고정)
+            phi1_deg = 0;                       % S1 기준 (항상 0도)
+            phi3_deg = phi_int_deg;             % S3 = 내부 위상 (SPS: 180도)
+            
+            % Secondary Bridge 위상 (외부 위상에 의해 결정)
+            phi5_deg = phi_ext_deg;             % S5 = 외부 위상
+            phi7_deg = phi_ext_deg + phi_int_deg;  % S7 = 외부 위상 + 내부 위상
+            
+            % 위상 출력: 음수 그대로 유지 (디버깅 편의)
+            % phi1_deg: 항상 0도
+            % phi3_deg: 180도 (SPS 고정)
+            % phi5_deg: -90 ~ +90도 범위 (외부 위상)
+            % phi7_deg: phi5 + 180도 (90 ~ 270도 범위)
+            %
+            % 참고: PWM Generator에서 음수 위상도 올바르게 처리함
+            % 0~360 정규화가 필요하면 PWM Generator 내부에서 수행
             
             % --- 8. 추가 출력 (디버깅/모니터링용) ---
-            % D1: Primary Duty (가변 내부 위상 기반)
-            % D2: Secondary Duty (외부 위상 기반)
-            D1_out = phi_int_deg / 180;           % Primary Inner Duty (가변, 0~0.14)
-            D2_out = abs(phi_ext_deg) / 180;      % Secondary Phase Shift Duty
+            % D1, D2: SPS에서는 50% 고정 (0.5)
+            D1_out = 0.5;       % Primary Inner Duty (SPS 고정)
+            D2_out = 0.5;       % Secondary Inner Duty (SPS 고정)
             integrator_out = obj.Integrator_ext;  % 전류 적분기 상태값
             
             % --- 9. 이전 모드 저장 (다음 스텝용) ---
             obj.PreviousMode = obj.PowerLossState;
+            
+            % 사용하지 않는 입력 경고 방지
+            %#ok<*NASGU>
+            if false
+                dummy = I_HV; %#ok<UNRCH>
+            end
         end
 
         function resetImpl(obj)
@@ -233,6 +252,65 @@ classdef DAB_Controller_System < matlab.System
             obj.Integrator_v = 0;
             obj.PowerLossState = 0;
             obj.PreviousMode = 0;
+        end
+        
+        % --- 출력 개수 지정 ---
+        function num = getNumOutputsImpl(~)
+            num = 11;
+        end
+        
+        % --- 출력 크기 지정 ---
+        function [sz1,sz2,sz3,sz4,sz5,sz6,sz7,sz8,sz9,sz10,sz11] = getOutputSizeImpl(~)
+            sz1 = [1 1]; sz2 = [1 1]; sz3 = [1 1]; sz4 = [1 1];
+            sz5 = [1 1]; sz6 = [1 1]; sz7 = [1 1]; sz8 = [1 1];
+            sz9 = [1 1]; sz10 = [1 1]; sz11 = [1 1];
+        end
+        
+        % --- 출력 데이터 타입 지정 ---
+        function [dt1,dt2,dt3,dt4,dt5,dt6,dt7,dt8,dt9,dt10,dt11] = getOutputDataTypeImpl(~)
+            dt1 = 'double'; dt2 = 'double'; dt3 = 'double'; dt4 = 'double';
+            dt5 = 'double'; dt6 = 'double'; dt7 = 'double'; dt8 = 'double';
+            dt9 = 'double'; dt10 = 'double'; dt11 = 'double';
+        end
+        
+        % --- 출력 복소수 여부 ---
+        function [cp1,cp2,cp3,cp4,cp5,cp6,cp7,cp8,cp9,cp10,cp11] = isOutputComplexImpl(~)
+            cp1 = false; cp2 = false; cp3 = false; cp4 = false;
+            cp5 = false; cp6 = false; cp7 = false; cp8 = false;
+            cp9 = false; cp10 = false; cp11 = false;
+        end
+        
+        % --- 고정 크기 출력 ---
+        function [fs1,fs2,fs3,fs4,fs5,fs6,fs7,fs8,fs9,fs10,fs11] = isOutputFixedSizeImpl(~)
+            fs1 = true; fs2 = true; fs3 = true; fs4 = true;
+            fs5 = true; fs6 = true; fs7 = true; fs8 = true;
+            fs9 = true; fs10 = true; fs11 = true;
+        end
+        
+        % --- DiscreteState 사양 지정 (Simulink 필수) ---
+        function [sz, dt, cp] = getDiscreteStateSpecificationImpl(~, name)
+            % 각 DiscreteState 속성의 크기, 타입, 복소수 여부 지정
+            switch name
+                case 'Integrator_ext'
+                    sz = [1 1]; dt = 'double'; cp = false;
+                case 'Integrator_v'
+                    sz = [1 1]; dt = 'double'; cp = false;
+                case 'PowerLossState'
+                    sz = [1 1]; dt = 'double'; cp = false;
+                case 'PreviousMode'
+                    sz = [1 1]; dt = 'double'; cp = false;
+                otherwise
+                    error(['Unknown state: ', name]);
+            end
+        end
+
+        % --- 샘플 시간 지정 (필수!) ---
+        function sts = getSampleTimeImpl(obj)
+            % 이 시스템은 이산 시간(Discrete)으로만 동작함을 선언
+            % Type: Discrete, SampleTime: Ts_ctrl (1e-7), Offset: 0
+            sts = createSampleTime(obj, 'Type', 'Discrete', ...
+                                   'SampleTime', obj.Ts_ctrl, ...
+                                   'OffsetTime', 0);
         end
     end
 end

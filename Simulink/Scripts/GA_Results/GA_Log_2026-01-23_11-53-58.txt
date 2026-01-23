@@ -1,0 +1,12 @@
+===========================================
+DAB Controller GA Optimization Log
+Started: 23-Jan-2026 11:53:58
+===========================================
+
+[11:53:58] Initializing optimization...
+[11:53:58] Scenario loaded successfully
+[11:53:58] Reference: Step to 10.0A at t=0.020s
+[11:53:59] GA Settings: PopSize=10, MaxGen=20
+[11:53:59] Search bounds: Kp=[0.01, 50.00], Ki=[1.00, 5000.00]
+[11:53:59] Starting GA optimization...
+[12:14:59] Gen 1: Kp=7.4523, Ki=4498.36, Cost=1.565839
