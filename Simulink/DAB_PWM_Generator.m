@@ -61,9 +61,28 @@ classdef DAB_PWM_Generator < matlab.System
         end
 
         function [G1, G2, G3, G4, G5, G6, G7, G8] = ...
-                stepImpl(obj, phi1_deg, phi3_deg, phi5_deg, phi7_deg, DeadTime_ns)
+                stepImpl(obj, phi1_deg, phi3_deg, phi5_deg, phi7_deg, DeadTime_ns, Enable)
             
-            % --- 1. 파라미터 계산 ---
+            % --- 0. [NEW] Enable 신호 확인 (안전장치) ---
+            % Enable 신호가 0.5 미만이면 모든 게이트 OFF (음전압 출력)
+            if Enable < 0.5
+                V_OFF = obj.V_Gate_OFF;
+                G1 = V_OFF; G2 = V_OFF;
+                G3 = V_OFF; G4 = V_OFF;
+                G5 = V_OFF; G6 = V_OFF;
+                G7 = V_OFF; G8 = V_OFF;
+                % 위상 카운터는 계속 돌릴지, 멈출지 결정 (여기선 계속 돌림)
+                % return; % 아래 로직 수행 없이 즉시 리턴
+                
+                % [중요] 카운터는 동기화를 위해 계속 돌리는 것이 좋음
+                % 하지만 출력은 확실히 꺼야 하므로, 아래 로직을 생략하고 리턴하는 것이 안전
+                
+                % 위상 카운터 업데이트만 수행하고 리턴
+                Ts_sw = 1 / obj.Fs;
+                phase_increment = (obj.Ts_sim / Ts_sw) * 360;
+                obj.PhaseCounter = mod(obj.PhaseCounter + phase_increment, 360);
+                return;
+            end
             Ts_sw = 1 / obj.Fs;                  % 스위칭 주기 (초)
             
             % 데드타임을 도(degree)로 변환
@@ -174,7 +193,7 @@ classdef DAB_PWM_Generator < matlab.System
         
         % --- 입력 개수 지정 ---
         function num = getNumInputsImpl(~)
-            num = 5;
+            num = 6; % Enable 입력 추가됨
         end
         
         % --- 출력 크기 지정 ---

@@ -1,0 +1,13 @@
+===========================================
+DAB Controller GA Optimization Log
+Started: 26-Jan-2026 01:00:13
+===========================================
+
+[01:00:13] Initializing optimization...
+[01:00:13] Scenario loaded successfully
+[01:00:13] Reference: Bidirectional Step (+10A -> -10A -> +10A)
+[01:00:18] GA Settings: PopSize=50, MaxGen=50, UseParallel=TRUE
+[01:00:18] Search bounds: Kp=[0.0010, 100.00], Ki=[0.10, 10000.00]
+[01:00:18] Step Input: Bidirectional (+10.0A -> -10.0A -> +10.0A)
+[01:03:39] Starting GA optimization...
+[09:50:30] Gen 1: Kp=0.1208, Ki=1930.48, Cost=119186.961913
