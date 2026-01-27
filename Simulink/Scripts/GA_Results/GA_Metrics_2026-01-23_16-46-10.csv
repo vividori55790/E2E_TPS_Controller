@@ -1,4 +1,0 @@
-EvalNum,Kp,Ki,Cost,ISE,ITAE,IAE,Overshoot_pct,Undershoot_pct,RiseTime_ms,SettlingTime_ms,PeakTime_ms,SteadyStateError_pct,PeakValue,TargetValue,Valid
-2,0.093109,0.100000,1000000.000000,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,0
-3,12.394104,7286.643951,1000000.000000,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,0
-4,49.036239,7378.442754,1000000.000000,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,0
