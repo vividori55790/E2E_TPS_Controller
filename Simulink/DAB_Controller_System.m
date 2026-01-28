@@ -7,7 +7,7 @@ classdef DAB_Controller_System < matlab.System
     %   - 위상 출력을 360도 각도로 출력 (시간 대신)
     %   - D1, D2는 SPS 고정값 (50%)으로 출력
     %
-    % 입력: V_HV, I_HV, V_LV, I_LV, I_ess_cmd, Kp_ext, Ki_ext, Kpv, Kiv, Mode_Select, Phi_Manual
+    % 입력: V_HV, I_HV, V_LV, I_LV, I_L_pri, I_ess_cmd, Kp_ext, Ki_ext, Kpv, Kiv, Mode_Select, Phi_Manual
     % 출력: phi1_deg, phi3_deg, phi5_deg, phi7_deg, mode_active, status_flag, 
     %       I_cmd_out, phi_ext_out, D1_out, D2_out, integrator_out, PWM_Enable
     %
@@ -28,15 +28,14 @@ classdef DAB_Controller_System < matlab.System
     % =========================================================================
     properties(Nontunable)
         Fs = 80e3;              % 스위칭 주파수 (Hz)
-        Ts_ctrl = 1e-7;         % 제어기 샘플 시간 (0.1us) - [User Configured] High Speed Oversampling
+        Ts_ctrl = 1e-7;         % 제어 샘플링 시간 (Ts) [sec]
         
         % HV 전압 목표 및 밴드 범위
-        V_HV_Ref = 380;         % UPS 모드 HV 전압 목표 (V)
-        V_HV_Band = 30;         % ±30V 범위 (350~410V가 정상)
+        V_HV_Ref = 380;         % [UPS] HV 목표 전압 (V)
+        V_HV_Band = 30;         % [UPS] 정전 감지 오차 범위 (±V)
         
-        % [SPS 모드] 내부 위상 고정값 (TPS/DPS 사용 안함)
-        % D1, D2 = 0.5 (50%) 고정 → 180도 위상차
-        SPS_Inner_Phase = 180;  % Primary/Secondary 내부 위상 (도)
+        % [SPS 모드] 내부 위상 고정값
+        SPS_Inner_Phase = 180;  % [SPS] 내부 위상 고정값 (180도)
         
         % [주석 처리됨] DPS 내부위상 범위 - TPS/DPS 제어 시 사용
         % Psi_Min = 5;            % 최소 내부 위상 (경부하)
@@ -49,47 +48,47 @@ classdef DAB_Controller_System < matlab.System
         % HDC_Model = struct(); 
         
         % [NEW] Feedforward & System Params
-        L_leakage = 90e-6;      % [MODIFIED] 누설 인덕턴스 90uH (사용자 설정 반영)
-        EnableFF = true;       % [MODIFIED] 피드포워드 활성화 (기본 위상 제공으로 P게인 부담 경감)
+        L_leakage = 90e-6;      % 변압기 누설 인덕턴스 (H)
+        EnableFF = true;       % 피드포워드(FF) 제어 활성화
         
-        % [NEW] Reference Slew Rate (GA 최적화용: 비활성화)
-        % GA는 Step 응답에 대한 극한 성능을 테스트해야 하므로 Slew Rate를 끕니다.
-        % 실제 구동 시 필요하면 2000 등으로 복구하세요.
-        MaxSlewRate = inf;      % 기본값: inf (비활성화)
+        % [NEW] Reference Slew Rate
+        MaxSlewRate = inf;      % 전류 지령 변화율 제한 (A/s) [inf: OFF]
         
         % [NEW] 전압 센싱 필터 시정수 (Disturbance Rejection)
-        Tau_Voltage_Filter = 30e-3; % 30ms
+        Tau_Voltage_Filter = 30e-3; % 전압 센싱 LPF 시정수 (sec)
         
-        % [NEW] Dead Zone & Gain Scheduling (GA 최적화용: 비활성화)
-        % 정밀 튜닝을 위해 비선형 요소 제거 (순수 PI 성능 평가)
-        DeadZone = 0;           % 0 (OFF)
-        GainSched_Threshold = 2.0; 
-        GainSched_Factor = 1.0;    % 1.0 (OFF - 항상 100% 게인 사용)
+        % [NEW] Dead Zone & Gain Scheduling
+        DeadZone = 0;           % [Tune] 제어 불감대 (Deadzone) [A]
+        GainSched_Threshold = 2.0; % [Tune] 게인 스케줄링 임계값 [A]
+        GainSched_Factor = 1.0;    % [Tune] 게인 감소 비율 (0~1)
         
         % [NEW] Soft Start Time
-        SoftStartTime = 0.2;    % 0.2초 동안 서서히 피드포워드 증가
+        SoftStartTime = 0.2;    % 초기 기동 Soft Start 시간 (sec)
         
-        % [NEW] Phase Change Rate Limiter (위상 변화율 제한)
-        % 상용 제품의 Soft Change 모사 (DC 바이어스 및 과도 전류 방지)
-        % 30,000 deg/s -> 30 deg/ms -> 90도 변화에 약 3ms 소요
-        MaxPhaseRate = 30000;   % deg/s
+        % [NEW] Phase Change Rate Limiter
+        MaxPhaseRate = 30000;   % 위상 변화율 제한 (deg/s)
 
         % [NEW] Smart BMS Thresholds (26S Li-ion Spec)
-        % Cell: Nominal 3.7V / Max 4.2V
-        V_Pack_Max = 109.2;     % 100% (4.2V * 26) - Absolute Max
-        V_CV_Start = 108.0;     % ~98% (CV Mode Entry Voltage)
-        V_ESS_Limit = 93.0;     % 20% (ESS Reserve Limit)
-        V_UPS_Limit = 87.0;     % 5% (UPS Deep Discharge Limit)
-        V_Min_Limit = 84.0;     % 0% (Shutdown Voltage)
+        V_Pack_Max = 109.2;     % [BMS] 배터리 최대 전압 (Cell*4.2V)
+        V_CV_Start = 108.0;     % [BMS] CV 충전 시작 전압
+        V_ESS_Limit = 93.0;     % [BMS] 방전 중단 전압 (ESS Reserve)
+        V_UPS_Limit = 87.0;     % [BMS] 출력 제한 시작 전압 (UPS Derating)
+        V_Min_Limit = 84.0;     % [BMS] 셧다운 최저 전압 (System UVLO)
         
-        K_CV = 5.0;             % CV Control Gain (A/V)
-                                % V_err = 0.5V -> Current Limit = 2.5A
+        K_CV = 5.0;             % [BMS] CV 제어 게인 (A/V)
+                                
+        % [NEW] Flux Balancing Parameters
+        EnableFluxBalancing = true;  % Flux Balancing 활성화
+        Flux_Kp = 0.005;        % [Flux] 비례 게인 (Kp)
+        Flux_Ki = 0.05;         % [Flux] 적분 게인 (Ki)
+        Flux_Limit = 0.02;      % [Flux] 최대 보정 Duty 제한 (0~0.5)
     end
+
 
     properties
         % 전류 지령 제한
-        I_ESS_Max = 10;         % ESS 모드 최대 전류 (±10 A)
-        I_UPS_Max = 30;         % UPS 모드 최대 전류 (±30 A, 대부하 대응)
+        I_ESS_Max = 10;         % [ESS] 최대 허용 전류 (A)
+        I_UPS_Max = 30;         % [UPS] 최대 허용 전류 (A)
     end
 
     % =========================================================================
@@ -118,6 +117,12 @@ classdef DAB_Controller_System < matlab.System
         BufferIdx;              % Current Index
         I_Sum;                  % Running Sum for O(1) Averaging
         ControlCheckDone;       % [NEW] Parameter check flag
+        
+        % [NEW] Flux Balancing States
+        % [NEW] Flux Balancing States
+        I_L_pri_Buffer;         % Inductor 전류 DC 검출용 버퍼
+        I_L_pri_Sum;
+        Flux_Integrator;        % Flux 제어기 적분항
     end
 
     % =========================================================================
@@ -129,6 +134,7 @@ classdef DAB_Controller_System < matlab.System
             % 초기화 (시뮬레이션 시작 시 1회 실행)
             obj.Integrator_ext = 0;
             obj.Integrator_v = 0;
+            obj.Flux_Integrator = 0; % [NEW]
             obj.PowerLossState = 0; % 초기엔 정상 상태 가정
             obj.PreviousMode = 0;
 
@@ -146,13 +152,18 @@ classdef DAB_Controller_System < matlab.System
             obj.I_Buffer = zeros(125,1);
             obj.BufferIdx = 1;
             obj.I_Sum = 0;
+            
+            % [NEW] Flux Balancing Buffer Init
+            obj.I_L_pri_Buffer = zeros(125,1); % 동일한 윈도우 사이즈 사용
+            obj.I_L_pri_Sum = 0;
+            
             obj.ControlCheckDone = 0;
         end
 
     function [phi1_deg, phi3_deg, phi5_deg, phi7_deg, mode_active, status_flag, ...
                   I_cmd_out, phi_ext_out, D1_out, D2_out, integrator_out, PWM_Enable, ...
                   err_out, phi_raw_out, excess_out, ifb_out] = ...
-                stepImpl(obj, V_HV, I_HV, V_LV, I_LV, I_ess_cmd, Kp_ext, Ki_ext, Kpv, Kiv, Mode_Select, Phi_Manual)
+                stepImpl(obj, V_HV, I_HV, V_LV, I_LV, I_L_pri, I_ess_cmd, Kp_ext, Ki_ext, Kpv, Kiv, Mode_Select, Phi_Manual)
             
             % --- 1. 파라미터 계산 ---
             Ts = obj.Ts_ctrl;  % 제어기 샘플 시간 사용 (적분기용)
@@ -187,10 +198,14 @@ classdef DAB_Controller_System < matlab.System
                 % [NEW] PWM 비활성화 신호 출력
                 PWM_Enable = 0; % Gate OFF 강제
                 
+                % [NEW] PWM 비활성화 신호 출력
+                PWM_Enable = 0; % Gate OFF 강제
+                
                 % 내부 상태변수 초기화 유지
                 obj.I_ref_ramped = 0;
                 obj.Integrator_ext = 0;
                 obj.Integrator_v = 0;
+                obj.Flux_Integrator = 0; % [NEW]
                 
                 % 필터 상태변수는 현재 값으로 추적 (단절 방지)
                 obj.V_HV_Filtered = V_HV;
@@ -565,10 +580,51 @@ classdef DAB_Controller_System < matlab.System
             % 참고: PWM Generator에서 음수 위상도 올바르게 처리함
             % 0~360 정규화가 필요하면 PWM Generator 내부에서 수행
             
-            % --- 8. 추가 출력 (디버깅/모니터링용) ---
-            % D1, D2: SPS에서는 50% 고정 (0.5)
-            D1_out = 0.5;       % Primary Inner Duty (SPS 고정)
-            D2_out = 0.5;       % Secondary Inner Duty (SPS 고정)
+            % =====================================================================
+            % --- 8. [NEW] Flux Balancing & Duty Control ---
+            % =====================================================================
+            
+            D_offset = 0;
+            if obj.EnableFluxBalancing
+                % 1. Inductor 전류(I_L_pri) DC 성분 검출 (Moving Average)
+                % 기존 I_Buffer 로직 재사용 (변수명 미러링)
+                 
+                % A. Remove Oldest
+                old_pri = obj.I_L_pri_Buffer(obj.BufferIdx); % Index는 I_Buffer와 공유 (동기화됨)
+                obj.I_L_pri_Sum = obj.I_L_pri_Sum - old_pri;
+                
+                % B. Add Newest
+                obj.I_L_pri_Buffer(obj.BufferIdx) = I_L_pri;
+                obj.I_L_pri_Sum = obj.I_L_pri_Sum + I_L_pri;
+                
+                % C. Calculate Mean (DC Offset)
+                I_dc_pri = obj.I_L_pri_Sum / 125;
+                
+                % 2. PI Control to Zero DC Current
+                % 목표: I_dc_pri = 0
+                % 오차: 0 - I_dc_pri = -I_dc_pri
+                % DC 전류가 (+)이면 -> Duty를 줄여야 함? 늘려야 함?
+                % (통상) Duty A가 커지면 DC Bias (+) 증가 경향
+                % 따라서 DC(+) -> Duty(-) 로 보정. 즉 Negative Feedback.
+                
+                err_flux = -I_dc_pri;
+                obj.Flux_Integrator = obj.Flux_Integrator + err_flux * Ts;
+                
+                % Anti-windup for Flux Integrator
+                max_integ = obj.Flux_Limit / obj.Flux_Ki;
+                obj.Flux_Integrator = max(-max_integ, min(max_integ, obj.Flux_Integrator));
+                
+                D_raw = obj.Flux_Kp * err_flux + obj.Flux_Ki * obj.Flux_Integrator;
+                
+                % 3. Limit Offset
+                D_offset = max(-obj.Flux_Limit, min(obj.Flux_Limit, D_raw));
+            end
+            
+            % --- 9. Final Duty Output ---
+            % SPS 기본 0.5 (50%) + Balancing Offset
+            D1_out = 0.5 + D_offset;  % Primary Duty (가변)
+            D2_out = 0.5;             % Secondary Duty (고정 - 보통 1차측만 조절함)
+            
             integrator_out = obj.Integrator_ext;  % 전류 적분기 상태값
             
             % [NEW] 정상 동작 시 PWM 활성화
@@ -580,7 +636,7 @@ classdef DAB_Controller_System < matlab.System
             excess_out = excess; 
             ifb_out = I_fb_clean;
             
-            % --- 9. 이전 모드 저장 (다음 스텝용) ---
+            % --- 10. 이전 모드 저장 (다음 스텝용) ---
             obj.PreviousMode = obj.PowerLossState;
             
             % 사용하지 않는 입력 경고 방지
@@ -594,6 +650,7 @@ classdef DAB_Controller_System < matlab.System
             % 리셋 신호가 들어오거나 재시작 시
             obj.Integrator_ext = 0;
             obj.Integrator_v = 0;
+            obj.Flux_Integrator = 0; % [NEW]
             obj.PowerLossState = 0;
             obj.PreviousMode = 0;
 
@@ -602,6 +659,11 @@ classdef DAB_Controller_System < matlab.System
             obj.I_Buffer = zeros(125,1);
             obj.BufferIdx = 1;
             obj.I_Sum = 0;
+            
+            % [NEW] Flux Balancing Reset
+            obj.I_L_pri_Buffer = zeros(125,1);
+            obj.I_L_pri_Sum = 0;
+            
             obj.ControlCheckDone = 0;
         end
         
@@ -676,6 +738,13 @@ classdef DAB_Controller_System < matlab.System
                     sz = [1 1]; dt = 'double'; cp = false;
                 case 'ControlCheckDone'
                     sz = [1 1]; dt = 'double'; cp = false;
+                % [NEW] Flux Balancing States
+                case 'I_L_pri_Buffer'
+                    sz = [125 1]; dt = 'double'; cp = false;
+                case 'I_L_pri_Sum'
+                    sz = [1 1]; dt = 'double'; cp = false;
+                case 'Flux_Integrator'
+                    sz = [1 1]; dt = 'double'; cp = false;
                 otherwise
                     error(['Unknown state: ', name]);
             end
@@ -708,6 +777,46 @@ classdef DAB_Controller_System < matlab.System
             name14 = 'Phi_Raw';      % [DEBUG] 포화 전 제어기 출력
             name15 = 'Excess';       % [DEBUG] 포화량 (Raw - Sat)
             name16 = 'I_Filt';       % [DEBUG] 필터링된 피드백 전류
+        end
+        end
+
+        methods (Static, Access = protected)
+            % --- [NEW] Property Groups (UI Layout) ---
+            function header = getHeaderImpl
+            header = matlab.system.display.Header(mfilename('class'), ...
+                'Title', 'DAB Converter Controller (Full Bridge)', ...
+                'Text', sprintf(['DAB 컨버터의 위상 천이(SPS) 및 모드 자동 전환 제어기입니다.\n', ...
+                                 'ESS(정상)/UPS(정전) 모드 자동 전환, 배터리 보호(BMS), 자속 평형(Flux Balancing) 기능을 수행합니다.']));
+        end
+
+        function groups = getPropertyGroupsImpl
+            % 1. 시스템 설정
+            groupSys = matlab.system.display.Section(...
+                'Title', '1. 시스템 기본 설정 (Hardware Spec)', ...
+                'PropertyList', {'Fs', 'Ts_ctrl', 'L_leakage', 'SPS_Inner_Phase'});
+
+            % 2. 운전 모드 및 전압/전류 제한
+            groupMode = matlab.system.display.Section(...
+                'Title', '2. 운전 모드 및 목표값 (Operation Targets)', ...
+                'PropertyList', {'V_HV_Ref', 'V_HV_Band', 'I_ESS_Max', 'I_UPS_Max'});
+
+            % 3. 배터리 관리 시스템 (BMS)
+            groupBMS = matlab.system.display.Section(...
+                'Title', '3. 배터리 보호 설정 (Smart BMS)', ...
+                'PropertyList', {'V_Pack_Max', 'V_CV_Start', 'K_CV', 'V_ESS_Limit', 'V_UPS_Limit', 'V_Min_Limit'});
+
+            % 4. 고급 제어 및 안정화
+            groupAdv = matlab.system.display.Section(...
+                'Title', '4. 고급 제어 기능 (Advanced Control)', ...
+                'PropertyList', {'EnableFF', 'SoftStartTime', 'MaxSlewRate', 'Tau_Voltage_Filter', 'MaxPhaseRate', ...
+                                 'DeadZone', 'GainSched_Threshold', 'GainSched_Factor'});
+
+            % 5. 자속 평형 제어
+            groupFlux = matlab.system.display.Section(...
+                'Title', '5. 변압기 자속 평형 (Flux Balancing)', ...
+                'PropertyList', {'EnableFluxBalancing', 'Flux_Kp', 'Flux_Ki', 'Flux_Limit'});
+
+            groups = [groupSys, groupMode, groupBMS, groupAdv, groupFlux];
         end
     end
 end
