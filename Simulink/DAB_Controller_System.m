@@ -54,8 +54,8 @@ classdef DAB_Controller_System < matlab.System
         % [NEW] Reference Slew Rate
         MaxSlewRate = inf;      % 전류 지령 변화율 제한 (A/s) [inf: OFF]
         
-        % [NEW] 전압 센싱 필터 시정수 (Disturbance Rejection)
-        Tau_Voltage_Filter = 30e-3; % 전압 센싱 LPF 시정수 (sec)
+        % [NEW] 전압 센싱 필터 (Sliding Window 사용)
+        % Tau_Voltage_Filter = 30e-3; % [REMOVED] LPF 대신 이동평균 사용
         
         % [NEW] Dead Zone & Gain Scheduling
         DeadZone = 0;           % [Tune] 제어 불감대 (Deadzone) [A]
@@ -102,8 +102,14 @@ classdef DAB_Controller_System < matlab.System
 
 
         I_ref_ramped;       % [NEW] 슬루 레이트 적용된 내부 전류 지령치
-        V_HV_Filtered;      % [NEW] 필터링된 HV 전압
-        V_LV_Filtered;      % [NEW] 필터링된 LV 전압
+        V_HV_Filtered;      % [NEW] 필터링된 HV 전압 (이동평균)
+        V_LV_Filtered;      % [NEW] 필터링된 LV 전압 (이동평균)
+        
+        % [NEW] Voltage Moving Average Buffers
+        V_HV_Buffer;        % HV 전압 버퍼
+        V_HV_Sum;           % HV 전압 합계
+        V_LV_Buffer;        % LV 전압 버퍼
+        V_LV_Sum;           % LV 전압 합계
         
         % [NEW] Feedforward Downsampling
         % FeedforwardUpdateTimer; % [REMOVED] 즉시 반영으로 변경됨
@@ -156,6 +162,12 @@ classdef DAB_Controller_System < matlab.System
             % [NEW] Flux Balancing Buffer Init
             obj.I_L_pri_Buffer = zeros(125,1); % 동일한 윈도우 사이즈 사용
             obj.I_L_pri_Sum = 0;
+            
+            % [NEW] Voltage Buffers Init
+            obj.V_HV_Buffer = zeros(125,1);
+            obj.V_HV_Sum = 0;
+            obj.V_LV_Buffer = zeros(125,1);
+            obj.V_LV_Sum = 0;
             
             obj.ControlCheckDone = 0;
         end
@@ -214,21 +226,35 @@ classdef DAB_Controller_System < matlab.System
                 return;
             end
 
-            % --- 1.5. 전압/전류 센싱 LPF (강인성 확보) ---
-            % 전압이 스텝으로 튈 때 제어기가 발작하지 않도록 부드럽게 만듦
-            % alpha = Ts / (Tau + Ts)
-            alpha_v = Ts / (obj.Tau_Voltage_Filter + Ts);
+            % --- 1.5. 전압/전류 센싱 필터 (Sliding Window / Moving Average) ---
+            % O(1) 복잡도의 Running Sum 방식으로 구현.
+            % Window Size = 125 (1 Switching Cycle @ 80kHz / 0.1us Sample)
+
+            % [V_HV Filtering]
+            old_vhv = obj.V_HV_Buffer(obj.BufferIdx); % Index 공유 (동기화)
+             % 초기 구동시 BufferIdx=1
             
-            % 초기값이 0이면 현재 값으로 초기화 (Startup Transient 방지)
-            if obj.V_HV_Filtered == 0, obj.V_HV_Filtered = V_HV; end
-            if obj.V_LV_Filtered == 0, obj.V_LV_Filtered = V_LV; end
+            % Note: BufferIdx는 뒤쪽 I_Current 로직에서 증가시키므로 여기선 현재 인덱스 사용
             
-            obj.V_HV_Filtered = (1 - alpha_v) * obj.V_HV_Filtered + alpha_v * V_HV;
-            obj.V_LV_Filtered = (1 - alpha_v) * obj.V_LV_Filtered + alpha_v * V_LV;
+            % A. Remove Oldest / Add Newest (V_HV)
+            obj.V_HV_Sum = obj.V_HV_Sum - old_vhv + V_HV;
+            obj.V_HV_Buffer(obj.BufferIdx) = V_HV;
+            
+            % B. Calculate Mean
+            obj.V_HV_Filtered = obj.V_HV_Sum / 125;
+            
+            % [V_LV Filtering]
+            old_vlv = obj.V_LV_Buffer(obj.BufferIdx);
+            
+            % A. Remove Oldest / Add Newest (V_LV)
+            obj.V_LV_Sum = obj.V_LV_Sum - old_vlv + V_LV;
+            obj.V_LV_Buffer(obj.BufferIdx) = V_LV;
+            
+            % B. Calculate Mean
+            obj.V_LV_Filtered = obj.V_LV_Sum / 125;
             
             % [중요] 제어 로직에는 필터링된 "얌전한" 전압 사용
             V_HV_Control = obj.V_HV_Filtered;
-            % V_LV_Control = obj.V_LV_Filtered; % 필요 시 사용
 
             % --- 2. 정전 감지 (밴드 기반) ---
             % 379~381 V : 정상 → ESS
@@ -664,6 +690,12 @@ classdef DAB_Controller_System < matlab.System
             obj.I_L_pri_Buffer = zeros(125,1);
             obj.I_L_pri_Sum = 0;
             
+            % [NEW] Voltage Buffers Reset
+            obj.V_HV_Buffer = zeros(125,1);
+            obj.V_HV_Sum = 0;
+            obj.V_LV_Buffer = zeros(125,1);
+            obj.V_LV_Sum = 0;
+            
             obj.ControlCheckDone = 0;
         end
         
@@ -745,6 +777,15 @@ classdef DAB_Controller_System < matlab.System
                     sz = [1 1]; dt = 'double'; cp = false;
                 case 'Flux_Integrator'
                     sz = [1 1]; dt = 'double'; cp = false;
+                % [NEW] Voltage Moving Average States
+                case 'V_HV_Buffer'
+                    sz = [125 1]; dt = 'double'; cp = false;
+                case 'V_HV_Sum'
+                    sz = [1 1]; dt = 'double'; cp = false;
+                case 'V_LV_Buffer'
+                    sz = [125 1]; dt = 'double'; cp = false;
+                case 'V_LV_Sum'
+                     sz = [1 1]; dt = 'double'; cp = false;
                 otherwise
                     error(['Unknown state: ', name]);
             end
@@ -808,7 +849,7 @@ classdef DAB_Controller_System < matlab.System
             % 4. 고급 제어 및 안정화
             groupAdv = matlab.system.display.Section(...
                 'Title', '4. 고급 제어 기능 (Advanced Control)', ...
-                'PropertyList', {'EnableFF', 'SoftStartTime', 'MaxSlewRate', 'Tau_Voltage_Filter', 'MaxPhaseRate', ...
+                'PropertyList', {'EnableFF', 'SoftStartTime', 'MaxSlewRate', 'MaxPhaseRate', ...
                                  'DeadZone', 'GainSched_Threshold', 'GainSched_Factor'});
 
             % 5. 자속 평형 제어
