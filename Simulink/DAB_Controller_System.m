@@ -28,7 +28,7 @@ classdef DAB_Controller_System < matlab.System
     % =========================================================================
     properties(Nontunable)
         Fs = 80e3;              % 스위칭 주파수 (Hz)
-        Ts_ctrl = 1/80e3;       % 제어기 샘플 시간 (초) - 1/Fs (12.5us)로 변경하여 현실적인 MCU 동작 모사
+        Ts_ctrl = 1e-7;         % 제어기 샘플 시간 (0.1us) - [User Configured] High Speed Oversampling
         
         % HV 전압 목표 및 밴드 범위
         V_HV_Ref = 380;         % UPS 모드 HV 전압 목표 (V)
@@ -52,22 +52,19 @@ classdef DAB_Controller_System < matlab.System
         L_leakage = 90e-6;      % [MODIFIED] 누설 인덕턴스 90uH (사용자 설정 반영)
         EnableFF = true;       % [MODIFIED] 피드포워드 활성화 (기본 위상 제공으로 P게인 부담 경감)
         
-        % [NEW] 지령치 슬루 레이트 제한 (A/s)
-        % 예: 200A/s -> 0.0001초(100us)당 0.02A 변화
-        % 부호 반전 시(-5 -> +5) 부드러운 전환 유도
-        % 부호 반전 시(-5 -> +5) 부드러운 전환 유도
-        MaxSlewRate = 2000;      % 기본값: 초당 2000A (매우 빠름, 필요 시 낮출 것)
+        % [NEW] Reference Slew Rate (GA 최적화용: 비활성화)
+        % GA는 Step 응답에 대한 극한 성능을 테스트해야 하므로 Slew Rate를 끕니다.
+        % 실제 구동 시 필요하면 2000 등으로 복구하세요.
+        MaxSlewRate = inf;      % 기본값: inf (비활성화)
         
         % [NEW] 전압 센싱 필터 시정수 (Disturbance Rejection)
-        % 전압 급변 시 피드포워드가 너무 민감하게 반응하지 않도록 완충
-        % [NEW] 전압 센싱 필터 시정수 (Disturbance Rejection)
-        % 전압 급변 시 표드포워드 및 제어기가 너무 민감하게 반응하지 않도록 대폭 완화
-        Tau_Voltage_Filter = 30e-3; % 30ms (피드포워드 진동 억제를 위해 시정수 강화)
+        Tau_Voltage_Filter = 30e-3; % 30ms
         
-        % [NEW] Dead Zone & Gain Scheduling Params
-        DeadZone = 0.5;         % 불감대: 0.5A 이내의 오차는 0으로 처리 (진동 방지)
-        GainSched_Threshold = 2.0; % 게인 스케줄링 임계값 (2A)
-        GainSched_Factor = 0.4;    % 임계값 이내일 때 적용할 게인 비율 (40%)
+        % [NEW] Dead Zone & Gain Scheduling (GA 최적화용: 비활성화)
+        % 정밀 튜닝을 위해 비선형 요소 제거 (순수 PI 성능 평가)
+        DeadZone = 0;           % 0 (OFF)
+        GainSched_Threshold = 2.0; 
+        GainSched_Factor = 1.0;    % 1.0 (OFF - 항상 100% 게인 사용)
         
         % [NEW] Soft Start Time
         SoftStartTime = 0.2;    % 0.2초 동안 서서히 피드포워드 증가
@@ -76,6 +73,17 @@ classdef DAB_Controller_System < matlab.System
         % 상용 제품의 Soft Change 모사 (DC 바이어스 및 과도 전류 방지)
         % 30,000 deg/s -> 30 deg/ms -> 90도 변화에 약 3ms 소요
         MaxPhaseRate = 30000;   % deg/s
+
+        % [NEW] Smart BMS Thresholds (26S Li-ion Spec)
+        % Cell: Nominal 3.7V / Max 4.2V
+        V_Pack_Max = 109.2;     % 100% (4.2V * 26) - Absolute Max
+        V_CV_Start = 108.0;     % ~98% (CV Mode Entry Voltage)
+        V_ESS_Limit = 93.0;     % 20% (ESS Reserve Limit)
+        V_UPS_Limit = 87.0;     % 5% (UPS Deep Discharge Limit)
+        V_Min_Limit = 84.0;     % 0% (Shutdown Voltage)
+        
+        K_CV = 5.0;             % CV Control Gain (A/V)
+                                % V_err = 0.5V -> Current Limit = 2.5A
     end
 
     properties
@@ -92,18 +100,24 @@ classdef DAB_Controller_System < matlab.System
         Integrator_v;       % 전압 PI 적분항 (UPS 모드)
         PowerLossState;     % 0: 정상(ESS), 1: 정전(UPS)
         PreviousMode;       % 이전 모드 (전환 감지용)
-        I_fb_filtered;      % 전류 피드백 필터링용 상태변수
+
 
         I_ref_ramped;       % [NEW] 슬루 레이트 적용된 내부 전류 지령치
         V_HV_Filtered;      % [NEW] 필터링된 HV 전압
         V_LV_Filtered;      % [NEW] 필터링된 LV 전압
         
         % [NEW] Feedforward Downsampling
-        FeedforwardUpdateTimer; % 피드포워드 갱신 타이머
+        % FeedforwardUpdateTimer; % [REMOVED] 즉시 반영으로 변경됨
         Last_Phi_FF;            % 마지막으로 계산된 피드포워드 값 유지
         
         % [NEW] Phase Output Memory for Rate Limiting
         Prev_Phi_Output;        % 이전 스텝 위상 출력값
+        
+        % [NEW] High-Speed Moving Average Properties
+        I_Buffer;               % [125x1] Circular Buffer (1 Switching Cycle @ 10MHz)
+        BufferIdx;              % Current Index
+        I_Sum;                  % Running Sum for O(1) Averaging
+        ControlCheckDone;       % [NEW] Parameter check flag
     end
 
     % =========================================================================
@@ -117,15 +131,22 @@ classdef DAB_Controller_System < matlab.System
             obj.Integrator_v = 0;
             obj.PowerLossState = 0; % 초기엔 정상 상태 가정
             obj.PreviousMode = 0;
-            obj.I_fb_filtered = 0;
+
 
             obj.I_ref_ramped = 0; % [NEW] 램프 지령치 초기화
             obj.V_HV_Filtered = 0;
             obj.V_LV_Filtered = 0;
             
-            obj.FeedforwardUpdateTimer = 0;
+            % obj.FeedforwardUpdateTimer = 0; % [REMOVED]
             obj.Last_Phi_FF = 0;
             obj.Prev_Phi_Output = 0;
+            
+            % Initialize Moving Average Filter (Window Size = 125)
+            % 12.5us (1 Cycle) / 0.1us (Sample) = 125 Samples
+            obj.I_Buffer = zeros(125,1);
+            obj.BufferIdx = 1;
+            obj.I_Sum = 0;
+            obj.ControlCheckDone = 0;
         end
 
     function [phi1_deg, phi3_deg, phi5_deg, phi7_deg, mode_active, status_flag, ...
@@ -140,7 +161,15 @@ classdef DAB_Controller_System < matlab.System
             % 0.001초까지는 제어기 동작 중지 및 출력 0 고정
             % 시뮬레이션 초기 과도 상태 및 수렴 실패 방지
             t_current = getCurrentTime(obj);
+            
+            % [DEBUG] Verify Parameter Passing (Check at 5ms) - Executes ONCE
+            if obj.ControlCheckDone == 0 && t_current >= 0.005
+                 fprintf('>> [CTRL CHECK] Time=%.6f, Kp_ext=%.4f, Ki_ext=%.4f\n', t_current, Kp_ext, Ki_ext);
+                 obj.ControlCheckDone = 1;
+            end
+
             if t_current < 0.001
+
                 % [출력 강제 0 할당]
                 phi1_deg = 0; phi3_deg = 180; % SPS 기본 위상
                 phi5_deg = 0; phi7_deg = 180; % 외부 위상 0
@@ -166,7 +195,7 @@ classdef DAB_Controller_System < matlab.System
                 % 필터 상태변수는 현재 값으로 추적 (단절 방지)
                 obj.V_HV_Filtered = V_HV;
                 obj.V_LV_Filtered = V_LV;
-                obj.I_fb_filtered = I_LV;
+
                 return;
             end
 
@@ -207,11 +236,30 @@ classdef DAB_Controller_System < matlab.System
                  % 모드 변경 로깅이나 플래그 처리만 수행 (필요 시)
             end
             
-            % [NEW] Feedback LPF (Stronger)
-            % 스위칭 노이즈 제거를 위해 필터 강화 (alpha: 0.5 -> 0.1)
-            alpha_lpf = 0.04; % [Modified] 0.1 -> 0.04 (노이즈 억제 강화) 
-            obj.I_fb_filtered = (1-alpha_lpf)*obj.I_fb_filtered + alpha_lpf*I_LV;
-            I_fb_clean = obj.I_fb_filtered;
+            % [NEW] High-Speed Moving Average Filter (Oversampling)
+            % 10MHz 샘플링 (0.1us) 기준, 80kHz (12.5us) 리플 제거를 위해
+            % 125개의 샘플을 평균내야 함. (12.5 / 0.1 = 125)
+            % O(1) 복잡도의 Running Sum 방식으로 구현.
+            
+            % 1. 오래된 값 제거 (Running Sum 업데이트)
+            old_val = obj.I_Buffer(obj.BufferIdx);
+            obj.I_Sum = obj.I_Sum - old_val;
+            
+            % 2. 새로운 값 추가
+            obj.I_Buffer(obj.BufferIdx) = I_LV;
+            obj.I_Sum = obj.I_Sum + I_LV;
+            
+            % 3. 인덱스 증가 (Circular Buffer)
+            obj.BufferIdx = obj.BufferIdx + 1;
+            if obj.BufferIdx > 125
+                obj.BufferIdx = 1;
+            end
+            
+            % 4. 평균 계산
+            I_fb_clean = obj.I_Sum / 125;
+            
+            % 필터링된 값 저장 (모니터링용)
+
             
             % --- 4. 모드별 기준 전류/피드백 선택 ---
             if obj.PowerLossState == 0
@@ -220,10 +268,9 @@ classdef DAB_Controller_System < matlab.System
                 %---------------------------
                 mode_active = 3;
                 status_flag = 0;
-
                 % ESS: I_ess_cmd 그대로 사용 (±I_ESS_Max 제한)
                 Iref = max(-obj.I_ESS_Max, min(obj.I_ESS_Max, I_ess_cmd));
-                I_fb = I_fb_clean; % 필터링된 배터리 전류 사용
+                I_fb = I_fb_clean; 
 
             else
                 %---------------------------
@@ -231,90 +278,130 @@ classdef DAB_Controller_System < matlab.System
                 %---------------------------
                 mode_active = 1;
                 status_flag = 1;
-
-                % *** Cascade 제어: 전압 외부루프 → 전류 지령 생성 ***
-                % HV 전압을 V_HV_Ref (380V)로 정확히 유지
-                % V_HV < 380V (부족) → 방전 필요 → I_ups_cmd > 0 (양수, 방전)
-                % V_HV > 380V (과잉) → 충전 필요 → I_ups_cmd < 0 (음수, 충전)
+                % ... (UPS Logic Skipped for Brevity - Keeping Existing Logic) ...
                 
-                % [논리 확인]
-                % err_v = Ref - Meas
-                % 예: 380 - 370 = +10V (부족) -> Kp * (+10) -> +I_cmd (방전) -> OK
-                err_v = obj.V_HV_Ref - V_HV_Control; % 안정된 전압 사용
-                
-                % [Voltage Loop Anti-Windup: Clamping]
-                % 1. 가비지 적분값 및 예상 출력 계산
+                % [Re-implement UPS Logic Inline for safety if needed, 
+                % but assuming replace hits correctly, just link variables]
+                err_v = obj.V_HV_Ref - V_HV_Control;
                 temp_int_v = obj.Integrator_v + err_v * Ts;
                 temp_I_cmd = Kpv * err_v + Kiv * temp_int_v;
                 
-                % 2. 포화 여부 확인 및 적분 업데이트
                 if temp_I_cmd > obj.I_UPS_Max
-                    % 상한 포화: 오차가 줄어드는 방향(음수)일 때만 적분 허용
-                    if err_v < 0
-                        obj.Integrator_v = temp_int_v;
-                    end
-                    I_ups_cmd = obj.I_UPS_Max; % 출력 제한
+                    if err_v < 0, obj.Integrator_v = temp_int_v; end
+                    I_ups_cmd = obj.I_UPS_Max;
                 elseif temp_I_cmd < -obj.I_UPS_Max
-                    % 하한 포화: 오차가 줄어드는 방향(양수)일 때만 적분 허용
-                    if err_v > 0
-                        obj.Integrator_v = temp_int_v;
-                    end
-                    I_ups_cmd = -obj.I_UPS_Max; % 출력 제한
+                     if err_v > 0, obj.Integrator_v = temp_int_v; end
+                     I_ups_cmd = -obj.I_UPS_Max;
                 else
-                    % 비포화 구간: 정상 적분
                     obj.Integrator_v = temp_int_v;
                     I_ups_cmd = temp_I_cmd;
                 end
-
                 Iref = I_ups_cmd;
-                I_fb = I_fb_clean; % 필터링된 LV 전류 기준으로 제어
+                I_fb = I_fb_clean;
             end
             
-            % [MODIFIED] Slew Rate Limiter (지령치 완충)
-            % 급격한 지령 변화(예: -5A -> +5A)를 잘게 쪼개서 추종
+            % --- 4.5. [NEW] Smart BMS Logic (Double Safety Layer) ---
+            % "경비원 역할": 전압 한계 상황에서만 개입하여 Iref를 강제 조정
+            % 리플 영향을 피하기 위해 필터링된 전압(obj.V_LV_Filtered) 사용
+            
+            v_batt = obj.V_LV_Filtered;
+            I_safe = Iref; % 기본값은 Pass-Through
+            
+            if Iref < 0 
+                % ---------------------------------------------------------
+                % [A] 충전 모드 (Charging Loop)
+                % ---------------------------------------------------------
+                if v_batt >= obj.V_Pack_Max
+                    % 1. 과전압 보호 (Hard Cut)
+                    I_safe = 0;
+                    
+                elseif v_batt >= obj.V_CV_Start
+                    % 2. CV 제어 (Soft Landing)
+                    % 전압이 108V를 넘으면 전류 제한폭(Limit)을 생성
+                    % Limit = (109.2 - Current_V) * Gain
+                    I_limit_cv = (obj.V_Pack_Max - v_batt) * obj.K_CV;
+                    
+                    % 충전은 음수이므로, 절대값이 작은 쪽을 선택 (0에 가깝게)
+                    % 지령: -10A, 제한: 2A -> -2A 선택
+                    I_safe = max(Iref, -1 * I_limit_cv);
+                else
+                    % 3. CC 모드 (자유 충전)
+                    I_safe = Iref;
+                end
+                
+                % [Optional] 완전 만충 시 미세 전류 차단 (Cut-off)
+                if abs(I_safe) < 0.1 && v_batt > obj.V_CV_Start
+                    I_safe = 0;
+                end
+                
+            elseif Iref > 0
+                % ---------------------------------------------------------
+                % [B] 방전 모드 (Discharging Loop)
+                % ---------------------------------------------------------
+                if obj.PowerLossState == 0 
+                    % [Situation 1] ESS 모드 (평상시)
+                    % 목표: 비상시를 대비해 20% 잔량은 무조건 남겨둠
+                    if v_batt < obj.V_ESS_Limit
+                        I_safe = 0; % Reserve Hit! 방전 중단
+                    else
+                        I_safe = Iref;
+                    end
+                else
+                    % [Situation 2] UPS 모드 (비상시)
+                    % 목표: 0%가 될 때까지 쥐어짜되, 5% 밑에선 살살(Derating)
+                    if v_batt < obj.V_Min_Limit
+                        I_safe = 0; % 0% 도달 -> 시스템 셧다운 (보호)
+                    elseif v_batt < obj.V_UPS_Limit
+                        % 5% ~ 0% 구간: Derating
+                        % 87V일 때 Factor=1.0, 84V일 때 Factor=0.0
+                        derating_factor = (v_batt - obj.V_Min_Limit) / (obj.V_UPS_Limit - obj.V_Min_Limit);
+                        
+                        % 30A 명령 -> 15A 등 비율 축소
+                        I_safe = Iref * derating_factor;
+                    else
+                        I_safe = Iref;
+                    end
+                end
+            end
+            
+            % 최종적으로 안전해진 전류 지령 확정
+            Iref = I_safe;
+            
+            % [MODIFIED] Slew Rate Limiter
             I_target = Iref; 
-            max_step = obj.MaxSlewRate * Ts;
-            
-            delta_I = I_target - obj.I_ref_ramped;
-            
-            if abs(delta_I) > max_step
-                % 제한폭보다 크면 제한폭만큼만 이동
-                obj.I_ref_ramped = obj.I_ref_ramped + sign(delta_I) * max_step;
+            if isinf(obj.MaxSlewRate)
+                 obj.I_ref_ramped = I_target; % 즉시 반영
             else
-                % 제한폭 이내면 바로 도달
-                obj.I_ref_ramped = I_target;
+                max_step = obj.MaxSlewRate * Ts;
+                delta_I = I_target - obj.I_ref_ramped;
+                if abs(delta_I) > max_step
+                    obj.I_ref_ramped = obj.I_ref_ramped + sign(delta_I) * max_step;
+                else
+                    obj.I_ref_ramped = I_target;
+                end
             end
             
             % 출력 및 제어에는 '부드러워진' 지령치 사용
             I_cmd_out = obj.I_ref_ramped;
 
             % --- 5. 전류 PI → 외부 위상(phi_ext_deg) ---
-            % [부호 규약 적용]
-            % 목표: I_ref > 0 (방전) --> Phi < 0 (Secondary -> Primary)
             % [MODIFIED] 1. Dead Zone (불감대) 적용
             raw_err = obj.I_ref_ramped - I_fb;
             if abs(raw_err) < obj.DeadZone
-                err_ext = 0; % 오차가 작으면 무시 (리플에 의한 발진 차단)
+                err_ext = 0; 
             else
-                % 오차의 연속성을 위해 데드존만큼 빼줌 (Smooth)
                 err_ext = raw_err - sign(raw_err) * obj.DeadZone;
             end
             
-            % [New] Feedforward Calculation (Downsampled to 5ms)
-            % 매 스텝 계산하면 리플에 민감하므로, 0.005초마다 갱신
-            FF_Update_Period = 0.005; 
-            obj.FeedforwardUpdateTimer = obj.FeedforwardUpdateTimer + Ts;
-            
-            if obj.FeedforwardUpdateTimer >= FF_Update_Period
-                % 타이머 만료 시에만 새로 계산
-                if obj.EnableFF && abs(V_HV_Control) > 10
-                    K_ff = (2 * obj.L_leakage * obj.Fs * 180) / V_HV_Control;
-                    % [MODIFIED] 지령치가 아닌 'Ramped' 지령치를 사용하여 스텝 응답 시 FF 점프 방지
-                    obj.Last_Phi_FF = -1 * obj.I_ref_ramped * K_ff; 
-                else
-                     obj.Last_Phi_FF = 0;
-                end
-                obj.FeedforwardUpdateTimer = 0; % 리셋
+            % [Modified] Feedforward Calculation (Instant Update)
+            % 5ms 타이머 제거 -> 매 샘플마다 즉각 계산 (지연 제거)
+            % 에러 발생 즉시 FF가 반응하여 PI 부담 경감
+            if obj.EnableFF && abs(V_HV_Control) > 10
+                K_ff = (2 * obj.L_leakage * obj.Fs * 180) / V_HV_Control;
+                % FF도 Ramped 지령치 기반으로 계산 (부드러운 전변)
+                obj.Last_Phi_FF = -1 * obj.I_ref_ramped * K_ff; 
+            else
+                 obj.Last_Phi_FF = 0;
             end
             
             % [Modified] Soft Start Logic 적용
@@ -509,8 +596,13 @@ classdef DAB_Controller_System < matlab.System
             obj.Integrator_v = 0;
             obj.PowerLossState = 0;
             obj.PreviousMode = 0;
-            obj.I_fb_filtered = 0;
+
             obj.Prev_Phi_Output = 0;
+            
+            obj.I_Buffer = zeros(125,1);
+            obj.BufferIdx = 1;
+            obj.I_Sum = 0;
+            obj.ControlCheckDone = 0;
         end
         
         % --- 출력 개수 지정 ---
@@ -563,19 +655,26 @@ classdef DAB_Controller_System < matlab.System
                     sz = [1 1]; dt = 'double'; cp = false;
                 case 'PreviousMode'
                     sz = [1 1]; dt = 'double'; cp = false;
-                case 'I_fb_filtered'
-                    sz = [1 1]; dt = 'double'; cp = false;
+
                 case 'I_ref_ramped'
                     sz = [1 1]; dt = 'double'; cp = false;
                 case 'V_HV_Filtered'
                     sz = [1 1]; dt = 'double'; cp = false;
                 case 'V_LV_Filtered'
                     sz = [1 1]; dt = 'double'; cp = false;
-                case 'FeedforwardUpdateTimer'
-                    sz = [1 1]; dt = 'double'; cp = false;
+                % case 'FeedforwardUpdateTimer'
+                %    sz = [1 1]; dt = 'double'; cp = false;
                 case 'Last_Phi_FF'
                     sz = [1 1]; dt = 'double'; cp = false;
                 case 'Prev_Phi_Output'
+                    sz = [1 1]; dt = 'double'; cp = false;
+                case 'I_Buffer'
+                    sz = [125 1]; dt = 'double'; cp = false;
+                case 'BufferIdx'
+                    sz = [1 1]; dt = 'double'; cp = false;
+                case 'I_Sum'
+                    sz = [1 1]; dt = 'double'; cp = false;
+                case 'ControlCheckDone'
                     sz = [1 1]; dt = 'double'; cp = false;
                 otherwise
                     error(['Unknown state: ', name]);

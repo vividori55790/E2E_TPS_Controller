@@ -152,3 +152,27 @@ dir('.\slprj\_jitprj\*.mat')  % 최근 수정된 파일 확인
 **생성일**: 2026-01-23  
 **버전**: 2.0  
 **변경 사유**: 자동 저장 기능 추가로 데이터 손실 방지
+
+---
+
+## 2026-01-27 업데이트: 평가 로직 전면 수정 (Metrics Refinement)
+
+### 🎯 주요 변경 사항
+
+1.  **전류 평가 방식 변경 (Current Evaluation)**
+    - **기존**: Ripple을 포함한 ISE/ITAE 평가 (Ripple 때문에 오차가 커 보임)
+    - **변경**: **Moving Average(이동 평균)** 필터를 적용하여, 리플을 제거한 평균값이 지령치를 잘 따라가는지만 평가.
+    - 리플에 대한 페널티 대폭 축소 (0.01배).
+
+2.  **위상 제어 평가 추가 (Phase Analysis)**
+    - 전류 대신 **위상(Phase) 신호**의 동적 특성을 평가 요소로 추가.
+    - **Phase Oscillation**: 위상이 수렴하지 않고 진동하는지 감시 (가장 큰 가중치).
+    - **Phase Overshoot**: 위상의 급격한 오버슈트 평가.
+    - **Phase Settling Time**: 위상이 얼마나 빨리 안정화되는지 평가.
+
+3.  **Cost Function 가중치 재조정**
+    - `Cost_Ripple` ↓ (축소)
+    - `Cost_Phase_Stability` (Oscillation, Settling, Overshoot) ↑ (신설 및 강화)
+    - `Cost_Tracking` (Mean Current) ↔ (유지, 핵심 평가 요소)
+
+이 변경으로 GA는 전류의 평균값을 정확히 맞추면서, 내부적으로 위상이 흔들리지 않고 안정적으로 수렴하는 제어기를 탐색합니다.

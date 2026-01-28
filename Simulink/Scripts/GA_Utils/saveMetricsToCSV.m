@@ -3,8 +3,12 @@ function saveMetricsToCSV(metricsFile, evalNum, Kp, Ki, cost, metrics, valid, ca
     if nargin < 8, cached = false; end
     
     % [PARALLEL SAFETY] 파일 접근 재시도 로직 (최대 5회)
-    maxRetries = 5;
+    % [PARALLEL SAFETY] 파일 접근 재시도 로직 (Enhanced)
+    % fopen은 병렬 워커들끼리 경쟁할 때 자주 실패함.
+    % 재시도 횟수를 늘리고, 랜덤 대기 시간을 조금 더 길게 가져감.
+    maxRetries = 50; % [Increased] 5 -> 50 (충돌 시 확실히 대기)
     csvID = -1;
+    
     for i = 1:maxRetries
         try
             csvID = fopen(metricsFile, 'a');
@@ -12,9 +16,12 @@ function saveMetricsToCSV(metricsFile, evalNum, Kp, Ki, cost, metrics, valid, ca
                 break; % 성공 시 루프 탈출
             end
         catch
-            % 파일 열기 실패 시 대기
+            % 파일 열기 실패
         end
-        pause(0.01 + rand() * 0.05); % 10ms ~ 60ms 랜덤 대기 (충돌 분산)
+        % Exponential Backoff + Jitter
+        % i가 커질수록 대기 시간 증가 (최대 0.1초)
+        delay = 0.005 + rand() * (0.005 * i); 
+        pause(delay);
     end
     
     if csvID > 0

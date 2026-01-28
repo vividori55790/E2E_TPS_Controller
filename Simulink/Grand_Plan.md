@@ -162,6 +162,6 @@
 ## 실행 순서 (Action Plan)
 
 1.  **[완료]**: Phase 1-1 배터리 등가 회로 구현 및 모델링 적용
-2.  **[진행 중]**: Phase 4-1 GA 최적화 스크립트 실행 및 **SPS 제어기 튜닝**
-3.  **[다음 예정]**: Phase 2 (BMS) & Phase 3 (Protection) 로직 통합 구현
+2.  **[보류]**: Phase 4-1 GA 최적화 (파라미터 전달 문제로 일시 중단)
+3.  **[다음 예정 - 최우선]**: Phase 2 (BMS) & Phase 3 (Protection) 로직 통합 구현
 4.  **[미래]**: Phase 5 TPS/HDC (Deep Learning 기반 제어) 연구 및 구현

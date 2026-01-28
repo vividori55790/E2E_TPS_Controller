@@ -174,9 +174,10 @@ function GA_Optimize_Controller()
 
     %% 4. GA 설정
     nVars = 2;  % [Kp, Ki]
-    % 파라미터 범위 확대: 더 넓은 탐색 공간
-    lb = [0.001, 0.1];       % 하한: Kp_min, Ki_min
-    ub = [100.0, 10000.0];   % 상한: Kp_max, Ki_max
+    % 파라미터 범위 수정 (Saturation 방지)
+    % 기존 [100, 10000]은 너무 커서 제어기가 포화(90도)되고, 결과가 똑같아짐(Cost Stagnation 원인)
+    lb = [0.001, 0.1];       % 하한
+    ub = [5.0, 500.0];       % 상한 (현실적인 범위로 축소)
     
     % 전역 변수로 평가 카운터 및 데이터 저장
     evalData = struct();
@@ -195,31 +196,41 @@ function GA_Optimize_Controller()
         'MaxGenerations', maxGen, ...
         'MaxStallGenerations', 10, ...
         'FunctionTolerance', 1e-6, ... 
-        'InitialPopulationRange', [lb; ub], ...
+        'InitialPopulationRange', [0.01, 10; 2.0, 100], ... % [MODIFIED] 초기 탐색을 선형 영역으로 유도
         'CrossoverFraction', 0.8, ...
-        'SelectionFcn', @selectiontournament, ...
-        'Display', 'iter', ...
-        'UseParallel', true, ... % [ENABLED] 병렬 처리 활성화
+        'SelectionFcn', @selectionroulette, ... 
+        'Display', 'off', ... 
+        'UseParallel', true, ... 
         'PlotFcn', [], ...
         'OutputFcn', @(options, state, flag) gaOutputFcn(options, state, flag, ...
             saveFile, logFile, modelName, RefCurrentTS, SIM_TIME, STEP_TIME, STEP_MAGNITUDE, ...
             figHandle, ax1, ax2, ax3, metricsFile, maxGen, cacheFile));
     
     writeLog(logFile, sprintf('GA Settings: PopSize=%d, MaxGen=%d, UseParallel=TRUE', popSize, maxGen));
+    writeLog(logFile, 'Selection: Roulette Wheel (Exploration Focused)');
+
     writeLog(logFile, sprintf('Search bounds: Kp=[%.4f, %.2f], Ki=[%.2f, %.2f]', lb(1), ub(1), lb(2), ub(2)));
     writeLog(logFile, sprintf('Step Input: Bidirectional (+%.1fA -> %.1fA -> +%.1fA)', CMD_LEVEL_HIGH, CMD_LEVEL_LOW, CMD_LEVEL_HIGH));
     
     %% 5. GA 실행 (with Pre-flight Check)
     disp(' ');
     disp('>>> 4.5. Pre-flight Check (Dry Run)...');
-    % 비용 함수 정의
-    costFcn = @(x) evaluateCostWithMetrics(x, modelName, RefCurrentTS, SIM_TIME, STEP_TIME, metricsFile, figHandle);
+    
+    % [NEW] Parallel DataQueue 설정 (Centralized Logging)
+    % Worker들이 데이터를 보내면 Master가 받아서 CSV에 씁니다.
+    DQueue = parallel.pool.DataQueue;
+    afterEach(DQueue, @(data) logWorkerData(metricsFile, data));
+    
+    % 비용 함수 정의 (DataQueue 전달)
+    costFcn = @(x) evaluateCostWithMetrics(x, modelName, RefCurrentTS, SIM_TIME, STEP_TIME, metricsFile, figHandle, DQueue);
 
     try
         % Dry Run: 안전한 파라미터로 1회 실행하여 모든 기능(Simulink, 파라미터, CSV 등) 점검
         dryRunParams = [1.0, 100.0];
         fprintf('    Running single simulation to verify system integrity (Kp=1, Ki=100)...\n');
-        dryCost = evaluateCostWithMetrics(dryRunParams, modelName, RefCurrentTS, SIM_TIME, STEP_TIME, metricsFile, figHandle);
+        
+        % Dry Run에서는 Queue가 있어도 동작하지만, 단일 실행이므로 직접 리턴값 확인
+        dryCost = evaluateCostWithMetrics(dryRunParams, modelName, RefCurrentTS, SIM_TIME, STEP_TIME, metricsFile, figHandle, DQueue);
         fprintf('    >>> [SUCCESS] Pre-flight Check Passed! (Cost: %.4f)\n', dryCost);
         fprintf('    >>> Now starting massive parallel optimization...\n');
     catch ME
@@ -231,8 +242,9 @@ function GA_Optimize_Controller()
 
     disp(' ');
     disp('>>> Starting GA Optimization...');
-    disp('>>> 매 세대마다 Best Individual의 성능 지표가 출력됩니다.');
+    disp('>>> Generation 1 is calculating... (Please wait)');
     disp(' ');
+
     writeLog(logFile, 'Starting GA optimization...');
     
     t_start = tic;
@@ -465,7 +477,7 @@ end
 %% =========================================================================
 %  비용 함수 (성능 지표 계산 + CSV 저장)
 %  =========================================================================
-function cost = evaluateCostWithMetrics(params, modelName, RefCurrentTS, simTime, stepTime, metricsFile, figHandle)
+function cost = evaluateCostWithMetrics(params, modelName, RefCurrentTS, simTime, stepTime, metricsFile, figHandle, DQueue)
     % [CHECK STOP] - 안전 종료 (GUI 접근은 Client에서만 수행)
     if ~isempty(figHandle) && isempty(getCurrentTask())
         if isvalid(figHandle)
@@ -474,6 +486,21 @@ function cost = evaluateCostWithMetrics(params, modelName, RefCurrentTS, simTime
                 error('UserStop:Request', 'Optimization stopped by user.');
             end
         end
+    end
+    
+    % [PARALLEL STABILITY] Worker별 독립 빌드 폴더 설정 (충돌 방지)
+    persistent isWorkerConfigured
+    if isempty(isWorkerConfigured)
+        task = getCurrentTask();
+        if ~isempty(task)
+            myTempDir = fullfile(tempdir, sprintf('GADAB_Worker_%d', task.ID));
+            if ~exist(myTempDir, 'dir'), mkdir(myTempDir); end
+            try
+                Simulink.fileGenControl('set', 'CacheFolder', myTempDir, 'CodeGenFolder', myTempDir, 'createDir', true);
+            catch
+            end
+        end
+        isWorkerConfigured = true;
     end
 
     persistent evalCount
@@ -485,14 +512,21 @@ function cost = evaluateCostWithMetrics(params, modelName, RefCurrentTS, simTime
     Kp = params(1);
     Ki = params(2);
     
+    % [debug] Worker Log (First few only)
+    % [debug] Worker Log (First few only)
+    task = getCurrentTask();
+    workerID = 0;
+    if ~isempty(task), workerID = task.ID; end
+    
+    % Always print for debugging the "Identical Cost" issue
+    fprintf('[Worker %d] Simulating: Kp=%.4f, Ki=%.4f (Eval #%d)\n', workerID, Kp, Ki, evalCount);
+
     % [CACHE CHECK]
-    % 소수점 4자리까지만 유효한 Key로 사용 (미세한 부동소수점 차이 무시)
     cacheKey = sprintf('%.4f_%.4f', Kp, Ki);
     cachedResult = [];
     isCached = false;
     
     try
-        % base 워크스페이스의 Map에 접근 (가장 속도가 빠름)
         GA_Cache_Map = evalin('base', 'GA_Cache_Map');
         if isKey(GA_Cache_Map, cacheKey)
             cachedResult = GA_Cache_Map(cacheKey);
@@ -500,215 +534,195 @@ function cost = evaluateCostWithMetrics(params, modelName, RefCurrentTS, simTime
             metrics = cachedResult.Metrics;
             isCached = true;
             
-            % 캐시 히트 시 로그 최소화 (너무 빠르면 출력 버퍼 밀림)
-            if mod(evalCount, 50) == 0
-                 fprintf('.');
+            % [DATA QUEUE] 캐시된 데이터도 로깅을 위해 Master로 전송
+            if nargin >= 8 && ~isempty(DQueue)
+                logData = struct('EvalNum', evalCount, 'Kp', Kp, 'Ki', Ki, 'Cost', cost, ...
+                                 'Metrics', metrics, 'IsCached', true, 'IsValid', true);
+                send(DQueue, logData);
             end
-            
-            % CSV 저장 (캐시됨 표시)
-            saveMetricsToCSV(metricsFile, evalCount, Kp, Ki, cost, metrics, false, true);
             return;
         end
     catch
-        % [PARALLEL WORKER SUPPORT]
-        % Worker의 Base Workspace에 맵이 없으면 생성 (첫 실행 시)
-        % 주의: Worker 간 캐시 공유는 안 되지만, 동일 Worker 내 재사용은 가능
-        try
-            GA_Cache_Map = containers.Map('KeyType', 'char', 'ValueType', 'any');
-            assignin('base', 'GA_Cache_Map', GA_Cache_Map);
-        catch
-        end
+        % Worker workspace handling
     end
     
-    
-    % [CLEAN FIX] Use Simulink.SimulationInput for isolated parallel execution
-    % This avoids 'assignin' race conditions and handles file artifacts better.
-    
-    in = Simulink.SimulationInput(modelName);
-    in = in.setModelParameter('StopTime', num2str(simTime));
-    in = in.setModelParameter('SimulationMode', 'normal');
-    in = in.setModelParameter('FastRestart', 'off');
-    
-    % --- Set Variables (Replaces assignin) ---
-    % Control Parameters
-    in = in.setVariable('Kp_ext', Kp);
-    in = in.setVariable('Ki_ext', Ki);
-    
-    % TimeSeries Construction
-    t_gain = [0, simTime];
-    Ref_Kp_ext = timeseries([Kp, Kp], t_gain);
-    Ref_Ki_ext = timeseries([Ki, Ki], t_gain);
-    
-    in = in.setVariable('Ref_Kp_ext', Ref_Kp_ext);
-    in = in.setVariable('Ref_Ki_ext', Ref_Ki_ext);
-    
-    % Reference & Voltage
-    in = in.setVariable('Ref_I_ess_cmd', RefCurrentTS);
-    
-    % Voltage Source Extension
-    Ref_VH_Extended = timeseries([380, 380], [0, simTime]);
-    in = in.setVariable('Ref_VH', Ref_VH_Extended);
-    
-    % Safety fallback for V_init (if not in workspace)
-    % Note: SimulationInput.setVariable overrides workspace variables.
-    % We blindly set these if we suspect they might be missing or need resetting.
-    % If Create_Scenario ran on client, workers might miss it unless 'parpool' synced it.
-    % To be safe, we set defaults if they are not standard constants.
-    in = in.setVariable('V_init_LV', 96);
-    in = in.setVariable('V_batt', 96);
+    % [CRITICAL FIX] Ensure Model is Loaded
+    if ~bdIsLoaded(modelName)
+        load_system(modelName);
+    end
 
-    % --- Run Simulation ---
+    % [FUNDAMENTAL FIX] Variable Injection Strategy (SimulationInput ONLY)
+    % Parallel workers run in their own isolated MATLAB sessions. 
+    % Relying on 'assignin' to Base/Model workspace is flaky.
+    % The only 100% reliable method is to pack EVERYTHING upon the SimulationInput object.
+    
+    % Extend time range
+    t_gain = [-1, simTime + 1.0];
+    Ref_Kp_ext_Val = timeseries([Kp, Kp], t_gain);
+    Ref_Ki_ext_Val = timeseries([Ki, Ki], t_gain);
+    Ref_VH_Val = timeseries([380, 380], t_gain); 
+
     try
+        % 1. Create Simulation Input Object
+        in = Simulink.SimulationInput(modelName);
+        
+        % 2. Set Model Configuration
+        in = in.setModelParameter('StopTime', num2str(simTime));
+        in = in.setModelParameter('SimulationMode', 'normal'); 
+        in = in.setModelParameter('FastRestart', 'off'); 
+        
+        % 3. Mask & Workspace Variables (Crucial Step)
+        % These variables are injected into the model's "Global Workspace" overlay
+        in = in.setVariable('Ref_Kp_ext', Ref_Kp_ext_Val);
+        in = in.setVariable('Ref_Ki_ext', Ref_Ki_ext_Val);
+        in = in.setVariable('Ref_I_ess_cmd', RefCurrentTS);
+        in = in.setVariable('Ref_VH', Ref_VH_Val);
+        
+        % [CRITICAL] Control Gains (Optimized + Fixed)
+        in = in.setVariable('Kp_ext', Kp);
+        in = in.setVariable('Ki_ext', Ki);
+        in = in.setVariable('Kpv', 0.1);  % UPS Voltage P Gain
+        in = in.setVariable('Kiv', 10.0); % UPS Voltage I Gain
+        
+        % [CRITICAL] Circuit Parameters (Must match Create_Scenario.m)
+        in = in.setVariable('V_init_LV', 96);
+        in = in.setVariable('V_batt', 96);
+        in = in.setVariable('C_HV', 1000e-6);
+        in = in.setVariable('R_ESR_HV', 0.05);
+        in = in.setVariable('R_ESR_LV', 0.01);
+        in = in.setVariable('R_batt_int', 0.15);
+        
+        % [FALLBACK] Direct Base Workspace Injection for Workers
+        % Some Simulink masks/callbacks might peek at 'base' directly.
+        assignin('base', 'Kp_ext', Kp);
+        assignin('base', 'Ki_ext', Ki);
+        assignin('base', 'Kpv', 0.1);
+        assignin('base', 'Kiv', 10.0);
+        assignin('base', 'V_batt', 96);
+        assignin('base', 'C_HV', 1000e-6);
+        assignin('base', 'R_ESR_HV', 0.05);
+        
+        % 4. Run Simulation
+        % 'parsim' is better, but inside 'parfor' or GA worker, 'sim' on the input object is correct.
         simOut = sim(in);
         
-        % Extract signals (Handle SimulationOutput object)
-        if simOut.ErrorMessage
-             error(simOut.ErrorMessage);
+        % 5. Check Output
+        if isempty(simOut) || (isprop(simOut,'ErrorMessage') && ~isempty(simOut.ErrorMessage))
+             error('Simulation returned empty or error.');
         end
         
         [t, I_meas, phi, v_high, i_ind] = extractSimulationSignals(simOut);
         I_ref = resampleReference(RefCurrentTS, t);
-        validSim = true;
         
     catch ME
-        % If sim(in) fails, it's a hard error usually.
         errMsg = ME.message;
         if isprop(ME, 'cause') && ~isempty(ME.cause)
              errMsg = [errMsg ' Cause: ' ME.cause{1}.message];
         end
-        fprintf('>>> Simulation Failed (SIMULINK_INPUT): %s\n', errMsg);
-        
+        fprintf('>>> Simulation Failed (Kp=%.2f, Ki=%.2f): %s\n', Kp, Ki, errMsg);
         cost = 1e6;
-        saveMetricsToCSV(metricsFile, evalCount, Kp, Ki, cost, [], false, false);
+        
+        % 실패 로그 전송
+        if nargin >= 8 && ~isempty(DQueue)
+             % 빈 메트릭
+             dummyMetrics = struct('ISE',1e6, 'ITAE',1e6, 'IAE',1e6, 'Overshoot',0, 'Undershoot',0, ...
+                 'RiseTime',0, 'SettlingTime',0, 'PeakTime',0, 'SteadyStateError',0, ...
+                 'PeakValue',0, 'TargetValue',0, 'RippleStd',0, 'SaturationRatio',0, ...
+                 'VoltageRobustness',0, 'ControlEffort',0, 'PhaseOvershoot',0, ...
+                 'PhaseSettlingTime',0, 'PhaseOscillation',0, 'InitValue',0, 'StepSize',0);
+             
+             logData = struct('EvalNum', evalCount, 'Kp', Kp, 'Ki', Ki, 'Cost', cost, ...
+                             'Metrics', dummyMetrics, 'IsCached', false, 'IsValid', false);
+             send(DQueue, logData);
+        end
         return;
     end
     
     % 데이터 유효성 검사
     if isempty(t) || length(t) < 10
         cost = 1e6;
-        saveMetricsToCSV(metricsFile, evalCount, Kp, Ki, cost, [], false);
         return;
     end
     
     % 크기 맞추기
     n = min(length(t), min(length(I_meas), length(I_ref)));
     t = t(1:n); I_meas = I_meas(1:n); I_ref = I_ref(1:n);
-    if length(phi) >= n
-        phi = phi(1:n);
-    else
-        phi = [phi; zeros(n-length(phi), 1)];
-    end
-    t = t(:); I_meas = I_meas(:); I_ref = I_ref(:); phi = phi(:);
+    if length(phi) >= n, phi = phi(1:n); else, phi = [phi; zeros(n-length(phi), 1)]; end
     
     % 성능 지표 계산
     metrics = calculatePerformanceMetrics(t, I_meas, I_ref, stepTime, phi, v_high, i_ind);
     
-    % 비용 계산 (가중합 + 꼼수 방지 페널티 + 상용 평가 요소)
-    % [REQ] Current Ripple (Std), Saturation, Voltage Robustness 추가
-    
-    % 1. 기본 추종 오차
-    cost_tracking = 2.0 * (metrics.ISE / 0.5) + ... 
-                    1.5 * (metrics.ITAE / 0.05);
-
-    % 2. [핵심] 전류 리플 페널티 (떨림 억제)
-    % std(Error)가 클수록 페널티. 목표는 0.1A 이하.
-    cost_ripple = 10.0 * (metrics.RippleStd / 0.1); 
-
-    % 3. 위상 포화 페널티 (Saturation)
-    % SaturationRatio가 있으면 가중치를 매우 크게
-    if metrics.SaturationRatio > 5 % 5% 이상 포화 시
-        cost_saturation = 100.0 * (metrics.SaturationRatio / 5);
+    % 비용 계산 (복사본 유지)
+    if metrics.PhaseOvershoot > 5.0
+        c_ph_ovs = 5.0 * ((metrics.PhaseOvershoot - 5.0)^2);
     else
-        cost_saturation = 2.0 * metrics.SaturationRatio;
+        c_ph_ovs = 1.0 * metrics.PhaseOvershoot;
     end
-    
-    % 4. 전압 변동 강인성 (Inductor Current robustness against Voltage High)
-    % Voltage_High 변동 시 Inductor Current의 흔들림 평가
-    cost_robustness = 2.0 * metrics.VoltageRobustness;
 
-    % 5. 기타 제어 품질
-    cost_quality = 3.0 * (metrics.Overshoot / 20) + ...
-                   2.0 * (metrics.SettlingTime / 0.05) + ...
-                   1.0 * (metrics.Undershoot / 10);
+    baseCost = 2.0 * (metrics.ISE / 0.5) + ...
+               1.5 * (metrics.ITAE / 0.05) + ...
+               5.0 * (metrics.ControlEffort / 0.1) + ...   
+               10.0 * (metrics.PhaseOscillation / 0.1) + ... 
+               2.0 * (metrics.PhaseSettlingTime / 0.05) + ...
+               c_ph_ovs + ...
+               3.0 * (metrics.SaturationRatio / 5) + ...
+               1.0 * metrics.VoltageRobustness + ...
+               1.5 * (metrics.SteadyStateError / 5);
 
-    baseCost = cost_tracking + cost_ripple + cost_saturation + cost_robustness + cost_quality;
-
-    % [MANDATORY CONDITION] 지령치 추종 필수 조건 (Tracking Requirement)
-    % "지령치를 따라가지 못하면 쓸모없는 최적화"라는 요구사항 반영.
-    % Steady-State Error가 특정 임계값(예: 15%)을 초과하면 강력한 페널티를 부과하여,
-    % GA가 무조건 지령치를 따라가는 해를 찾도록 강제함.
-    TRACKING_ERR_THRESHOLD = 15.0; % 15% 허용 오차 (Command Following)
-    
+    TRACKING_ERR_THRESHOLD = 15.0; 
     cost_mandatory = 0;
     if metrics.SteadyStateError > TRACKING_ERR_THRESHOLD
-        % Tracking 실패 시: 기본 Cost에 10,000 이상의 페널티 추가
-        % 오차가 클수록 더 큰 페널티를 부과하여 Gradient 형성
         cost_mandatory = 50000 + (metrics.SteadyStateError - TRACKING_ERR_THRESHOLD)^2 * 100;
     end
 
-    % 꼼수 방지 페널티 추가 (초기값 편차, 비정상적 응답 등)
     if isfield(metrics, 'CheatPenalty')
         cost = baseCost + metrics.CheatPenalty + cost_mandatory;
     else
         cost = baseCost + cost_mandatory;
     end
     
-    if isnan(cost) || isinf(cost)
-        cost = 1e6;
+    if isnan(cost) || isinf(cost), cost = 1e6; end
+    
+    % [DEBUG] Worker First Run Summary (Verification)
+    if evalCount == 1
+        task = getCurrentTask();
+        workerID = 0;
+        if ~isempty(task), workerID = task.ID; end
+        
+        fprintf('\n[Worker %d First Run Summary]\n', workerID);
+        fprintf('  Params: Kp=%.4f, Ki=%.4f\n', Kp, Ki);
+        fprintf('  Cost:   %.6f\n', cost);
+        fprintf('  Metrics: ISE=%.4f, Overshoot=%.2f%%, Settling=%.4fs, SS_Err=%.2f%%, Sat=%.1f%%\n', ...
+            metrics.ISE, metrics.Overshoot, metrics.SettlingTime, metrics.SteadyStateError, metrics.SaturationRatio);
+        fprintf('  ------------------------------------------------------------\n');
     end
     
     % [CACHE UPDATE]
     try
-        % 결과 구조체 생성
         resultStruct = struct();
         resultStruct.Cost = cost;
         resultStruct.Metrics = metrics;
         resultStruct.Timestamp = now;
         
-        % Base Workspace 맵 업데이트
         GA_Cache_Map = evalin('base', 'GA_Cache_Map');
         GA_Cache_Map(cacheKey) = resultStruct;
         assignin('base', 'GA_Cache_Map', GA_Cache_Map);
     catch
-        % 업데이트 실패 시 무시
     end
     
-    % === 첫 번째 개체 평가 시에만 시험 출력 ===
-    if evalCount == 1 && ~isCached
-        fprintf('\n');
-        fprintf('┌─────────────────────────────────────────────────────────────┐\n');
-        fprintf('│           [시험 출력] 첫 번째 개체 평가 결과                │\n');
-        fprintf('├─────────────────────────────────────────────────────────────┤\n');
-        fprintf('│  Parameters:  Kp = %8.4f,  Ki = %8.2f                  │\n', Kp, Ki);
-        fprintf('│  Cost:        %.6f  (Base: %.4f, Penalty: %.4f)        │\n', cost, baseCost, cost - baseCost);
-        if cost_mandatory > 0
-            fprintf('│  [!] TRACKING FAIL: Penalty Applied (SS Error > %.1f%%)             │\n', TRACKING_ERR_THRESHOLD);
-        end
-        fprintf('├─────────────────────────────────────────────────────────────┤\n');
-        fprintf('│  Performance Metrics (Step-Normalized):                    │\n');
-        fprintf('│    Steps:           +10A -> -10A -> +10A (Bidirectional)   │\n');
-        fprintf('│    ISE:             %.6f                                  │\n', metrics.ISE);
-        fprintf('│    ITAE:            %.6f                                  │\n', metrics.ITAE);
-        fprintf('│    Ripple(Std):     %.6f  (Target < 0.1)                  │\n', metrics.RippleStd);
-        fprintf('│    Overshoot:       %.2f %%                                 │\n', metrics.Overshoot);
-        fprintf('│    Undershoot:      %.2f %%                                 │\n', metrics.Undershoot);
-        fprintf('│    Rise Time:       %.3f ms                                │\n', metrics.RiseTime * 1000);
-        fprintf('│    Settling Time:   %.3f ms                                │\n', metrics.SettlingTime * 1000);
-        fprintf('│    SS Error:        %.2f %%                                 │\n', metrics.SteadyStateError);
-        fprintf('│    Saturation:      %.2f %% (Penalty Applied)               │\n', metrics.SaturationRatio);
-        fprintf('│    V-Robustness:    %.4f                                   │\n', metrics.VoltageRobustness);
-        if isfield(metrics, 'InitDeviation')
-            fprintf('│    Init Deviation:  %.2f %% (Cheat check)                  │\n', metrics.InitDeviation);
-        end
-        fprintf('└─────────────────────────────────────────────────────────────┘\n');
-        fprintf('>>> 이후부터는 세대(Generation)별로 Best Individual만 출력됩니다.\n\n');
-    elseif evalCount == 1 && isCached
-        fprintf('\n>>> [Info] First individual was retrieved from Cache. Skipping detail print.\n');
+    % [DATA QUEUE] 결과 전송 (Master Logging)
+    if nargin >= 8 && ~isempty(DQueue)
+        logData = struct('EvalNum', evalCount, 'Kp', Kp, 'Ki', Ki, 'Cost', cost, ...
+                         'Metrics', metrics, 'IsCached', isCached, 'IsValid', true);
+        send(DQueue, logData);
     end
     
-    % CSV에 저장
-    saveMetricsToCSV(metricsFile, evalCount, Kp, Ki, cost, metrics, true, isCached);
+    % [LEGACY] Single Core Logging (fallback)
+    if isempty(DQueue) && isempty(getCurrentTask())
+        saveMetricsToCSV(metricsFile, evalCount, Kp, Ki, cost, metrics, true, isCached);
+    end
 end
+
 
 %  [MOVED] calculateAllMetrics -> calculatePerformanceMetrics.m (in GA_Utils)
 
@@ -720,30 +734,44 @@ function [cost, metrics, t, I_meas, I_ref, phi] = evaluateWithFullMetrics(params
     Ki = params(2);
     
     
-    % [CLEAN FIX] Use Simulink.SimulationInput for consistency
+    % [FUNDAMENTAL FIX] Variable Injection for Final Verification
+    t_gain = [0, simTime];
+    Ref_Kp_ext = timeseries([Kp, Kp], t_gain);
+    Ref_Ki_ext = timeseries([Ki, Ki], t_gain);
+    Ref_VH_TS = timeseries([380, 380], [0, simTime]);
+
+    assignin('base', 'Ref_Kp_ext', Ref_Kp_ext);
+    assignin('base', 'Ref_Ki_ext', Ref_Ki_ext);
+    assignin('base', 'Ref_I_ess_cmd', RefCurrentTS);
+    assignin('base', 'Ref_VH', Ref_VH_TS);
+    assignin('base', 'Kp_ext', Kp);
+    assignin('base', 'Ki_ext', Ki);
+    assignin('base', 'V_init_LV', 96);
+    assignin('base', 'V_batt', 96);
+
     in = Simulink.SimulationInput(modelName);
     in = in.setModelParameter('StopTime', num2str(simTime));
     in = in.setModelParameter('SimulationMode', 'accelerator');
     
-    % --- Set Variables ---
-    in = in.setVariable('Kp_ext', Kp);
-    in = in.setVariable('Ki_ext', Ki);
-    
-    t_gain = [0, simTime];
-    Ref_Kp_ext = timeseries([Kp, Kp], t_gain);
-    Ref_Ki_ext = timeseries([Ki, Ki], t_gain);
     in = in.setVariable('Ref_Kp_ext', Ref_Kp_ext);
     in = in.setVariable('Ref_Ki_ext', Ref_Ki_ext);
-    
     in = in.setVariable('Ref_I_ess_cmd', RefCurrentTS);
+    in = in.setVariable('Ref_VH', Ref_VH_TS);
     
-    % Safety fallbacks
-    Ref_VH_Extended = timeseries([380, 380], [0, simTime]);
-    in = in.setVariable('Ref_VH', Ref_VH_Extended);
+    % [CRITICAL] Control Gains
+    in = in.setVariable('Kp_ext', Kp);
+    in = in.setVariable('Ki_ext', Ki);
+    in = in.setVariable('Kpv', 0.1);
+    in = in.setVariable('Kiv', 10.0);
+    
+    % [CRITICAL] Circuit Parameters
     in = in.setVariable('V_init_LV', 96);
     in = in.setVariable('V_batt', 96);
+    in = in.setVariable('C_HV', 1000e-6);
+    in = in.setVariable('R_ESR_HV', 0.05);
+    in = in.setVariable('R_ESR_LV', 0.01);
+    in = in.setVariable('R_batt_int', 0.15);
     
-    % Execute
     simOut = sim(in);
     
     [t, I_meas, phi, v_high, i_ind] = extractSimulationSignals(simOut);
@@ -751,18 +779,37 @@ function [cost, metrics, t, I_meas, I_ref, phi] = evaluateWithFullMetrics(params
     
     n = min(length(t), min(length(I_meas), length(I_ref)));
     t = t(1:n); I_meas = I_meas(1:n); I_ref = I_ref(1:n);
-    t = t(:); I_meas = I_meas(:); I_ref = I_ref(:); phi = phi(:);
+    
+    % [FIX] Ensure all vectors are columns and match length n
+    t = t(:); I_meas = I_meas(:); I_ref = I_ref(:);
+    phi = phi(:); v_high = v_high(:); i_ind = i_ind(:);
+    
+    % Pad or Crop Auxiliary Signals
+    if length(phi) >= n, phi = phi(1:n); else, phi = [phi; zeros(n-length(phi), 1)]; end
+    if length(v_high) >= n, v_high = v_high(1:n); else, v_high = [v_high; zeros(n-length(v_high), 1)]; end
+    if length(i_ind) >= n, i_ind = i_ind(1:n); else, i_ind = [i_ind; zeros(n-length(i_ind), 1)]; end
     
     metrics = calculatePerformanceMetrics(t, I_meas, I_ref, stepTime, phi, v_high, i_ind);
     
     % 비용 계산 (evaluateCostWithMetrics와 동일)
+    % 비용 계산 (Reflected New Logic)
+    % Quadratic Overshoot for Phase
+    if metrics.PhaseOvershoot > 5.0
+        c_ph_ovs = 5.0 * ((metrics.PhaseOvershoot - 5.0)^2);
+    else
+        c_ph_ovs = 1.0 * metrics.PhaseOvershoot;
+    end
+
     baseCost = 2.0 * (metrics.ISE / 0.5) + ...
                1.5 * (metrics.ITAE / 0.05) + ...
-               3.0 * (metrics.Overshoot / 20) + ...
-               2.0 * (metrics.SettlingTime / 0.05) + ...
-               1.5 * (metrics.SteadyStateError / 5) + ...
-               1.0 * (metrics.Undershoot / 10) + ...
-               3.0 * (metrics.SaturationRatio / 5);
+               5.0 * (metrics.ControlEffort / 0.1) + ...   % Smoothness
+               10.0 * (metrics.PhaseOscillation / 0.1) + ... % Stability
+               2.0 * (metrics.PhaseSettlingTime / 0.05) + ...
+               c_ph_ovs + ...
+               3.0 * (metrics.SaturationRatio / 5) + ...
+               1.5 * (metrics.SteadyStateError / 5);
+
+
     
      % [MANDATORY CONDITION] Tracking Requirement (동일 로직 적용)
     TRACKING_ERR_THRESHOLD = 15.0; 
@@ -831,9 +878,24 @@ function [state, options, optchanged] = gaOutputFcn(options, state, flag, ...
             bestParamsEver(1), bestParamsEver(2), bestCostEver);
         fprintf('└─────────────────────────────────────────────────────────────┘\n');
         
-        % [STABLE MODE] 불필요한 중간 시뮬레이션 및 플롯 제거
-        % Main Thread Blocking 및 병렬 풀 Timeout 방지
-        fprintf('   (Visual update skipped for stability. See final result after optimization.)\n');
+        % [VISUAL] 터미널에는 텍스트 출력, 그래프 창에는 점만 찍기 (빠르게)
+        % (OutputFcn에서 시뮬레이션을 다시 돌려서 그래프 그리는 건 느리므로 생략)
+        % 대신 Cost Trend와 Parameter Space 점은 업데이트
+        
+        if isvalid(ax2)
+            plot(ax2, 0:length(costHistory)-1, costHistory, 'b-o', 'LineWidth', 1.5);
+            title(ax2, sprintf('Cost History (Gen %d)', gen));
+            grid(ax2, 'on');
+        end
+        
+        if isvalid(ax3)
+            plot(ax3, state.Population(:,1), state.Population(:,2), 'k.', 'MarkerSize', 8); % 전체 개체군
+            plot(ax3, bestParams(1), bestParams(2), 'ro', 'MarkerSize', 10, 'LineWidth', 2); % Best
+            title(ax3, sprintf('Search Space (Red: Gen Best)'));
+        end
+        
+        drawnow limitrate; % 화면 갱신 강제
+
         
         % 로그에 기록
         writeLog(logFile, sprintf('Gen %d: Kp=%.4f, Ki=%.2f, Cost=%.6f', gen, bestParams(1), bestParams(2), minScore));
