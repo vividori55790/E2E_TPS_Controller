@@ -22,7 +22,7 @@ classdef DAB_Controller_System < matlab.System
     %   - 전류(I): (+)=방전(LV->HV), (-)=충전(HV->LV)
     %   - 위상(Phi): (+)=전력 전달 Primary->Secondary (충전), (-)=Secondary->Primary (방전)
     %   ** 따라서 I_ref가 양수(방전)이면, 위상 Phi는 음수가 되어야 함. **
-
+    % 
     % =========================================================================
     % 1. Public, Tunable Properties (블록 더블클릭 시 설정 가능한 파라미터)
     % =========================================================================
@@ -67,7 +67,7 @@ classdef DAB_Controller_System < matlab.System
         
         % [NEW] Phase Change Rate Limiter
         MaxPhaseRate = 30000;   % 위상 변화율 제한 (deg/s)
-
+        
         % [NEW] Smart BMS Thresholds (26S Li-ion Spec)
         V_Pack_Max = 109.2;     % [BMS] 배터리 최대 전압 (Cell*4.2V)
         V_CV_Start = 108.0;     % [BMS] CV 충전 시작 전압
@@ -84,6 +84,14 @@ classdef DAB_Controller_System < matlab.System
         Flux_Limit = 0.02;      % [Flux] 최대 보정 Duty 제한 (0~0.5)
     end
 
+    properties(Constant)
+        % FSM State Definitions
+        ST_INIT     = 1;
+        ST_ESS_RUN  = 2;
+        ST_UPS_RUN  = 3;
+        ST_MANUAL   = 4;
+        ST_FAULT    = 5;
+    end
 
     properties
         % 전류 지령 제한
@@ -97,8 +105,8 @@ classdef DAB_Controller_System < matlab.System
     properties(DiscreteState)
         Integrator_ext;     % 전류 PI 적분항
         Integrator_v;       % 전압 PI 적분항 (UPS 모드)
-        PowerLossState;     % 0: 정상(ESS), 1: 정전(UPS)
-        PreviousMode;       % 이전 모드 (전환 감지용)
+        CurrentState;       % [FSM] 현재 상태
+        PreviousMode;       % [FSM] 이전 상태 (Transition 감지용)
 
 
         I_ref_ramped;       % [NEW] 슬루 레이트 적용된 내부 전류 지령치
@@ -141,8 +149,8 @@ classdef DAB_Controller_System < matlab.System
             obj.Integrator_ext = 0;
             obj.Integrator_v = 0;
             obj.Flux_Integrator = 0; % [NEW]
-            obj.PowerLossState = 0; % 초기엔 정상 상태 가정
-            obj.PreviousMode = 0;
+            obj.CurrentState = obj.ST_INIT; % 초기 상태: INIT
+            obj.PreviousMode = obj.ST_INIT;
 
 
             obj.I_ref_ramped = 0; % [NEW] 램프 지령치 초기화
@@ -178,498 +186,339 @@ classdef DAB_Controller_System < matlab.System
                 stepImpl(obj, V_HV, I_HV, V_LV, I_LV, I_L_pri, I_ess_cmd, Kp_ext, Ki_ext, Kpv, Kiv, Mode_Select, Phi_Manual)
             
             % --- 1. 파라미터 계산 ---
-            Ts = obj.Ts_ctrl;  % 제어기 샘플 시간 사용 (적분기용)
-            
-            % [MODIFIED] Startup Delay (초기 기동 대기)
-            % 0.001초까지는 제어기 동작 중지 및 출력 0 고정
-            % 시뮬레이션 초기 과도 상태 및 수렴 실패 방지
+            Ts = obj.Ts_ctrl;
             t_current = getCurrentTime(obj);
             
-            % [DEBUG] Verify Parameter Passing (Check at 5ms) - Executes ONCE
+            % [DEBUG] Parameter Check
             if obj.ControlCheckDone == 0 && t_current >= 0.005
                  fprintf('>> [CTRL CHECK] Time=%.6f, Kp_ext=%.4f, Ki_ext=%.4f\n', t_current, Kp_ext, Ki_ext);
                  obj.ControlCheckDone = 1;
             end
 
-            if t_current < 0.001
-
-                % [출력 강제 0 할당]
-                phi1_deg = 0; phi3_deg = 180; % SPS 기본 위상
-                phi5_deg = 0; phi7_deg = 180; % 외부 위상 0
-                mode_active = 0; % 0: 대기 모드
-                status_flag = 0;
-                I_cmd_out = 0;
-                phi_ext_out = 0;
-                % [중요] 스위칭 자체를 중단 (Gate Off)하여 변압기 포화/돌입전류 방지
-                D1_out = 0; D2_out = 0; 
-                integrator_out = 0;
-                
-                % [DEBUG] 초기화
-                err_out = 0; phi_raw_out = 0; excess_out = 0; ifb_out = 0;
-                
-                % [NEW] PWM 비활성화 신호 출력
-                PWM_Enable = 0; % Gate OFF 강제
-                
-                % [NEW] PWM 비활성화 신호 출력
-                PWM_Enable = 0; % Gate OFF 강제
-                
-                % 내부 상태변수 초기화 유지
-                obj.I_ref_ramped = 0;
-                obj.Integrator_ext = 0;
-                obj.Integrator_v = 0;
-                obj.Flux_Integrator = 0; % [NEW]
-                
-                % 필터 상태변수는 현재 값으로 추적 (단절 방지)
-                obj.V_HV_Filtered = V_HV;
-                obj.V_LV_Filtered = V_LV;
-
-                return;
-            end
-
-            % --- 1.5. 전압/전류 센싱 필터 (Sliding Window / Moving Average) ---
-            % O(1) 복잡도의 Running Sum 방식으로 구현.
-            % Window Size = 125 (1 Switching Cycle @ 80kHz / 0.1us Sample)
-
-            % [V_HV Filtering]
-            old_vhv = obj.V_HV_Buffer(obj.BufferIdx); % Index 공유 (동기화)
-             % 초기 구동시 BufferIdx=1
+            % =====================================================================
+            % [STEP 1] Sensing & Filtering (Common)
+            % =====================================================================
             
-            % Note: BufferIdx는 뒤쪽 I_Current 로직에서 증가시키므로 여기선 현재 인덱스 사용
-            
-            % A. Remove Oldest / Add Newest (V_HV)
+            % 1.1 V_HV Filtering (Moving Average)
+            old_vhv = obj.V_HV_Buffer(obj.BufferIdx);
             obj.V_HV_Sum = obj.V_HV_Sum - old_vhv + V_HV;
             obj.V_HV_Buffer(obj.BufferIdx) = V_HV;
-            
-            % B. Calculate Mean
             obj.V_HV_Filtered = obj.V_HV_Sum / 125;
             
-            % [V_LV Filtering]
+            % 1.2 V_LV Filtering (Moving Average)
             old_vlv = obj.V_LV_Buffer(obj.BufferIdx);
-            
-            % A. Remove Oldest / Add Newest (V_LV)
             obj.V_LV_Sum = obj.V_LV_Sum - old_vlv + V_LV;
             obj.V_LV_Buffer(obj.BufferIdx) = V_LV;
-            
-            % B. Calculate Mean
             obj.V_LV_Filtered = obj.V_LV_Sum / 125;
             
-            % [중요] 제어 로직에는 필터링된 "얌전한" 전압 사용
-            V_HV_Control = obj.V_HV_Filtered;
+            V_HV_Ctrl = obj.V_HV_Filtered;
+            V_LV_Ctrl = obj.V_LV_Filtered;
 
-            % --- 2. 정전 감지 (밴드 기반) ---
-            % 379~381 V : 정상 → ESS
-            % 그 외 : 정전/이상 → UPS
-            % 감지에는 즉각적인 반응을 위해 원본 V_HV 사용 가능, 
-            % 하지만 노이즈 오작동 막으려면 V_HV_Control 사용 권장. 여기선 V_HV_Control 사용.
-            if (V_HV_Control < (obj.V_HV_Ref - obj.V_HV_Band)) || (V_HV_Control > (obj.V_HV_Ref + obj.V_HV_Band))
-                obj.PowerLossState = 1; % UPS 모드
-            else
-                obj.PowerLossState = 0; % ESS 모드
-            end
-            
-            % --- 3. 모드 전환 감지 ---
-            mode_changed = (obj.PowerLossState ~= obj.PreviousMode);
-            
-            % [Fixed] Bumpless Transfer
-            % 모드 전환 시 적분기를 강제로 0으로 리셋하면 위상이 튀어 시스템이 발산함.
-            % 따라서 리셋 코드를 제거하고, 기존 적분값을 유지하여 부드럽게 이어지도록 함.
-            if mode_changed
-                 % 모드 변경 로깅이나 플래그 처리만 수행 (필요 시)
-            end
-            
-            % [NEW] High-Speed Moving Average Filter (Oversampling)
-            % 10MHz 샘플링 (0.1us) 기준, 80kHz (12.5us) 리플 제거를 위해
-            % 125개의 샘플을 평균내야 함. (12.5 / 0.1 = 125)
-            % O(1) 복잡도의 Running Sum 방식으로 구현.
-            
-            % 1. 오래된 값 제거 (Running Sum 업데이트)
-            old_val = obj.I_Buffer(obj.BufferIdx);
-            obj.I_Sum = obj.I_Sum - old_val;
-            
-            % 2. 새로운 값 추가
+            % 1.3 I_LV Current Filtering (Fast MA)
+            old_ilv = obj.I_Buffer(obj.BufferIdx);
+            obj.I_Sum = obj.I_Sum - old_ilv + I_LV;
             obj.I_Buffer(obj.BufferIdx) = I_LV;
-            obj.I_Sum = obj.I_Sum + I_LV;
             
-            % 3. 인덱스 증가 (Circular Buffer)
+            % 1.4 I_L_pri Filtering (Flux Balancing) - Same Index
+            old_pri = obj.I_L_pri_Buffer(obj.BufferIdx);
+            obj.I_L_pri_Sum = obj.I_L_pri_Sum - old_pri + I_L_pri;
+            obj.I_L_pri_Buffer(obj.BufferIdx) = I_L_pri;
+
+            % Buffer Index Update (Circular)
             obj.BufferIdx = obj.BufferIdx + 1;
-            if obj.BufferIdx > 125
-                obj.BufferIdx = 1;
-            end
+            if obj.BufferIdx > 125, obj.BufferIdx = 1; end
             
-            % 4. 평균 계산
-            I_fb_clean = obj.I_Sum / 125;
-            
-            % 필터링된 값 저장 (모니터링용)
+            I_fb = obj.I_Sum / 125;      % Feedback Current
+            I_L_pri_DC = obj.I_L_pri_Sum / 125; % DC Offset Current
 
+            % =====================================================================
+            % [STEP 2] State Transition Logic
+            % =====================================================================
+            % Default: Stay in current state
+            NextState = obj.CurrentState;
             
-            % --- 4. 모드별 기준 전류/피드백 선택 ---
-            if obj.PowerLossState == 0
-                %---------------------------
-                % ESS 모드 (정상 상태)
-                %---------------------------
-                mode_active = 3;
-                status_flag = 0;
-                % ESS: I_ess_cmd 그대로 사용 (±I_ESS_Max 제한)
-                Iref = max(-obj.I_ESS_Max, min(obj.I_ESS_Max, I_ess_cmd));
-                I_fb = I_fb_clean; 
-
+            % Global Transitions (Highest Priority)
+            if t_current < 0.001
+                NextState = obj.ST_INIT;
+            elseif Mode_Select == 1
+                NextState = obj.ST_MANUAL;
+            elseif V_LV_Ctrl < obj.V_Min_Limit
+                 % [Safety] Battery Undervoltage -> FAULT (Shutdown)
+                 NextState = obj.ST_FAULT; 
             else
-                %---------------------------
-                % UPS 모드 (정전/이상, 부하 공급)
-                %---------------------------
-                mode_active = 1;
-                status_flag = 1;
-                % ... (UPS Logic Skipped for Brevity - Keeping Existing Logic) ...
-                
-                % [Re-implement UPS Logic Inline for safety if needed, 
-                % but assuming replace hits correctly, just link variables]
-                err_v = obj.V_HV_Ref - V_HV_Control;
-                temp_int_v = obj.Integrator_v + err_v * Ts;
-                temp_I_cmd = Kpv * err_v + Kiv * temp_int_v;
-                
-                if temp_I_cmd > obj.I_UPS_Max
-                    if err_v < 0, obj.Integrator_v = temp_int_v; end
-                    I_ups_cmd = obj.I_UPS_Max;
-                elseif temp_I_cmd < -obj.I_UPS_Max
-                     if err_v > 0, obj.Integrator_v = temp_int_v; end
-                     I_ups_cmd = -obj.I_UPS_Max;
-                else
-                    obj.Integrator_v = temp_int_v;
-                    I_ups_cmd = temp_I_cmd;
-                end
-                Iref = I_ups_cmd;
-                I_fb = I_fb_clean;
-            end
-            
-            % --- 4.5. [NEW] Smart BMS Logic (Double Safety Layer) ---
-            % "경비원 역할": 전압 한계 상황에서만 개입하여 Iref를 강제 조정
-            % 리플 영향을 피하기 위해 필터링된 전압(obj.V_LV_Filtered) 사용
-            
-            v_batt = obj.V_LV_Filtered;
-            I_safe = Iref; % 기본값은 Pass-Through
-            
-            if Iref < 0 
-                % ---------------------------------------------------------
-                % [A] 충전 모드 (Charging Loop)
-                % ---------------------------------------------------------
-                if v_batt >= obj.V_Pack_Max
-                    % 1. 과전압 보호 (Hard Cut)
-                    I_safe = 0;
-                    
-                elseif v_batt >= obj.V_CV_Start
-                    % 2. CV 제어 (Soft Landing)
-                    % 전압이 108V를 넘으면 전류 제한폭(Limit)을 생성
-                    % Limit = (109.2 - Current_V) * Gain
-                    I_limit_cv = (obj.V_Pack_Max - v_batt) * obj.K_CV;
-                    
-                    % 충전은 음수이므로, 절대값이 작은 쪽을 선택 (0에 가깝게)
-                    % 지령: -10A, 제한: 2A -> -2A 선택
-                    I_safe = max(Iref, -1 * I_limit_cv);
-                else
-                    % 3. CC 모드 (자유 충전)
-                    I_safe = Iref;
-                end
-                
-                % [Optional] 완전 만충 시 미세 전류 차단 (Cut-off)
-                if abs(I_safe) < 0.1 && v_batt > obj.V_CV_Start
-                    I_safe = 0;
-                end
-                
-            elseif Iref > 0
-                % ---------------------------------------------------------
-                % [B] 방전 모드 (Discharging Loop)
-                % ---------------------------------------------------------
-                if obj.PowerLossState == 0 
-                    % [Situation 1] ESS 모드 (평상시)
-                    % 목표: 비상시를 대비해 20% 잔량은 무조건 남겨둠
-                    if v_batt < obj.V_ESS_Limit
-                        I_safe = 0; % Reserve Hit! 방전 중단
-                    else
-                        I_safe = Iref;
-                    end
-                else
-                    % [Situation 2] UPS 모드 (비상시)
-                    % 목표: 0%가 될 때까지 쥐어짜되, 5% 밑에선 살살(Derating)
-                    if v_batt < obj.V_Min_Limit
-                        I_safe = 0; % 0% 도달 -> 시스템 셧다운 (보호)
-                    elseif v_batt < obj.V_UPS_Limit
-                        % 5% ~ 0% 구간: Derating
-                        % 87V일 때 Factor=1.0, 84V일 때 Factor=0.0
-                        derating_factor = (v_batt - obj.V_Min_Limit) / (obj.V_UPS_Limit - obj.V_Min_Limit);
+                % State-Specific Transitions
+                switch obj.CurrentState
+                    case obj.ST_INIT
+                        % Init finished (t > 0.001) -> Decide Startup Mode
+                        if (V_HV_Ctrl < (obj.V_HV_Ref - obj.V_HV_Band)) || (V_HV_Ctrl > (obj.V_HV_Ref + obj.V_HV_Band))
+                            NextState = obj.ST_UPS_RUN;
+                        else
+                            NextState = obj.ST_ESS_RUN;
+                        end
                         
-                        % 30A 명령 -> 15A 등 비율 축소
-                        I_safe = Iref * derating_factor;
+                    case obj.ST_ESS_RUN
+                        % ESS -> UPS (Grid Failure Logic)
+                        if (V_HV_Ctrl < (obj.V_HV_Ref - obj.V_HV_Band)) || (V_HV_Ctrl > (obj.V_HV_Ref + obj.V_HV_Band))
+                            NextState = obj.ST_UPS_RUN;
+                        end
+                        
+                    case obj.ST_UPS_RUN
+                        % UPS -> ESS (Grid Restoration)
+                        % Hysteresis can be added here if needed.
+                        if (V_HV_Ctrl >= (obj.V_HV_Ref - obj.V_HV_Band)) && (V_HV_Ctrl <= (obj.V_HV_Ref + obj.V_HV_Band))
+                             NextState = obj.ST_ESS_RUN;
+                        end
+                        
+                    case obj.ST_MANUAL
+                        % Exiting Manual Mode -> Re-evaluate based on Grid
+                         if Mode_Select ~= 1
+                            if (V_HV_Ctrl < (obj.V_HV_Ref - obj.V_HV_Band)) || (V_HV_Ctrl > (obj.V_HV_Ref + obj.V_HV_Band))
+                                NextState = obj.ST_UPS_RUN;
+                            else
+                                NextState = obj.ST_ESS_RUN;
+                            end
+                         end
+                         
+                    case obj.ST_FAULT
+                         % Latch Fault. Reset required to exit (Not implemented yet, or use Reset block)
+                         % If voltage recovers, maybe recover? For safety, stick to Fault.
+                         if V_LV_Ctrl > (obj.V_Min_Limit + 5.0) % Hysteresis 5V
+                             NextState = obj.ST_INIT; % Restart
+                         end
+                end
+            end
+            
+            % Update State
+            obj.CurrentState = NextState;
+            
+            % =====================================================================
+            % [STEP 3] State Action & Reference Generation
+            % =====================================================================
+            PWM_Enable = 0;
+            I_target = 0;
+            phi_ext_deg = 0;
+            mode_active = 0; % [FIX] Default Initialization
+            status_flag = 0; % [FIX] Default Initialization
+            
+            switch obj.CurrentState
+                case obj.ST_INIT
+                    PWM_Enable = 0;
+                    I_target = 0;
+                    obj.Integrator_ext = 0;
+                    obj.Integrator_v = 0;
+                    
+                case obj.ST_FAULT
+                    PWM_Enable = 0; % Hard Shutdown
+                    I_target = 0;
+                    
+                case obj.ST_MANUAL
+                    PWM_Enable = 1;
+                    phi_ext_deg = Phi_Manual;
+                    % Freeze Integrators or Reset
+                    % obj.Integrator_ext = 0; 
+                    
+                case {obj.ST_ESS_RUN, obj.ST_UPS_RUN}
+                    PWM_Enable = 1;
+                    
+                    % --- Reference Generation ---
+                    if obj.CurrentState == obj.ST_ESS_RUN
+                        % ESS: Direct Current Command
+                        raw_ref = max(-obj.I_ESS_Max, min(obj.I_ESS_Max, I_ess_cmd));
+                        mode_active = 3; % ESS
                     else
-                        I_safe = Iref;
+                        % UPS: Voltage Loop -> Current Command
+                        mode_active = 1; % UPS
+                        err_v = obj.V_HV_Ref - V_HV_Ctrl;
+                        temp_int_v = obj.Integrator_v + err_v * Ts;
+                        
+                        % Anti-Windup (Clamping)
+                        limit_val = obj.I_UPS_Max;
+                        temp_I_cmd = Kpv * err_v + Kiv * temp_int_v;
+                        
+                        if temp_I_cmd > limit_val
+                            if err_v < 0, obj.Integrator_v = temp_int_v; end
+                             raw_ref = limit_val;
+                        elseif temp_I_cmd < -limit_val
+                             if err_v > 0, obj.Integrator_v = temp_int_v; end
+                             raw_ref = -limit_val;
+                        else
+                            obj.Integrator_v = temp_int_v;
+                            raw_ref = temp_I_cmd;
+                        end
+                    end
+                    
+                    % --- BMS / Safety Limiter (Common) ---
+                    I_safe = raw_ref;
+                    v_batt = V_LV_Ctrl;
+                    
+                    if raw_ref < 0  % Charging
+                        if v_batt >= obj.V_Pack_Max
+                            I_safe = 0; % Overvoltage Protection
+                        elseif v_batt >= obj.V_CV_Start
+                            % CV Mode
+                            I_limit = (obj.V_Pack_Max - v_batt) * obj.K_CV;
+                            I_safe = max(raw_ref, -I_limit);
+                        end
+                        % Full Charge Cutoff
+                        if abs(I_safe) < 0.1 && v_batt > obj.V_CV_Start
+                             I_safe = 0; 
+                        end
+                        
+                    elseif raw_ref > 0 % Discharging
+                         if obj.CurrentState == obj.ST_ESS_RUN
+                             % ESS Limit
+                             if v_batt < obj.V_ESS_Limit
+                                 I_safe = 0; 
+                             end
+                         else
+                             % UPS Limit (Derating)
+                             if v_batt < obj.V_UPS_Limit
+                                 factor = (v_batt - obj.V_Min_Limit) / (obj.V_UPS_Limit - obj.V_Min_Limit);
+                                 factor = max(0, min(1, factor));
+                                 I_safe = raw_ref * factor;
+                             end
+                             % Note: < V_Min_Limit handled in Transition to FAULT
+                         end
+                    end
+                    I_target = I_safe;
+            end
+
+            % =====================================================================
+            % [STEP 4] Core Control Loop (Executed only if PWM_Enable & Not Manual)
+            % =====================================================================
+            
+            % Default Outputs
+            status_flag = double((obj.CurrentState == obj.ST_UPS_RUN) || (obj.CurrentState == obj.ST_FAULT));
+            % Use saved mode for explicit 'mode_active' if not set in switch (init/fault)
+            if obj.CurrentState == obj.ST_INIT || obj.CurrentState == obj.ST_FAULT || obj.CurrentState == obj.ST_MANUAL
+                mode_active = 0; 
+            end
+            
+            if PWM_Enable && (obj.CurrentState ~= obj.ST_MANUAL)
+                % 4.1 Slew Rate Limiter
+                if isinf(obj.MaxSlewRate)
+                    obj.I_ref_ramped = I_target;
+                else
+                    max_step = obj.MaxSlewRate * Ts;
+                    delta = I_target - obj.I_ref_ramped;
+                    if abs(delta) > max_step
+                        obj.I_ref_ramped = obj.I_ref_ramped + sign(delta) * max_step;
+                    else
+                        obj.I_ref_ramped = I_target;
                     end
                 end
-            end
-            
-            % 최종적으로 안전해진 전류 지령 확정
-            Iref = I_safe;
-            
-            % [MODIFIED] Slew Rate Limiter
-            I_target = Iref; 
-            if isinf(obj.MaxSlewRate)
-                 obj.I_ref_ramped = I_target; % 즉시 반영
-            else
-                max_step = obj.MaxSlewRate * Ts;
-                delta_I = I_target - obj.I_ref_ramped;
-                if abs(delta_I) > max_step
-                    obj.I_ref_ramped = obj.I_ref_ramped + sign(delta_I) * max_step;
+                
+                % 4.2 Current PI Controller
+                raw_err = obj.I_ref_ramped - I_fb;
+                
+                % Deadzone
+                if abs(raw_err) < obj.DeadZone
+                    err_ext = 0;
                 else
-                    obj.I_ref_ramped = I_target;
+                    err_ext = raw_err - sign(raw_err) * obj.DeadZone;
                 end
-            end
-            
-            % 출력 및 제어에는 '부드러워진' 지령치 사용
-            I_cmd_out = obj.I_ref_ramped;
-
-            % --- 5. 전류 PI → 외부 위상(phi_ext_deg) ---
-            % [MODIFIED] 1. Dead Zone (불감대) 적용
-            raw_err = obj.I_ref_ramped - I_fb;
-            if abs(raw_err) < obj.DeadZone
-                err_ext = 0; 
+                
+                % Gain Scheduling
+                Kp_curr = Kp_ext;
+                if abs(err_ext) < obj.GainSched_Threshold
+                    Kp_curr = Kp_ext * obj.GainSched_Factor;
+                end
+                
+                % PI Output
+                phi_pi = -1 * (Kp_curr * err_ext + Ki_ext * obj.Integrator_ext);
+                
+                % 4.3 Feedforward (Soft Start)
+                phi_ff = 0;
+                if obj.EnableFF && abs(V_HV_Ctrl) > 10
+                     K_ff = (2 * obj.L_leakage * obj.Fs * 180) / V_HV_Ctrl;
+                     phi_ff_val = -1 * obj.I_ref_ramped * K_ff;
+                     
+                     % Soft Start
+                     if t_current < obj.SoftStartTime
+                         gain = t_current / obj.SoftStartTime;
+                         phi_ff = phi_ff_val * gain;
+                     else
+                         phi_ff = phi_ff_val;
+                     end
+                end
+                
+                % 4.4 Saturation & Anti-Windup
+                phi_total_raw = phi_pi + phi_ff;
+                phi_saturated = max(-90, min(90, phi_total_raw));
+                
+                % Rate Limiter
+                delta_phi = phi_saturated - obj.Prev_Phi_Output;
+                max_phi_step = obj.MaxPhaseRate * Ts;
+                
+                if abs(delta_phi) > max_phi_step
+                    phi_ext_deg = obj.Prev_Phi_Output + sign(delta_phi) * max_phi_step;
+                else
+                    phi_ext_deg = phi_saturated;
+                end
+                obj.Prev_Phi_Output = phi_ext_deg;
+                
+                % Update Integrator (Back-Calculation)
+                excess = phi_ext_deg - phi_total_raw;
+                K_aw = 1.0; 
+                obj.Integrator_ext = obj.Integrator_ext + err_ext * Ts - (K_aw * excess * Ts);
+                
+                % Debug values
+                phi_raw_unbounded = phi_total_raw;
+                
             else
-                err_ext = raw_err - sign(raw_err) * obj.DeadZone;
+                % PWM Disabled or Manual: Reset internal ramps/vars if needed
+                if obj.CurrentState ~= obj.ST_MANUAL
+                    obj.I_ref_ramped = 0;
+                    obj.Prev_Phi_Output = 0;
+                end
+                err_ext = 0;
+                phi_raw_unbounded = 0;
+                excess = 0;
             end
             
-            % [Modified] Feedforward Calculation (Instant Update)
-            % 5ms 타이머 제거 -> 매 샘플마다 즉각 계산 (지연 제거)
-            % 에러 발생 즉시 FF가 반응하여 PI 부담 경감
-            if obj.EnableFF && abs(V_HV_Control) > 10
-                K_ff = (2 * obj.L_leakage * obj.Fs * 180) / V_HV_Control;
-                % FF도 Ramped 지령치 기반으로 계산 (부드러운 전변)
-                obj.Last_Phi_FF = -1 * obj.I_ref_ramped * K_ff; 
-            else
-                 obj.Last_Phi_FF = 0;
-            end
-            
-            % [Modified] Soft Start Logic 적용
-            % 시뮬레이션 초기(0 ~ 0.2초)에는 피드포워드 값을 0에서부터 서서히 올림
-            % 급격한 위상 인가로 인한 LC 공진 및 돌입 전류 방지
-            current_time = getCurrentTime(obj);
-            soft_start_gain = 1.0;
-            if current_time < obj.SoftStartTime
-                soft_start_gain = current_time / obj.SoftStartTime;
-            end
-            
-            phi_ff = obj.Last_Phi_FF * soft_start_gain; 
-            
-            % [Current Loop Anti-Windup: Incremental Back-Calculation]
-            % 표준적인, 점진적 Anti-windup 방식 (노이즈에 강건함)
-            
-            % [MODIFIED] 2. Gain Scheduling (Active)
-            Kp_current = Kp_ext; 
-            if abs(err_ext) < obj.GainSched_Threshold
-                Kp_current = Kp_ext * obj.GainSched_Factor; 
-            end
-
-            % 3. 순수 PI 출력 계산 (현재 적분값 기준)
-            phi_pi_unbounded = -1 * (Kp_current * err_ext + Ki_ext * obj.Integrator_ext);
-            
-            % 2. 전체 출력 및 포화 계산
-            phi_raw_unbounded = phi_pi_unbounded + phi_ff;
-            PHI_LIMIT = 90;
-            
-            % [MODIFIED] 1. Saturation (Hard Limit)
-            phi_saturated = max(-90, min(90, phi_raw_unbounded));
-            
-            % [MODIFIED] 2. Rate Limiter (Soft Change)
-            % 급격한 위상 변화를 제한하여 Transformer/Switch 스트레스 저감
-            delta_phi = phi_saturated - obj.Prev_Phi_Output;
-            max_phi_step = obj.MaxPhaseRate * Ts;
-            
-            if abs(delta_phi) > max_phi_step
-                % 제한폭보다 변화량이 크면 제한폭만큼만 이동
-                phi_ext_deg = obj.Prev_Phi_Output + sign(delta_phi) * max_phi_step;
-            else
-                phi_ext_deg = phi_saturated;
-            end
-            
-            % 상태 업데이트
-            obj.Prev_Phi_Output = phi_ext_deg;
-            
-            % 3. Back-Calculation (적분기 업데이트)
-            % 차이(Excess)만큼 적분기를 반대 방향으로 서서히 구동
-            % Excess = Saturated - Unbounded
-            % Eq: Int_new = Int + err*Ts - K_aw * (Excess) * Ts
-            % 여기서 K_aw(Anti-windup Gain)는 보통 Ki/Kp 혹은 Ki*2 등을 사용
-            % 이 시스템은 -1 게인이 출력단에 있으므로 부호가 반대로 작동해야 함을 고려하여 유도된 식:
-            % obj.Integrator_ext = obj.Integrator_ext + err_ext * Ts - K_aw * (phi_ext_deg - phi_raw_unbounded) * Ts;
-            
-            % Kaw 설정: 매우 중요한 튜닝 포인트
-            % 기존(2*Ki)은 너무 커서 적분기를 급격히 0으로 만들어 시스템 발산 유발
-            % 안전하게 1.0으로 설정하여 부드럽게(Slowly) 포화에서 빠져나오도록 함.
-            K_aw = 1.0; 
-            
-            % 차이 계산 (포화되지 않았으면 0)
-            excess = phi_ext_deg - phi_raw_unbounded;
-            
-            % 적분 상태 업데이트 (이전 스텝 값 기반 누적)
-            % 유도: Unbounded = -1 * (Kp*err + Ki*Int) + FF
-            % Unbounded > Limit (High) -> Int too Small (Negative large).
-            % We need Int to Increase.
-            % Excess = Limit - Unbound (Negative).
-            % So we need Term to be Positive.
-            % -1 * Excess * Kaw = Positive. Correct.
-            
-            obj.Integrator_ext = obj.Integrator_ext + err_ext * Ts - (K_aw * excess * Ts);
-            
-            % 출력값은 이미 위에서 결정됨 (phi_ext_deg)
-            phi_raw = phi_ext_deg; % (디버깅 변수용)
-            
-            % Final Safety Clamp (중복이지만 안전용)
-            phi_ext_deg = max(-90, min(90, phi_ext_deg));
-            
-            % --- 5.5. HDC Feedforward ---
-            % [주석 처리됨] TODO: 사용자가 복구시키라고 할 때까지 주석으로 유지할 것
-            phi_hdc = 0;
-            % if obj.EnableHDC && ~isempty(obj.HDC_Model) && isfield(obj.HDC_Model, 'W')
-            %      % HDC Prediction (Inlined)
-            %      P_target = V_LV * Iref; 
-            %      model = obj.HDC_Model;
-            %      
-            %      % 1. Quantize Inputs
-            %      idx_v = floor( (V_HV - model.min_V)/(model.max_V - model.min_V) * (model.L_levels-1) ) + 1;
-            %      idx_v = max(1, min(model.L_levels, idx_v));
-            %      
-            %      idx_p = floor( (P_target - model.min_P)/(model.max_P - model.min_P) * (model.L_levels-1) ) + 1;
-            %      idx_p = max(1, min(model.L_levels, idx_p));
-            %      
-            %      % 2. Retrieve & Bind
-            %      hv_v = model.Level_Item_V(idx_v, :);
-            %      hv_p = model.Level_Item_P(idx_p, :);
-            %      
-            %      query_hv = hv_v .* hv_p;
-            %      
-            %      % 3. Query (Dot Product)
-            %      Output = query_hv * model.W; 
-            %      
-            %      % 4. D3 to Phase
-            %      d3_pred = Output(3);
-            %      phi_hdc = d3_pred * 360; 
-            % end
-            
-            % [Fixed] 이전 로직 잔재 삭제 (phi_pi 미정의 오류 해결)
-            % HDC는 현재 0이므로 추가 연산 없이 위에서 계산된 값 사용
-            
-            % [NEW] Manual Phase Override Logic (User Request)
-            % Mode_Select = 1 -> Use Phi_Manual directly
-            % Mode_Select = 0 -> Use Calculated Controller Output
-            if Mode_Select == 1
-                phi_ext_deg = Phi_Manual;
-            end
-            
-            % 최종 출력 할당
-            phi_ext_out = phi_ext_deg;
-
             % =====================================================================
-            % --- 6. SPS 제어: 고정 내부 위상 사용 ---
+            % [STEP 5] Flux Balancing & Final Output
             % =====================================================================
-            % SPS에서는 D1 = D2 = 0.5 (50% 듀티)
-            % 이는 Primary와 Secondary 각각 180도 위상차 고정
-            
-            % [주석 처리됨] TPS/DPS: 전류 크기에 따른 내부 위상 조절
-            % I_mag = abs(I_fb); % 실제 흐르는 전류 크기
-            % I_norm = min(1, I_mag / obj.I_Base); % 정규화 (0~1)
-            % phi_int_deg = obj.Psi_Min + (obj.Psi_Max - obj.Psi_Min) * I_norm;
-            
-            % SPS 고정 내부 위상 (180도)
-            phi_int_deg = obj.SPS_Inner_Phase;
-
-            % =====================================================================
-            % --- 7. 위상 계산 (360도 각도 출력) ---
-            % =====================================================================
-            % SPS 제어 기준:
-            % - Primary Bridge: Leg A (S1) = 0도, Leg B (S3) = 180도 (고정)
-            % - Secondary Bridge: Leg A (S5) = phi_ext, Leg B (S7) = phi_ext + 180도
-            %
-            % 전력 전달 방향:
-            % - phi_ext > 0: Primary → Secondary (충전, HV에서 LV로) [수정됨]
-            % - phi_ext < 0: Secondary → Primary (방전, LV에서 HV로) [수정됨]
-            
-            % Primary Bridge 위상 (고정)
-            phi1_deg = 0;                       % S1 기준 (항상 0도)
-            phi3_deg = phi_int_deg;             % S3 = 내부 위상 (SPS: 180도)
-            
-            % Secondary Bridge 위상 (외부 위상에 의해 결정)
-            phi5_deg = phi_ext_deg;             % S5 = 외부 위상
-            phi7_deg = phi_ext_deg + phi_int_deg;  % S7 = 외부 위상 + 내부 위상
-            
-            % 위상 출력: 음수 그대로 유지 (디버깅 편의)
-            % phi1_deg: 항상 0도
-            % phi3_deg: 180도 (SPS 고정)
-            % phi5_deg: -90 ~ +90도 범위 (외부 위상)
-            % phi7_deg: phi5 + 180도 (90 ~ 270도 범위)
-            %
-            % 참고: PWM Generator에서 음수 위상도 올바르게 처리함
-            % 0~360 정규화가 필요하면 PWM Generator 내부에서 수행
-            
-            % =====================================================================
-            % --- 8. [NEW] Flux Balancing & Duty Control ---
-            % =====================================================================
-            
             D_offset = 0;
-            if obj.EnableFluxBalancing
-                % 1. Inductor 전류(I_L_pri) DC 성분 검출 (Moving Average)
-                % 기존 I_Buffer 로직 재사용 (변수명 미러링)
+            if PWM_Enable && obj.EnableFluxBalancing
+                 % Flux Control (regulate DC current to 0)
+                 err_flux = -I_L_pri_DC; 
+                 obj.Flux_Integrator = obj.Flux_Integrator + err_flux * Ts;
                  
-                % A. Remove Oldest
-                old_pri = obj.I_L_pri_Buffer(obj.BufferIdx); % Index는 I_Buffer와 공유 (동기화됨)
-                obj.I_L_pri_Sum = obj.I_L_pri_Sum - old_pri;
-                
-                % B. Add Newest
-                obj.I_L_pri_Buffer(obj.BufferIdx) = I_L_pri;
-                obj.I_L_pri_Sum = obj.I_L_pri_Sum + I_L_pri;
-                
-                % C. Calculate Mean (DC Offset)
-                I_dc_pri = obj.I_L_pri_Sum / 125;
-                
-                % 2. PI Control to Zero DC Current
-                % 목표: I_dc_pri = 0
-                % 오차: 0 - I_dc_pri = -I_dc_pri
-                % DC 전류가 (+)이면 -> Duty를 줄여야 함? 늘려야 함?
-                % (통상) Duty A가 커지면 DC Bias (+) 증가 경향
-                % 따라서 DC(+) -> Duty(-) 로 보정. 즉 Negative Feedback.
-                
-                err_flux = -I_dc_pri;
-                obj.Flux_Integrator = obj.Flux_Integrator + err_flux * Ts;
-                
-                % Anti-windup for Flux Integrator
-                max_integ = obj.Flux_Limit / obj.Flux_Ki;
-                obj.Flux_Integrator = max(-max_integ, min(max_integ, obj.Flux_Integrator));
-                
-                D_raw = obj.Flux_Kp * err_flux + obj.Flux_Ki * obj.Flux_Integrator;
-                
-                % 3. Limit Offset
-                D_offset = max(-obj.Flux_Limit, min(obj.Flux_Limit, D_raw));
+                 % Flux Anti-windup
+                 max_integ = obj.Flux_Limit / obj.Flux_Ki;
+                 obj.Flux_Integrator = max(-max_integ, min(max_integ, obj.Flux_Integrator));
+                 
+                 D_raw = obj.Flux_Kp * err_flux + obj.Flux_Ki * obj.Flux_Integrator;
+                 D_offset = max(-obj.Flux_Limit, min(obj.Flux_Limit, D_raw));
             end
             
-            % --- 9. Final Duty Output ---
-            % SPS 기본 0.5 (50%) + Balancing Offset
-            D1_out = 0.5 + D_offset;  % Primary Duty (가변)
-            D2_out = 0.5;             % Secondary Duty (고정 - 보통 1차측만 조절함)
+            D1_out = 0.5 + D_offset;
+            D2_out = 0.5;
             
-            integrator_out = obj.Integrator_ext;  % 전류 적분기 상태값
+            % Output assignment
+            I_cmd_out = obj.I_ref_ramped;
+            phi_ext_out = phi_ext_deg;
+            integrator_out = obj.Integrator_ext;
             
-            % [NEW] 정상 동작 시 PWM 활성화
-            PWM_Enable = 1;
-
-            % [DEBUG] 내부 상태 출력
+            if PWM_Enable == 0
+                D1_out = 0; D2_out = 0;
+            end
+            
+            % Phase Calculation (SPS)
+            phi_int_deg = obj.SPS_Inner_Phase;
+            phi1_deg = 0;
+            phi3_deg = phi_int_deg;
+            phi5_deg = phi_ext_deg;
+            phi7_deg = phi_ext_deg + phi_int_deg;
+            
+            % Debug Signals
             err_out = err_ext;
             phi_raw_out = phi_raw_unbounded;
             excess_out = excess; 
-            ifb_out = I_fb_clean;
+            ifb_out = I_fb;
             
-            % --- 10. 이전 모드 저장 (다음 스텝용) ---
-            obj.PreviousMode = obj.PowerLossState;
-            
-            % 사용하지 않는 입력 경고 방지
-            %#ok<*NASGU>
-            if false
-                dummy = I_HV; %#ok<UNRCH>
-            end
+            obj.PreviousMode = obj.CurrentState;
         end
 
         function resetImpl(obj)
@@ -677,8 +526,8 @@ classdef DAB_Controller_System < matlab.System
             obj.Integrator_ext = 0;
             obj.Integrator_v = 0;
             obj.Flux_Integrator = 0; % [NEW]
-            obj.PowerLossState = 0;
-            obj.PreviousMode = 0;
+            obj.CurrentState = obj.ST_INIT;
+            obj.PreviousMode = obj.ST_INIT;
 
             obj.Prev_Phi_Output = 0;
             
@@ -745,7 +594,7 @@ classdef DAB_Controller_System < matlab.System
                     sz = [1 1]; dt = 'double'; cp = false;
                 case 'Integrator_v'
                     sz = [1 1]; dt = 'double'; cp = false;
-                case 'PowerLossState'
+                case 'CurrentState'
                     sz = [1 1]; dt = 'double'; cp = false;
                 case 'PreviousMode'
                     sz = [1 1]; dt = 'double'; cp = false;
@@ -785,7 +634,7 @@ classdef DAB_Controller_System < matlab.System
                 case 'V_LV_Buffer'
                     sz = [125 1]; dt = 'double'; cp = false;
                 case 'V_LV_Sum'
-                     sz = [1 1]; dt = 'double'; cp = false;
+                    sz = [1 1]; dt = 'double'; cp = false;
                 otherwise
                     error(['Unknown state: ', name]);
             end
