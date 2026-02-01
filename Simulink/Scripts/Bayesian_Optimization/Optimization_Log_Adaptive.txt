@@ -1,0 +1,49 @@
+=== DAB Adaptive Optimization Log Started at 31-Jan-2026 20:24:13 ===
+Format: [Time] Params | Cost | Details(Track, Effort, SS, Over) | Msg
+--------------------------------------------------------------------------------
+[DEBUG] Sim Input: Kp=29.9933, Ki=116632.9416
+[DEBUG] Sim Input: Kp=0.0106, Ki=33.7508
+[DEBUG] Sim Input: Kp=30.5614, Ki=0.8439
+[DEBUG] Sim Input: Kp=0.3614, Ki=2.4038
+[20:28:20] Kp=0.0106, Ki=33.7508 | Cost=145.6645 | Trk=14.533, Eff=0.000, SS=131.132, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=0.0607, Ki=108436.5340
+[20:28:31] Kp=0.3614, Ki=2.4038 | Cost=163.6524 | Trk=14.930, Eff=0.000, SS=148.723, Ov=176.3% | Success
+[DEBUG] Sim Input: Kp=0.0126, Ki=9.0157
+[20:28:44] Kp=30.5614, Ki=0.8439 | Cost=72.7641 | Trk=7.177, Eff=562.416, SS=37.467, Ov=368.2% | Success
+[20:28:46] Kp=29.9933, Ki=116632.9416 | Cost=81.4887 | Trk=9.675, Eff=436.602, SS=49.984, Ov=322.7% | Success
+[DEBUG] Sim Input: Kp=49.9827, Ki=402168.8992
+[DEBUG] Sim Input: Kp=13.4876, Ki=0.1097
+[20:30:24] Kp=0.0126, Ki=9.0157 | Cost=167.6100 | Trk=15.577, Eff=0.000, SS=152.033, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=34.9585, Ki=0.1019
+[20:30:32] Kp=0.0607, Ki=108436.5340 | Cost=5.3305 | Trk=0.691, Eff=0.000, SS=4.640, Ov=185.5% | Success
+[DEBUG] Sim Input: Kp=0.0102, Ki=496613.0030
+[20:30:50] Kp=13.4876, Ki=0.1097 | Cost=89.0353 | Trk=11.472, Eff=94.924, SS=72.817, Ov=481.8% | Success
+[DEBUG] Sim Input: Kp=0.0825, Ki=499115.1132
+[20:31:07] Kp=49.9827, Ki=402168.8992 | Cost=267.7817 | Trk=17.258, Eff=2413.349, SS=129.856, Ov=382.5% | Success
+[DEBUG] Sim Input: Kp=0.2236, Ki=8878.7553
+[20:32:44] Kp=34.9585, Ki=0.1019 | Cost=76.5719 | Trk=6.671, Eff=736.809, SS=33.061, Ov=383.2% | Success
+[DEBUG] Sim Input: Kp=49.7350, Ki=1047.5202
+[20:32:54] Kp=0.0102, Ki=496613.0030 | Cost=5.0254 | Trk=5.021, Eff=0.081, SS=0.000, Ov=232.9% | Success
+[DEBUG] Sim Input: Kp=0.0157, Ki=196635.3441
+[20:33:07] Kp=0.0825, Ki=499115.1132 | Cost=5.0501 | Trk=5.046, Eff=0.081, SS=0.000, Ov=238.1% | Success
+[DEBUG] Sim Input: Kp=0.0483, Ki=302842.3481
+[20:33:19] Kp=0.2236, Ki=8878.7553 | Cost=5.4783 | Trk=0.856, Eff=0.000, SS=4.623, Ov=173.6% | Success
+[DEBUG] Sim Input: Kp=0.0494, Ki=46570.2573
+[20:34:48] Kp=49.7350, Ki=1047.5202 | Cost=138.4860 | Trk=5.918, Eff=2095.600, SS=27.788, Ov=352.5% | Success
+[DEBUG] Sim Input: Kp=0.0102, Ki=0.1003
+[20:34:58] Kp=0.0157, Ki=196635.3441 | Cost=5.3346 | Trk=0.684, Eff=0.000, SS=4.651, Ov=193.5% | Success
+[DEBUG] Sim Input: Kp=2.1457, Ki=74455.4717
+[20:35:09] Kp=0.0483, Ki=302842.3481 | Cost=5.3234 | Trk=0.678, Eff=0.000, SS=4.645, Ov=206.6% | Success
+[DEBUG] Sim Input: Kp=2.8921, Ki=22420.2755
+[20:35:24] Kp=0.0494, Ki=46570.2573 | Cost=5.3320 | Trk=0.710, Eff=0.000, SS=4.622, Ov=179.6% | Success
+[DEBUG] Sim Input: Kp=0.0101, Ki=7985.5797
+[20:36:53] Kp=0.0102, Ki=0.1003 | Cost=175.0774 | Trk=15.964, Eff=0.000, SS=159.113, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=1.7947, Ki=105.9140
+[20:37:18] Kp=2.1457, Ki=74455.4717 | Cost=5.3528 | Trk=0.698, Eff=0.003, SS=4.654, Ov=350.2% | Success
+[DEBUG] Sim Input: Kp=0.3895, Ki=29528.4173
+[20:37:27] Kp=2.8921, Ki=22420.2755 | Cost=5.8566 | Trk=1.207, Eff=0.160, SS=4.642, Ov=544.7% | Success
+[DEBUG] Sim Input: Kp=49.7600, Ki=26420.6490
+[20:37:41] Kp=0.0101, Ki=7985.5797 | Cost=5.4981 | Trk=0.876, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[ERROR] Error in Objective: 여러 가지 원인으로 인해 오류가 발생했습니다.
+[ERROR] Error in Objective: 시뮬레이션이 중단됨
+[ERROR] Error in Objective: 시뮬레이션이 중단됨

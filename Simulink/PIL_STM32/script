@@ -1,0 +1,11 @@
+config load "C:\Users\vivid\Documents\GitProject\capstone\DAB-Converter-PSIM\Simulink\PIL_STM32\Simulink.ioc"
+project toolchain STM32CubeIDE
+
+SetStructure Advanced
+
+project setCustomFWPath "C:\Users\vivid\STM32Cube\Repository\STM32Cube_FW_G4_V1.6.0"
+
+config save C:\Users\vivid\Documents\GitProject\capstone\DAB-Converter-PSIM\Simulink\PIL_STM32\Simulink.ioc
+
+
+exit wait

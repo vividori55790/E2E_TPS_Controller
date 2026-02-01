@@ -1,0 +1,609 @@
+=== DAB Optimization Log Started at 31-Jan-2026 00:35:18 ===
+Format: [Time] Params | Cost | Details(Track, Effort, SS, Over) | Msg
+--------------------------------------------------------------------------------
+[DEBUG] Sim Input: Kp=3.5746, Ki=562.3115
+[DEBUG] Sim Input: Kp=23.9248, Ki=0.7135
+[DEBUG] Sim Input: Kp=0.4033, Ki=0.1914
+[DEBUG] Sim Input: Kp=0.0248, Ki=696.1734
+[00:40:52] Kp=3.5746, Ki=562.3115 | Cost=7.9708 | Trk=7.806, Eff=3.298, SS=0.000, Ov=623.1% | Success
+[DEBUG] Sim Input: Kp=3.2525, Ki=27.5073
+[00:41:15] Kp=0.4033, Ki=0.1914 | Cost=163.6517 | Trk=14.929, Eff=0.000, SS=148.723, Ov=176.3% | Success
+[00:41:16] Kp=23.9248, Ki=0.7135 | Cost=68.6060 | Trk=8.399, Eff=286.988, SS=45.857, Ov=385.3% | Success
+[DEBUG] Sim Input: Kp=9.6453, Ki=606.7497
+[DEBUG] Sim Input: Kp=2.4656, Ki=593.0849
+[00:41:38] Kp=0.0248, Ki=696.1734 | Cost=7.6580 | Trk=3.040, Eff=0.000, SS=4.618, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=0.0318, Ki=4202.8992
+[00:42:48] Kp=3.2525, Ki=27.5073 | Cost=170.7415 | Trk=13.541, Eff=3.489, SS=157.026, Ov=709.9% | Success
+[DEBUG] Sim Input: Kp=0.0249, Ki=243.4564
+[00:43:14] Kp=9.6453, Ki=606.7497 | Cost=99.8197 | Trk=12.549, Eff=49.476, SS=84.796, Ov=542.7% | Success
+[DEBUG] Sim Input: Kp=3.7720, Ki=241.9068
+[00:43:23] Kp=2.4656, Ki=593.0849 | Cost=11.0954 | Trk=3.305, Eff=0.137, SS=7.784, Ov=357.0% | Success
+[DEBUG] Sim Input: Kp=0.0481, Ki=735.6016
+[00:43:52] Kp=0.0318, Ki=4202.8992 | Cost=5.7030 | Trk=1.081, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.0211, Ki=2005.7570
+[00:44:38] Kp=0.0249, Ki=243.4564 | Cost=16.6381 | Trk=6.869, Eff=0.000, SS=9.769, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=2.8797, Ki=2659.5734
+[00:44:55] Kp=3.7720, Ki=241.9068 | Cost=52.6494 | Trk=12.320, Eff=6.816, SS=39.989, Ov=637.9% | Success
+[DEBUG] Sim Input: Kp=0.0981, Ki=38037.4042
+[00:45:08] Kp=0.0481, Ki=735.6016 | Cost=7.5432 | Trk=2.924, Eff=0.000, SS=4.619, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.0117, Ki=49928.7917
+[00:45:38] Kp=0.0211, Ki=2005.7570 | Cost=6.1789 | Trk=1.557, Eff=0.000, SS=4.622, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=0.0100, Ki=1.1243
+[00:46:50] Kp=2.8797, Ki=2659.5734 | Cost=6.0294 | Trk=1.381, Eff=0.079, SS=4.644, Ov=459.8% | Success
+[DEBUG] Sim Input: Kp=0.1937, Ki=1228.3421
+[00:47:13] Kp=0.0981, Ki=38037.4042 | Cost=5.3395 | Trk=0.718, Eff=0.000, SS=4.622, Ov=179.6% | Success
+[DEBUG] Sim Input: Kp=0.3312, Ki=49895.2162
+[00:47:27] Kp=0.0117, Ki=49928.7917 | Cost=5.3277 | Trk=0.705, Eff=0.000, SS=4.622, Ov=179.6% | Success
+[DEBUG] Sim Input: Kp=0.0326, Ki=49746.1438
+[00:47:42] Kp=0.0100, Ki=1.1243 | Cost=173.1340 | Trk=15.912, Eff=0.000, SS=157.222, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=0.0100, Ki=8669.7855
+[00:48:53] Kp=0.1937, Ki=1228.3421 | Cost=6.7116 | Trk=2.089, Eff=0.000, SS=4.622, Ov=172.1% | Success
+[DEBUG] Sim Input: Kp=0.1168, Ki=5431.9698
+[00:49:13] Kp=0.3312, Ki=49895.2162 | Cost=5.3476 | Trk=0.708, Eff=0.000, SS=4.640, Ov=189.5% | Success
+[DEBUG] Sim Input: Kp=0.8744, Ki=2765.1437
+[00:49:25] Kp=0.0326, Ki=49746.1438 | Cost=5.3289 | Trk=0.706, Eff=0.000, SS=4.623, Ov=179.6% | Success
+[DEBUG] Sim Input: Kp=2.7066, Ki=49768.4717
+[00:49:39] Kp=0.0100, Ki=8669.7855 | Cost=5.4813 | Trk=0.859, Eff=0.000, SS=4.623, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=1.0893, Ki=856.1674
+[00:50:41] Kp=0.1168, Ki=5431.9698 | Cost=5.6061 | Trk=0.983, Eff=0.000, SS=4.623, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=29.2330, Ki=0.1001
+[00:50:59] Kp=0.8744, Ki=2765.1437 | Cost=5.9729 | Trk=1.333, Eff=0.000, SS=4.640, Ov=207.1% | Success
+[DEBUG] Sim Input: Kp=1.8873, Ki=1415.1910
+[00:51:02] Kp=2.7066, Ki=49768.4717 | Cost=3.0107 | Trk=2.990, Eff=0.406, SS=0.000, Ov=459.8% | Success
+[DEBUG] Sim Input: Kp=1.1674, Ki=21177.1849
+[00:51:20] Kp=1.0893, Ki=856.1674 | Cost=7.2639 | Trk=2.619, Eff=0.001, SS=4.645, Ov=230.3% | Success
+[DEBUG] Sim Input: Kp=1.1497, Ki=49920.6786
+[00:52:09] Kp=29.2330, Ki=0.1001 | Cost=70.8013 | Trk=7.412, Eff=456.393, SS=40.569, Ov=374.0% | Success
+[DEBUG] Sim Input: Kp=0.3348, Ki=10792.9451
+[00:52:32] Kp=1.8873, Ki=1415.1910 | Cost=6.5603 | Trk=1.922, Eff=0.010, SS=4.637, Ov=299.7% | Success
+[DEBUG] Sim Input: Kp=0.0221, Ki=17126.1194
+[00:52:38] Kp=1.1674, Ki=21177.1849 | Cost=5.4039 | Trk=0.753, Eff=0.000, SS=4.651, Ov=234.8% | Success
+[DEBUG] Sim Input: Kp=0.0100, Ki=886.2074
+[00:52:57] Kp=1.1497, Ki=49920.6786 | Cost=5.3599 | Trk=0.710, Eff=0.000, SS=4.650, Ov=234.8% | Success
+[DEBUG] Sim Input: Kp=8.6946, Ki=49956.2041
+[00:54:01] Kp=0.3348, Ki=10792.9451 | Cost=5.4440 | Trk=0.822, Eff=0.000, SS=4.622, Ov=176.3% | Success
+[DEBUG] Sim Input: Kp=2.3872, Ki=16060.9214
+[00:54:28] Kp=0.0221, Ki=17126.1194 | Cost=5.3915 | Trk=0.769, Eff=0.000, SS=4.623, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.3047, Ki=3132.0004
+[00:54:31] Kp=0.0100, Ki=886.2074 | Cost=7.1975 | Trk=2.577, Eff=0.000, SS=4.621, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=0.0597, Ki=14854.7668
+[00:54:45] Kp=8.6946, Ki=49956.2041 | Cost=84.7506 | Trk=11.928, Eff=38.626, SS=70.892, Ov=531.5% | Success
+[DEBUG] Sim Input: Kp=1.8548, Ki=49647.5531
+[00:55:42] Kp=2.3872, Ki=16060.9214 | Cost=5.4177 | Trk=0.776, Eff=0.007, SS=4.641, Ov=353.5% | Success
+[DEBUG] Sim Input: Kp=0.4517, Ki=1082.8774
+[00:56:06] Kp=0.3047, Ki=3132.0004 | Cost=5.8606 | Trk=1.238, Eff=0.000, SS=4.623, Ov=176.3% | Success
+[DEBUG] Sim Input: Kp=0.1830, Ki=22554.8916
+[00:56:08] Kp=0.0597, Ki=14854.7668 | Cost=5.4052 | Trk=0.783, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.1191, Ki=193.2181
+[00:56:22] Kp=1.8548, Ki=49647.5531 | Cost=5.3466 | Trk=0.708, Eff=0.001, SS=4.639, Ov=304.2% | Success
+[DEBUG] Sim Input: Kp=2.7163, Ki=1267.0959
+[00:57:32] Kp=0.4517, Ki=1082.8774 | Cost=6.8997 | Trk=2.261, Eff=0.000, SS=4.639, Ov=193.9% | Success
+[DEBUG] Sim Input: Kp=0.0743, Ki=2120.8661
+[00:57:52] Kp=0.1191, Ki=193.2181 | Cost=39.4777 | Trk=8.144, Eff=0.000, SS=31.334, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.0101, Ki=2767.9675
+[00:58:01] Kp=0.1830, Ki=22554.8916 | Cost=5.3698 | Trk=0.747, Eff=0.000, SS=4.623, Ov=173.6% | Success
+[DEBUG] Sim Input: Kp=0.1758, Ki=49989.2253
+[00:58:14] Kp=2.7163, Ki=1267.0959 | Cost=6.6589 | Trk=2.027, Eff=0.101, SS=4.627, Ov=378.2% | Success
+[DEBUG] Sim Input: Kp=1.9002, Ki=30721.7225
+[00:59:10] Kp=0.0743, Ki=2120.8661 | Cost=6.1329 | Trk=1.510, Eff=0.000, SS=4.623, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.0101, Ki=23293.8239
+[00:59:27] Kp=0.0101, Ki=2767.9675 | Cost=5.9301 | Trk=1.308, Eff=0.000, SS=4.622, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=1.8931, Ki=49892.1034
+[00:59:36] Kp=0.1758, Ki=49989.2253 | Cost=5.3473 | Trk=0.708, Eff=0.000, SS=4.640, Ov=185.0% | Success
+[DEBUG] Sim Input: Kp=0.0184, Ki=49928.1080
+[00:59:55] Kp=1.9002, Ki=30721.7225 | Cost=5.3667 | Trk=0.728, Eff=0.001, SS=4.638, Ov=304.2% | Success
+[DEBUG] Sim Input: Kp=0.5488, Ki=24657.6325
+[01:01:08] Kp=0.0101, Ki=23293.8239 | Cost=5.3660 | Trk=0.744, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.0604, Ki=49604.3681
+[01:01:26] Kp=1.8931, Ki=49892.1034 | Cost=5.3454 | Trk=0.707, Eff=0.001, SS=4.639, Ov=304.2% | Success
+[DEBUG] Sim Input: Kp=0.6225, Ki=49900.7155
+[01:01:34] Kp=0.0184, Ki=49928.1080 | Cost=5.3273 | Trk=0.705, Eff=0.000, SS=4.622, Ov=179.6% | Success
+[DEBUG] Sim Input: Kp=0.5433, Ki=2483.8698
+[01:01:50] Kp=0.5488, Ki=24657.6325 | Cost=5.3824 | Trk=0.743, Eff=0.000, SS=4.640, Ov=193.9% | Success
+[DEBUG] Sim Input: Kp=2.9930, Ki=1138.1415
+[01:02:46] Kp=0.0604, Ki=49604.3681 | Cost=5.3303 | Trk=0.708, Eff=0.000, SS=4.622, Ov=179.6% | Success
+[DEBUG] Sim Input: Kp=0.0157, Ki=7476.8068
+[01:03:01] Kp=0.6225, Ki=49900.7155 | Cost=5.3478 | Trk=0.709, Eff=0.000, SS=4.639, Ov=198.3% | Success
+[DEBUG] Sim Input: Kp=0.1729, Ki=3068.8441
+[01:03:12] Kp=0.5433, Ki=2483.8698 | Cost=6.0390 | Trk=1.400, Eff=0.000, SS=4.639, Ov=193.9% | Success
+[DEBUG] Sim Input: Kp=1.6454, Ki=7260.3746
+[01:03:29] Kp=2.9930, Ki=1138.1415 | Cost=6.8327 | Trk=2.276, Eff=0.230, SS=4.545, Ov=544.7% | Success
+[DEBUG] Sim Input: Kp=0.0380, Ki=22797.6963
+[01:04:39] Kp=0.0157, Ki=7476.8068 | Cost=5.5109 | Trk=0.889, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.0148, Ki=24374.7520
+[01:04:54] Kp=0.1729, Ki=3068.8441 | Cost=5.8695 | Trk=1.247, Eff=0.000, SS=4.623, Ov=172.1% | Success
+[DEBUG] Sim Input: Kp=0.0414, Ki=1851.5063
+[01:05:02] Kp=1.6454, Ki=7260.3746 | Cost=5.5602 | Trk=0.913, Eff=0.001, SS=4.648, Ov=287.7% | Success
+[DEBUG] Sim Input: Kp=0.6967, Ki=9627.0194
+[01:05:16] Kp=0.0380, Ki=22797.6963 | Cost=5.3673 | Trk=0.745, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=2.3835, Ki=47392.4103
+[01:06:17] Kp=0.0148, Ki=24374.7520 | Cost=5.3631 | Trk=0.741, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.0574, Ki=5672.1841
+[01:06:34] Kp=0.0414, Ki=1851.5063 | Cost=6.2519 | Trk=1.630, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.1093, Ki=14587.5501
+[01:06:44] Kp=0.6967, Ki=9627.0194 | Cost=5.4821 | Trk=0.843, Eff=0.000, SS=4.640, Ov=198.3% | Success
+[DEBUG] Sim Input: Kp=2.4442, Ki=49045.0472
+[01:07:04] Kp=2.3835, Ki=47392.4103 | Cost=5.3559 | Trk=0.709, Eff=0.004, SS=4.647, Ov=360.7% | Success
+[DEBUG] Sim Input: Kp=0.3062, Ki=25596.9332
+[01:08:09] Kp=0.0574, Ki=5672.1841 | Cost=5.5895 | Trk=0.967, Eff=0.000, SS=4.623, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.7983, Ki=1415.7528
+[01:08:23] Kp=0.1093, Ki=14587.5501 | Cost=5.4079 | Trk=0.785, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.1957, Ki=8947.7521
+[01:08:30] Kp=2.4442, Ki=49045.0472 | Cost=5.3378 | Trk=0.706, Eff=0.004, SS=4.632, Ov=364.7% | Success
+[DEBUG] Sim Input: Kp=2.2526, Ki=5866.7646
+[01:08:45] Kp=0.3062, Ki=25596.9332 | Cost=5.3785 | Trk=0.739, Eff=0.000, SS=4.639, Ov=189.5% | Success
+[DEBUG] Sim Input: Kp=0.0341, Ki=9828.2817
+[01:09:50] Kp=0.7983, Ki=1415.7528 | Cost=6.5625 | Trk=1.923, Eff=0.000, SS=4.640, Ov=202.7% | Success
+[DEBUG] Sim Input: Kp=0.0137, Ki=1448.2032
+[01:10:12] Kp=0.1957, Ki=8947.7521 | Cost=5.4777 | Trk=0.855, Eff=0.000, SS=4.623, Ov=173.6% | Success
+[DEBUG] Sim Input: Kp=2.4590, Ki=33923.1132
+[01:10:19] Kp=2.2526, Ki=5866.7646 | Cost=5.6273 | Trk=0.989, Eff=0.010, SS=4.638, Ov=322.0% | Success
+[DEBUG] Sim Input: Kp=0.0101, Ki=231.4979
+[01:10:39] Kp=0.0341, Ki=9828.2817 | Cost=5.4602 | Trk=0.838, Eff=0.000, SS=4.623, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.8027, Ki=27299.8140
+[01:11:39] Kp=0.0137, Ki=1448.2032 | Cost=6.5074 | Trk=1.886, Eff=0.000, SS=4.622, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=0.1126, Ki=49961.2517
+[01:11:52] Kp=0.0101, Ki=231.4979 | Cost=22.0245 | Trk=7.168, Eff=0.000, SS=14.856, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=0.0101, Ki=46974.3247
+[01:11:55] Kp=2.4590, Ki=33923.1132 | Cost=5.3502 | Trk=0.719, Eff=0.005, SS=4.631, Ov=360.7% | Success
+[DEBUG] Sim Input: Kp=1.5964, Ki=3237.5387
+[01:12:19] Kp=0.8027, Ki=27299.8140 | Cost=5.3823 | Trk=0.737, Eff=0.000, SS=4.645, Ov=215.6% | Success
+[DEBUG] Sim Input: Kp=0.1165, Ki=1624.6451
+[01:13:26] Kp=0.1126, Ki=49961.2517 | Cost=5.3283 | Trk=0.706, Eff=0.000, SS=4.622, Ov=179.6% | Success
+[DEBUG] Sim Input: Kp=0.4690, Ki=6456.2898
+[01:13:42] Kp=0.0101, Ki=46974.3247 | Cost=5.3306 | Trk=0.708, Eff=0.000, SS=4.623, Ov=179.6% | Success
+[DEBUG] Sim Input: Kp=0.0635, Ki=28825.6380
+[01:13:46] Kp=1.5964, Ki=3237.5387 | Cost=5.9007 | Trk=1.251, Eff=0.002, SS=4.649, Ov=262.4% | Success
+[DEBUG] Sim Input: Kp=1.7781, Ki=14240.2678
+[01:14:12] Kp=0.1165, Ki=1624.6451 | Cost=6.3840 | Trk=1.762, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.0247, Ki=32773.8861
+[01:15:08] Kp=0.4690, Ki=6456.2898 | Cost=5.5709 | Trk=0.931, Eff=0.000, SS=4.640, Ov=193.9% | Success
+[DEBUG] Sim Input: Kp=5.6189, Ki=0.1003
+[01:15:20] Kp=0.0635, Ki=28825.6380 | Cost=5.3535 | Trk=0.731, Eff=0.000, SS=4.622, Ov=179.6% | Success
+[DEBUG] Sim Input: Kp=2.6366, Ki=49845.8871
+[01:15:24] Kp=1.7781, Ki=14240.2678 | Cost=5.4283 | Trk=0.790, Eff=0.001, SS=4.639, Ov=295.1% | Success
+[DEBUG] Sim Input: Kp=2.6250, Ki=49642.9251
+[01:15:48] Kp=0.0247, Ki=32773.8861 | Cost=5.3460 | Trk=0.723, Eff=0.000, SS=4.623, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.3015, Ki=1713.6985
+[01:16:47] Kp=5.6189, Ki=0.1003 | Cost=155.9029 | Trk=16.176, Eff=19.483, SS=138.753, Ov=712.1% | Success
+[DEBUG] Sim Input: Kp=1.0345, Ki=8953.0607
+[01:17:04] Kp=2.6366, Ki=49845.8871 | Cost=3.0909 | Trk=3.071, Eff=0.392, SS=0.000, Ov=432.2% | Success
+[DEBUG] Sim Input: Kp=2.8283, Ki=49189.1739
+[01:17:14] Kp=2.6250, Ki=49642.9251 | Cost=2.9368 | Trk=2.918, Eff=0.370, SS=0.000, Ov=432.2% | Success
+[DEBUG] Sim Input: Kp=2.7985, Ki=49940.1893
+[01:17:41] Kp=0.3015, Ki=1713.6985 | Cost=6.3343 | Trk=1.712, Eff=0.000, SS=4.622, Ov=176.3% | Success
+[DEBUG] Sim Input: Kp=0.0356, Ki=0.1001
+[01:18:28] Kp=1.0345, Ki=8953.0607 | Cost=5.5099 | Trk=0.859, Eff=0.000, SS=4.651, Ov=230.3% | Success
+[DEBUG] Sim Input: Kp=0.0991, Ki=2.9396
+[01:18:41] Kp=2.8283, Ki=49189.1739 | Cost=5.3479 | Trk=0.706, Eff=0.012, SS=4.641, Ov=544.7% | Success
+[DEBUG] Sim Input: Kp=29.9761, Ki=30.3580
+[01:18:51] Kp=2.7985, Ki=49940.1893 | Cost=5.3452 | Trk=0.708, Eff=0.011, SS=4.637, Ov=544.7% | Success
+[DEBUG] Sim Input: Kp=0.0228, Ki=6473.0508
+[01:19:08] Kp=0.0356, Ki=0.1001 | Cost=172.9992 | Trk=15.783, Eff=0.000, SS=157.217, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=29.9883, Ki=7969.7973
+[01:20:07] Kp=0.0991, Ki=2.9396 | Cost=169.7579 | Trk=15.581, Eff=0.000, SS=154.177, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.0812, Ki=8441.3911
+[01:20:29] Kp=29.9761, Ki=30.3580 | Cost=71.4808 | Trk=7.252, Eff=516.587, SS=38.400, Ov=369.8% | Success
+[DEBUG] Sim Input: Kp=0.2427, Ki=49978.4222
+[01:20:47] Kp=0.0228, Ki=6473.0508 | Cost=5.5481 | Trk=0.926, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.6312, Ki=5.2899
+[01:20:55] Kp=29.9883, Ki=7969.7973 | Cost=71.5140 | Trk=7.267, Eff=519.836, SS=38.255, Ov=352.8% | Success
+[DEBUG] Sim Input: Kp=3.4921, Ki=971.8351
+[01:21:46] Kp=0.0812, Ki=8441.3911 | Cost=5.4863 | Trk=0.864, Eff=0.000, SS=4.623, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=1.2269, Ki=1710.3318
+[01:22:04] Kp=0.2427, Ki=49978.4222 | Cost=5.3476 | Trk=0.708, Eff=0.000, SS=4.639, Ov=185.0% | Success
+[DEBUG] Sim Input: Kp=0.0100, Ki=0.1016
+[01:22:10] Kp=0.6312, Ki=5.2899 | Cost=153.8547 | Trk=14.135, Eff=0.000, SS=139.720, Ov=198.3% | Success
+[DEBUG] Sim Input: Kp=0.0446, Ki=49757.8723
+[01:22:26] Kp=3.4921, Ki=971.8351 | Cost=8.2146 | Trk=8.036, Eff=3.563, SS=0.000, Ov=636.1% | Success
+[DEBUG] Sim Input: Kp=2.1031, Ki=0.7796
+[01:23:36] Kp=1.2269, Ki=1710.3318 | Cost=6.3808 | Trk=1.730, Eff=0.001, SS=4.650, Ov=239.3% | Success
+[DEBUG] Sim Input: Kp=29.8634, Ki=49822.9850
+[01:23:45] Kp=0.0100, Ki=0.1016 | Cost=175.0774 | Trk=15.964, Eff=0.000, SS=159.113, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=0.4502, Ki=49219.5531
+[01:24:06] Kp=0.0446, Ki=49757.8723 | Cost=5.3295 | Trk=0.707, Eff=0.000, SS=4.622, Ov=179.6% | Success
+[01:24:07] Kp=2.1031, Ki=0.7796 | Cost=119.5073 | Trk=10.975, Eff=0.011, SS=108.532, Ov=312.4% | Success
+[DEBUG] Sim Input: Kp=0.0144, Ki=3906.3603
+[DEBUG] Sim Input: Kp=2.2153, Ki=3051.0790
+[01:25:08] Kp=29.8634, Ki=49822.9850 | Cost=79.0580 | Trk=8.485, Eff=473.659, SS=46.890, Ov=416.8% | Success
+[DEBUG] Sim Input: Kp=0.0130, Ki=13196.2088
+[01:25:19] Kp=0.4502, Ki=49219.5531 | Cost=5.3492 | Trk=0.709, Eff=0.000, SS=4.640, Ov=193.9% | Success
+[DEBUG] Sim Input: Kp=0.0235, Ki=10.9978
+[01:25:40] Kp=0.0144, Ki=3906.3603 | Cost=5.7362 | Trk=1.114, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[01:25:42] Kp=2.2153, Ki=3051.0790 | Cost=5.9417 | Trk=1.302, Eff=0.015, SS=4.639, Ov=319.5% | Success
+[DEBUG] Sim Input: Kp=0.1346, Ki=28792.2871
+[DEBUG] Sim Input: Kp=0.4650, Ki=14042.6926
+[01:27:01] Kp=0.0130, Ki=13196.2088 | Cost=5.4171 | Trk=0.795, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[01:27:01] Kp=0.0235, Ki=10.9978 | Cost=164.8485 | Trk=15.470, Eff=0.000, SS=149.378, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=0.0788, Ki=1002.7044
+[DEBUG] Sim Input: Kp=0.0149, Ki=593.2925
+[01:27:38] Kp=0.4650, Ki=14042.6926 | Cost=5.4303 | Trk=0.791, Eff=0.000, SS=4.639, Ov=193.9% | Success
+[01:27:40] Kp=0.1346, Ki=28792.2871 | Cost=5.3516 | Trk=0.730, Eff=0.000, SS=4.622, Ov=179.6% | Success
+[DEBUG] Sim Input: Kp=1.3396, Ki=0.1000
+[DEBUG] Sim Input: Kp=9.7454, Ki=4.9327
+[01:28:38] Kp=0.0149, Ki=593.2925 | Cost=8.0191 | Trk=3.410, Eff=0.000, SS=4.609, Ov=174.3% | Success
+[01:28:39] Kp=0.0788, Ki=1002.7044 | Cost=6.9974 | Trk=2.375, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=29.9968, Ki=407.1010
+[DEBUG] Sim Input: Kp=0.2636, Ki=6056.0415
+[01:29:02] Kp=1.3396, Ki=0.1000 | Cost=138.7483 | Trk=12.673, Eff=0.000, SS=126.075, Ov=249.7% | Success
+[DEBUG] Sim Input: Kp=0.8977, Ki=49982.3777
+[01:29:08] Kp=9.7454, Ki=4.9327 | Cost=109.8815 | Trk=13.273, Eff=52.012, SS=94.008, Ov=555.6% | Success
+[DEBUG] Sim Input: Kp=0.1346, Ki=0.1009
+[01:30:26] Kp=29.9968, Ki=407.1010 | Cost=72.3029 | Trk=7.398, Eff=501.987, SS=39.806, Ov=367.3% | Success
+[DEBUG] Sim Input: Kp=0.4345, Ki=50.8123
+[01:30:30] Kp=0.2636, Ki=6056.0415 | Cost=5.5681 | Trk=0.946, Eff=0.000, SS=4.622, Ov=173.6% | Success
+[DEBUG] Sim Input: Kp=0.1442, Ki=10594.3194
+[01:30:50] Kp=0.1346, Ki=0.1009 | Cost=169.6675 | Trk=15.490, Eff=0.000, SS=154.177, Ov=172.1% | Success
+[DEBUG] Sim Input: Kp=0.7048, Ki=5038.4081
+[01:30:56] Kp=0.8977, Ki=49982.3777 | Cost=5.3601 | Trk=0.710, Eff=0.000, SS=4.650, Ov=225.8% | Success
+[DEBUG] Sim Input: Kp=0.0100, Ki=15.1973
+[01:31:54] Kp=0.4345, Ki=50.8123 | Cost=120.3854 | Trk=12.745, Eff=0.000, SS=107.641, Ov=188.8% | Success
+[DEBUG] Sim Input: Kp=0.0377, Ki=0.7744
+[01:32:07] Kp=0.1442, Ki=10594.3194 | Cost=5.4480 | Trk=0.825, Eff=0.000, SS=4.623, Ov=172.1% | Success
+[DEBUG] Sim Input: Kp=0.2398, Ki=14882.2902
+[01:32:22] Kp=0.0100, Ki=15.1973 | Cost=162.0275 | Trk=15.332, Eff=0.000, SS=146.696, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=29.9888, Ki=4.2560
+[01:32:27] Kp=0.7048, Ki=5038.4081 | Cost=5.6576 | Trk=1.018, Eff=0.000, SS=4.639, Ov=202.7% | Success
+[DEBUG] Sim Input: Kp=0.0942, Ki=23.5063
+[01:33:34] Kp=0.0377, Ki=0.7744 | Cost=172.9915 | Trk=15.775, Eff=0.000, SS=157.216, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.0468, Ki=9305.7386
+[01:33:59] Kp=0.2398, Ki=14882.2902 | Cost=5.4046 | Trk=0.782, Eff=0.000, SS=4.623, Ov=173.6% | Success
+[DEBUG] Sim Input: Kp=11.0393, Ki=52.7672
+[01:34:08] Kp=0.0942, Ki=23.5063 | Cost=152.4039 | Trk=14.760, Eff=0.000, SS=137.643, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.0100, Ki=4965.2374
+[01:34:13] Kp=29.9888, Ki=4.2560 | Cost=70.9326 | Trk=7.195, Eff=525.529, SS=37.461, Ov=385.7% | Success
+[DEBUG] Sim Input: Kp=0.2607, Ki=1.0651
+[01:35:13] Kp=0.0468, Ki=9305.7386 | Cost=5.4691 | Trk=0.847, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.0852, Ki=4152.6228
+[01:35:30] Kp=11.0393, Ki=52.7672 | Cost=101.1553 | Trk=12.273, Eff=65.085, SS=85.629, Ov=527.8% | Success
+[DEBUG] Sim Input: Kp=0.8344, Ki=15361.8228
+[01:35:38] Kp=0.2607, Ki=1.0651 | Cost=167.2763 | Trk=15.257, Eff=0.000, SS=152.019, Ov=173.6% | Success
+[DEBUG] Sim Input: Kp=1.0913, Ki=5006.6913
+[01:35:46] Kp=0.0100, Ki=4965.2374 | Cost=5.6358 | Trk=1.013, Eff=0.000, SS=4.623, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=11.0645, Ki=6681.3640
+[01:37:05] Kp=0.0852, Ki=4152.6228 | Cost=5.7106 | Trk=1.088, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=7.2183, Ki=0.6359
+[01:37:24] Kp=0.8344, Ki=15361.8228 | Cost=5.4204 | Trk=0.781, Eff=0.000, SS=4.640, Ov=207.1% | Success
+[DEBUG] Sim Input: Kp=0.0838, Ki=20926.8213
+[01:37:34] Kp=1.0913, Ki=5006.6913 | Cost=5.6775 | Trk=1.027, Eff=0.000, SS=4.651, Ov=230.3% | Success
+[01:37:35] Kp=11.0645, Ki=6681.3640 | Cost=91.7559 | Trk=12.099, Eff=65.593, SS=76.377, Ov=524.0% | Success
+[DEBUG] Sim Input: Kp=0.0125, Ki=35831.4996
+[DEBUG] Sim Input: Kp=1.1861, Ki=53.2767
+[01:38:40] Kp=7.2183, Ki=0.6359 | Cost=134.8150 | Trk=14.719, Eff=29.808, SS=118.605, Ov=584.7% | Success
+[DEBUG] Sim Input: Kp=2.3364, Ki=4.5372
+[01:38:59] Kp=1.1861, Ki=53.2767 | Cost=104.8672 | Trk=11.072, Eff=0.000, SS=93.795, Ov=234.8% | Success
+[DEBUG] Sim Input: Kp=0.0815, Ki=49001.9128
+[01:39:02] Kp=0.0838, Ki=20926.8213 | Cost=5.3735 | Trk=0.751, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.1295, Ki=806.8207
+[01:39:11] Kp=0.0125, Ki=35831.4996 | Cost=5.3423 | Trk=0.720, Eff=0.000, SS=4.623, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.0482, Ki=3567.4974
+[01:40:20] Kp=2.3364, Ki=4.5372 | Cost=106.9085 | Trk=9.927, Eff=0.181, SS=96.973, Ov=350.2% | Success
+[DEBUG] Sim Input: Kp=0.4071, Ki=30297.2836
+[01:40:51] Kp=0.1295, Ki=806.8207 | Cost=7.3635 | Trk=2.743, Eff=0.000, SS=4.621, Ov=172.1% | Success
+[DEBUG] Sim Input: Kp=0.2239, Ki=32985.3102
+[01:40:53] Kp=0.0815, Ki=49001.9128 | Cost=5.3299 | Trk=0.707, Eff=0.000, SS=4.623, Ov=179.6% | Success
+[DEBUG] Sim Input: Kp=0.6871, Ki=697.7515
+[01:41:06] Kp=0.0482, Ki=3567.4974 | Cost=5.7829 | Trk=1.161, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=13.5690, Ki=0.1002
+[01:42:07] Kp=0.4071, Ki=30297.2836 | Cost=5.3700 | Trk=0.731, Eff=0.000, SS=4.639, Ov=189.5% | Success
+[DEBUG] Sim Input: Kp=2.4599, Ki=49923.9745
+[01:42:30] Kp=0.2239, Ki=32985.3102 | Cost=5.3456 | Trk=0.723, Eff=0.000, SS=4.623, Ov=175.6% | Success
+[01:42:30] Kp=0.6871, Ki=697.7515 | Cost=7.6430 | Trk=3.017, Eff=0.000, SS=4.626, Ov=198.3% | Success
+[DEBUG] Sim Input: Kp=2.7969, Ki=8206.2043
+[DEBUG] Sim Input: Kp=0.2827, Ki=713.9522
+[01:42:38] Kp=13.5690, Ki=0.1002 | Cost=89.7975 | Trk=11.636, Eff=95.962, SS=73.363, Ov=495.6% | Success
+[DEBUG] Sim Input: Kp=0.7976, Ki=0.7532
+[01:43:49] Kp=2.4599, Ki=49923.9745 | Cost=5.3370 | Trk=0.705, Eff=0.004, SS=4.632, Ov=364.7% | Success
+[DEBUG] Sim Input: Kp=0.0245, Ki=49538.5442
+[01:44:14] Kp=0.7976, Ki=0.7532 | Cost=150.0427 | Trk=13.776, Eff=0.000, SS=136.267, Ov=202.7% | Success
+[01:44:14] Kp=2.7969, Ki=8206.2043 | Cost=5.5243 | Trk=0.886, Eff=0.021, SS=4.638, Ov=387.7% | Success
+[DEBUG] Sim Input: Kp=0.2297, Ki=9.5167
+[DEBUG] Sim Input: Kp=2.2763, Ki=10009.8381
+[01:44:19] Kp=0.2827, Ki=713.9522 | Cost=7.5971 | Trk=2.980, Eff=0.000, SS=4.617, Ov=173.6% | Success
+[DEBUG] Sim Input: Kp=0.0923, Ki=0.4040
+[01:45:36] Kp=0.0245, Ki=49538.5442 | Cost=5.3295 | Trk=0.707, Eff=0.000, SS=4.623, Ov=179.6% | Success
+[DEBUG] Sim Input: Kp=0.0295, Ki=16511.8705
+[01:45:44] Kp=0.2297, Ki=9.5167 | Cost=161.3022 | Trk=14.991, Eff=0.000, SS=146.311, Ov=173.6% | Success
+[DEBUG] Sim Input: Kp=0.0209, Ki=3798.2330
+[01:45:47] Kp=0.0923, Ki=0.4040 | Cost=172.9915 | Trk=15.775, Eff=0.000, SS=157.216, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.1694, Ki=5700.0668
+[01:45:55] Kp=2.2763, Ki=10009.8381 | Cost=5.4803 | Trk=0.842, Eff=0.007, SS=4.638, Ov=346.9% | Success
+[DEBUG] Sim Input: Kp=1.3408, Ki=32353.5471
+[01:47:20] Kp=0.0295, Ki=16511.8705 | Cost=5.3935 | Trk=0.771, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.0476, Ki=31530.2880
+[01:47:29] Kp=0.0209, Ki=3798.2330 | Cost=5.7492 | Trk=1.127, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=29.8607, Ki=1755.1447
+[01:47:34] Kp=0.1694, Ki=5700.0668 | Cost=5.5893 | Trk=0.967, Eff=0.000, SS=4.622, Ov=172.1% | Success
+[DEBUG] Sim Input: Kp=0.3984, Ki=4103.1184
+[01:47:44] Kp=1.3408, Ki=32353.5471 | Cost=5.3778 | Trk=0.728, Eff=0.000, SS=4.650, Ov=249.7% | Success
+[DEBUG] Sim Input: Kp=0.0172, Ki=0.2946
+[01:49:07] Kp=0.0476, Ki=31530.2880 | Cost=5.3478 | Trk=0.725, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=1.3273, Ki=12446.3460
+[01:49:10] Kp=29.8607, Ki=1755.1447 | Cost=70.9201 | Trk=7.362, Eff=500.724, SS=38.522, Ov=376.2% | Success
+[DEBUG] Sim Input: Kp=0.0423, Ki=53.8152
+[01:49:12] Kp=0.0172, Ki=0.2946 | Cost=175.0774 | Trk=15.964, Eff=0.000, SS=159.113, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=0.0182, Ki=12219.2212
+[01:49:16] Kp=0.3984, Ki=4103.1184 | Cost=5.7201 | Trk=1.098, Eff=0.000, SS=4.622, Ov=176.3% | Success
+[DEBUG] Sim Input: Kp=0.0161, Ki=51.9808
+[01:50:40] Kp=0.0423, Ki=53.8152 | Cost=126.1368 | Trk=13.549, Eff=0.000, SS=112.588, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=4.6454, Ki=2.6621
+[01:50:49] Kp=0.0161, Ki=51.9808 | Cost=128.6806 | Trk=13.700, Eff=0.000, SS=114.981, Ov=174.3% | Success
+[01:50:50] Kp=1.3273, Ki=12446.3460 | Cost=5.4574 | Trk=0.807, Eff=0.000, SS=4.650, Ov=249.7% | Success
+[DEBUG] Sim Input: Kp=0.0322, Ki=459.8319
+[DEBUG] Sim Input: Kp=0.0191, Ki=2.5040
+[01:50:56] Kp=0.0182, Ki=12219.2212 | Cost=5.4274 | Trk=0.805, Eff=0.000, SS=4.623, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=19.6403, Ki=130.1352
+[01:52:20] Kp=4.6454, Ki=2.6621 | Cost=169.0908 | Trk=18.383, Eff=16.366, SS=149.890, Ov=708.2% | Success
+[DEBUG] Sim Input: Kp=2.7705, Ki=4715.9854
+[01:52:26] Kp=0.0191, Ki=2.5040 | Cost=173.0310 | Trk=15.814, Eff=0.000, SS=157.216, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=0.0561, Ki=1506.0185
+[01:52:32] Kp=0.0322, Ki=459.8319 | Cost=8.6103 | Trk=4.131, Eff=0.000, SS=4.479, Ov=177.1% | Success
+[01:52:34] Kp=19.6403, Ki=130.1352 | Cost=73.1866 | Trk=9.351, Eff=191.698, SS=54.250, Ov=426.6% | Success
+[DEBUG] Sim Input: Kp=2.6671, Ki=0.1007
+[DEBUG] Sim Input: Kp=0.0187, Ki=29880.0046
+[01:53:54] Kp=2.7705, Ki=4715.9854 | Cost=5.7128 | Trk=1.075, Eff=0.033, SS=4.636, Ov=382.5% | Success
+[DEBUG] Sim Input: Kp=2.9775, Ki=22116.2188
+[01:54:05] Kp=0.0561, Ki=1506.0185 | Cost=6.4644 | Trk=1.842, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.2272, Ki=3572.5796
+[01:54:09] Kp=2.6671, Ki=0.1007 | Cost=104.8816 | Trk=9.551, Eff=0.318, SS=95.315, Ov=373.5% | Success
+[DEBUG] Sim Input: Kp=1.4436, Ki=49841.5442
+[01:54:16] Kp=0.0187, Ki=29880.0046 | Cost=5.3503 | Trk=0.728, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=17.1736, Ki=29775.8311
+[01:55:45] Kp=2.9775, Ki=22116.2188 | Cost=5.3660 | Trk=0.724, Eff=0.047, SS=4.640, Ov=544.7% | Success
+[DEBUG] Sim Input: Kp=2.7211, Ki=41517.8394
+[01:55:55] Kp=17.1736, Ki=29775.8311 | Cost=69.7439 | Trk=9.894, Eff=147.168, SS=52.492, Ov=394.6% | Success
+[01:55:55] Kp=0.2272, Ki=3572.5796 | Cost=5.7848 | Trk=1.162, Eff=0.000, SS=4.622, Ov=173.6% | Success
+[01:55:56] Kp=1.4436, Ki=49841.5442 | Cost=5.3568 | Trk=0.709, Eff=0.000, SS=4.648, Ov=278.5% | Success
+[DEBUG] Sim Input: Kp=0.0121, Ki=6719.4911
+[DEBUG] Sim Input: Kp=0.0479, Ki=5.5942
+[DEBUG] Sim Input: Kp=0.0292, Ki=2262.4905
+[01:57:11] Kp=2.7211, Ki=41517.8394 | Cost=3.0104 | Trk=2.990, Eff=0.411, SS=0.000, Ov=452.5% | Success
+[DEBUG] Sim Input: Kp=2.7439, Ki=38338.9599
+[01:57:21] Kp=0.0479, Ki=5.5942 | Cost=169.7991 | Trk=15.621, Eff=0.000, SS=154.178, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=2.7380, Ki=39005.0350
+[01:57:35] Kp=0.0121, Ki=6719.4911 | Cost=5.5362 | Trk=0.915, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[01:57:37] Kp=0.0292, Ki=2262.4905 | Cost=6.0780 | Trk=1.455, Eff=0.000, SS=4.623, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=2.7522, Ki=38910.8153
+[DEBUG] Sim Input: Kp=0.2120, Ki=68.2394
+[01:58:58] Kp=2.7439, Ki=38338.9599 | Cost=3.0083 | Trk=2.988, Eff=0.415, SS=0.000, Ov=459.8% | Success
+[DEBUG] Sim Input: Kp=2.7828, Ki=36898.4500
+[01:59:07] Kp=2.7380, Ki=39005.0350 | Cost=3.0154 | Trk=2.995, Eff=0.417, SS=0.000, Ov=459.8% | Success
+[DEBUG] Sim Input: Kp=17.9045, Ki=11.9912
+[01:59:16] Kp=0.2120, Ki=68.2394 | Cost=110.4250 | Trk=12.517, Eff=0.000, SS=97.908, Ov=173.6% | Success
+[01:59:17] Kp=2.7522, Ki=38910.8153 | Cost=2.9979 | Trk=2.977, Eff=0.416, SS=0.000, Ov=467.3% | Success
+[DEBUG] Sim Input: Kp=0.0686, Ki=0.1020
+[DEBUG] Sim Input: Kp=0.6440, Ki=0.1002
+[02:00:34] Kp=2.7828, Ki=36898.4500 | Cost=5.3627 | Trk=0.719, Eff=0.014, SS=4.643, Ov=475.0% | Success
+[DEBUG] Sim Input: Kp=1.2237, Ki=9.7753
+[02:00:38] Kp=0.0686, Ki=0.1020 | Cost=172.9915 | Trk=15.775, Eff=0.000, SS=157.216, Ov=177.1% | Success
+[02:00:40] Kp=17.9045, Ki=11.9912 | Cost=76.0957 | Trk=9.826, Eff=165.806, SS=57.980, Ov=446.4% | Success
+[DEBUG] Sim Input: Kp=16.8542, Ki=1626.2512
+[DEBUG] Sim Input: Kp=14.6115, Ki=1.5463
+[02:00:44] Kp=0.6440, Ki=0.1002 | Cost=157.0860 | Trk=14.334, Eff=0.000, SS=142.752, Ov=198.3% | Success
+[DEBUG] Sim Input: Kp=6.2031, Ki=18.6993
+[02:02:18] Kp=1.2237, Ki=9.7753 | Cost=134.2522 | Trk=12.490, Eff=0.000, SS=121.763, Ov=239.3% | Success
+[DEBUG] Sim Input: Kp=0.2837, Ki=0.1001
+[02:02:26] Kp=16.8542, Ki=1626.2512 | Cost=77.0572 | Trk=10.060, Eff=142.900, SS=59.852, Ov=448.5% | Success
+[DEBUG] Sim Input: Kp=3.7918, Ki=0.3778
+[02:02:30] Kp=14.6115, Ki=1.5463 | Cost=85.4107 | Trk=11.148, Eff=107.614, SS=68.882, Ov=463.1% | Success
+[02:02:30] Kp=6.2031, Ki=18.6993 | Cost=142.9528 | Trk=15.435, Eff=24.264, SS=126.304, Ov=694.5% | Success
+[DEBUG] Sim Input: Kp=5.9440, Ki=6916.5570
+[DEBUG] Sim Input: Kp=0.6979, Ki=143.8778
+[02:03:43] Kp=0.2837, Ki=0.1001 | Cost=167.2763 | Trk=15.257, Eff=0.000, SS=152.019, Ov=173.6% | Success
+[DEBUG] Sim Input: Kp=0.0181, Ki=0.1011
+[02:03:53] Kp=3.7918, Ki=0.3778 | Cost=184.3377 | Trk=18.525, Eff=8.810, SS=165.372, Ov=649.0% | Success
+[DEBUG] Sim Input: Kp=6.8881, Ki=138.3473
+[02:03:57] Kp=0.6979, Ki=143.8778 | Cost=58.5169 | Trk=8.988, Eff=0.000, SS=49.529, Ov=202.7% | Success
+[DEBUG] Sim Input: Kp=1.2374, Ki=2.1510
+[02:04:02] Kp=5.9440, Ki=6916.5570 | Cost=75.7360 | Trk=10.701, Eff=17.507, SS=64.159, Ov=676.8% | Success
+[DEBUG] Sim Input: Kp=0.1794, Ki=0.3711
+[02:05:27] Kp=0.0181, Ki=0.1011 | Cost=175.0774 | Trk=15.964, Eff=0.000, SS=159.113, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=1.9767, Ki=106.4386
+[02:05:40] Kp=1.2374, Ki=2.1510 | Cost=138.7795 | Trk=12.705, Eff=0.000, SS=126.075, Ov=239.3% | Success
+[02:05:41] Kp=6.8881, Ki=138.3473 | Cost=125.8528 | Trk=14.492, Eff=27.521, SS=109.985, Ov=661.4% | Success
+[DEBUG] Sim Input: Kp=0.0668, Ki=135.4877
+[DEBUG] Sim Input: Kp=13.8346, Ki=0.3441
+[02:05:46] Kp=0.1794, Ki=0.3711 | Cost=169.6500 | Trk=15.473, Eff=0.000, SS=154.177, Ov=172.1% | Success
+[DEBUG] Sim Input: Kp=0.4529, Ki=1.5194
+[02:06:54] Kp=1.9767, Ki=106.4386 | Cost=69.7846 | Trk=8.464, Eff=0.005, SS=61.321, Ov=304.2% | Success
+[DEBUG] Sim Input: Kp=0.3869, Ki=9.6217
+[02:07:07] Kp=0.0668, Ki=135.4877 | Cost=62.4738 | Trk=10.052, Eff=0.000, SS=52.421, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.7112, Ki=25.1195
+[02:07:11] Kp=0.4529, Ki=1.5194 | Cost=161.0060 | Trk=14.702, Eff=0.000, SS=146.304, Ov=193.9% | Success
+[02:07:13] Kp=13.8346, Ki=0.3441 | Cost=87.1173 | Trk=11.332, Eff=97.215, SS=70.925, Ov=483.2% | Success
+[DEBUG] Sim Input: Kp=7.0808, Ki=1791.3900
+[DEBUG] Sim Input: Kp=1.3162, Ki=0.3461
+[02:08:33] Kp=0.3869, Ki=9.6217 | Cost=156.3794 | Trk=14.575, Eff=0.000, SS=141.804, Ov=176.3% | Success
+[DEBUG] Sim Input: Kp=29.9318, Ki=0.3104
+[02:08:47] Kp=0.7112, Ki=25.1195 | Cost=134.9306 | Trk=13.124, Eff=0.000, SS=121.806, Ov=202.7% | Success
+[DEBUG] Sim Input: Kp=0.1630, Ki=2.1622
+[02:08:55] Kp=1.3162, Ki=0.3461 | Cost=138.7495 | Trk=12.674, Eff=0.000, SS=126.075, Ov=249.7% | Success
+[DEBUG] Sim Input: Kp=0.0100, Ki=4.1829
+[02:09:02] Kp=7.0808, Ki=1791.3900 | Cost=106.5682 | Trk=12.854, Eff=28.651, SS=92.281, Ov=623.2% | Success
+[DEBUG] Sim Input: Kp=3.1454, Ki=700.4905
+[02:10:12] Kp=29.9318, Ki=0.3104 | Cost=71.5742 | Trk=7.300, Eff=518.913, SS=38.328, Ov=393.2% | Success
+[DEBUG] Sim Input: Kp=0.0613, Ki=1.1814
+[02:10:16] Kp=0.1630, Ki=2.1622 | Cost=169.6500 | Trk=15.473, Eff=0.000, SS=154.177, Ov=172.1% | Success
+[DEBUG] Sim Input: Kp=5.5099, Ki=49101.5080
+[02:10:23] Kp=0.0100, Ki=4.1829 | Cost=171.6350 | Trk=15.799, Eff=0.000, SS=155.836, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=0.3746, Ki=196.0836
+[02:10:35] Kp=3.1454, Ki=700.4905 | Cost=11.4302 | Trk=3.760, Eff=0.828, SS=7.628, Ov=625.3% | Success
+[DEBUG] Sim Input: Kp=1.5554, Ki=713.0473
+[02:11:48] Kp=0.0613, Ki=1.1814 | Cost=172.9915 | Trk=15.775, Eff=0.000, SS=157.216, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=19.2432, Ki=6690.7041
+[02:11:58] Kp=5.5099, Ki=49101.5080 | Cost=68.1371 | Trk=10.184, Eff=14.492, SS=57.228, Ov=590.9% | Success
+[DEBUG] Sim Input: Kp=1.9299, Ki=21.2963
+[02:12:01] Kp=0.3746, Ki=196.0836 | Cost=39.8528 | Trk=7.877, Eff=0.000, SS=31.976, Ov=176.3% | Success
+[DEBUG] Sim Input: Kp=8.8680, Ki=0.1007
+[02:12:26] Kp=1.5554, Ki=713.0473 | Cost=7.5405 | Trk=2.947, Eff=0.005, SS=4.593, Ov=263.0% | Success
+[DEBUG] Sim Input: Kp=29.9656, Ki=110.4421
+[02:13:27] Kp=19.2432, Ki=6690.7041 | Cost=70.1933 | Trk=9.215, Eff=186.251, SS=51.665, Ov=410.6% | Success
+[02:13:28] Kp=1.9299, Ki=21.2963 | Cost=111.9707 | Trk=10.696, Eff=0.004, SS=101.275, Ov=304.2% | Success
+[DEBUG] Sim Input: Kp=0.1484, Ki=19.5067
+[DEBUG] Sim Input: Kp=0.0147, Ki=9.3262
+[02:13:37] Kp=8.8680, Ki=0.1007 | Cost=122.4822 | Trk=14.477, Eff=45.235, SS=105.743, Ov=577.3% | Success
+[DEBUG] Sim Input: Kp=0.0511, Ki=0.2704
+[02:14:00] Kp=29.9656, Ki=110.4421 | Cost=71.5059 | Trk=7.277, Eff=515.991, SS=38.430, Ov=374.7% | Success
+[DEBUG] Sim Input: Kp=21.0009, Ki=0.1636
+[02:14:59] Kp=0.0147, Ki=9.3262 | Cost=167.5896 | Trk=15.561, Eff=0.000, SS=152.029, Ov=174.3% | Success
+[02:14:59] Kp=0.1484, Ki=19.5067 | Cost=154.9040 | Trk=14.789, Eff=0.000, SS=140.115, Ov=172.1% | Success
+[DEBUG] Sim Input: Kp=14.9993, Ki=350.8390
+[DEBUG] Sim Input: Kp=0.0100, Ki=60.9583
+[02:15:11] Kp=0.0511, Ki=0.2704 | Cost=172.9915 | Trk=15.775, Eff=0.000, SS=157.216, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.1957, Ki=254.1593
+[02:15:47] Kp=21.0009, Ki=0.1636 | Cost=71.9862 | Trk=8.990, Eff=223.889, SS=51.802, Ov=397.5% | Success
+[DEBUG] Sim Input: Kp=0.0264, Ki=49.6611
+[02:16:37] Kp=0.0100, Ki=60.9583 | Cost=120.5506 | Trk=13.305, Eff=0.000, SS=107.246, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=0.0100, Ki=486.7201
+[02:16:43] Kp=14.9993, Ki=350.8390 | Cost=80.6342 | Trk=10.839, Eff=113.994, SS=64.095, Ov=453.1% | Success
+[DEBUG] Sim Input: Kp=1.1814, Ki=200.1559
+[02:16:49] Kp=0.1957, Ki=254.1593 | Cost=17.2466 | Trk=6.601, Eff=0.000, SS=10.646, Ov=172.1% | Success
+[DEBUG] Sim Input: Kp=0.1915, Ki=547.2327
+[02:17:15] Kp=0.0264, Ki=49.6611 | Cost=130.4864 | Trk=13.777, Eff=0.000, SS=116.709, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=0.2017, Ki=552.2560
+[02:18:09] Kp=0.0100, Ki=486.7201 | Cost=8.5042 | Trk=3.955, Eff=0.000, SS=4.549, Ov=174.3% | Success
+[02:18:11] Kp=1.1814, Ki=200.1559 | Cost=40.3976 | Trk=7.208, Eff=0.001, SS=33.190, Ov=234.8% | Success
+[DEBUG] Sim Input: Kp=0.1791, Ki=554.8693
+[DEBUG] Sim Input: Kp=0.1962, Ki=545.9080
+[02:18:28] Kp=0.1915, Ki=547.2327 | Cost=8.1976 | Trk=3.613, Eff=0.000, SS=4.585, Ov=172.1% | Success
+[DEBUG] Sim Input: Kp=0.0100, Ki=0.3051
+[02:19:03] Kp=0.2017, Ki=552.2560 | Cost=8.1747 | Trk=3.588, Eff=0.000, SS=4.587, Ov=172.1% | Success
+[DEBUG] Sim Input: Kp=8.1147, Ki=19265.2078
+[02:20:01] Kp=0.1962, Ki=545.9080 | Cost=8.2022 | Trk=3.619, Eff=0.000, SS=4.583, Ov=172.1% | Success
+[02:20:01] Kp=0.1791, Ki=554.8693 | Cost=8.1659 | Trk=3.576, Eff=0.000, SS=4.590, Ov=172.1% | Success
+[DEBUG] Sim Input: Kp=3.9013, Ki=8.4533
+[DEBUG] Sim Input: Kp=0.0545, Ki=18.1620
+[02:20:06] Kp=0.0100, Ki=0.3051 | Cost=175.0774 | Trk=15.964, Eff=0.000, SS=159.113, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=0.0276, Ki=0.2697
+[02:20:36] Kp=8.1147, Ki=19265.2078 | Cost=94.0121 | Trk=12.171, Eff=35.031, SS=80.089, Ov=604.0% | Success
+[DEBUG] Sim Input: Kp=29.9817, Ki=1.3653
+[02:21:26] Kp=0.0545, Ki=18.1620 | Cost=157.9103 | Trk=15.090, Eff=0.000, SS=142.820, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=10.8425, Ki=15.8675
+[02:21:30] Kp=3.9013, Ki=8.4533 | Cost=183.4938 | Trk=18.587, Eff=9.946, SS=164.409, Ov=656.1% | Success
+[02:21:31] Kp=0.0276, Ki=0.2697 | Cost=173.1720 | Trk=15.934, Eff=0.000, SS=157.238, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=2.0704, Ki=0.2259
+[DEBUG] Sim Input: Kp=0.0310, Ki=2.9235
+[02:22:22] Kp=29.9817, Ki=1.3653 | Cost=73.4305 | Trk=7.241, Eff=556.405, SS=38.370, Ov=385.7% | Success
+[DEBUG] Sim Input: Kp=19.9911, Ki=3.4149
+[02:23:14] Kp=2.0704, Ki=0.2259 | Cost=121.1247 | Trk=11.084, Eff=0.002, SS=110.040, Ov=312.4% | Success
+[02:23:14] Kp=10.8425, Ki=15.8675 | Cost=104.4989 | Trk=12.547, Eff=63.962, SS=88.754, Ov=533.8% | Success
+[02:23:16] Kp=0.0310, Ki=2.9235 | Cost=173.0015 | Trk=15.785, Eff=0.000, SS=157.217, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=0.7978, Ki=0.2284
+[DEBUG] Sim Input: Kp=6.0176, Ki=487.7907
+[DEBUG] Sim Input: Kp=3.1736, Ki=1.4852
+[02:23:59] Kp=19.9911, Ki=3.4149 | Cost=71.7593 | Trk=9.391, Eff=196.450, SS=52.545, Ov=405.5% | Success
+[DEBUG] Sim Input: Kp=18.6749, Ki=39.3871
+[02:24:40] Kp=0.7978, Ki=0.2284 | Cost=151.0160 | Trk=13.858, Eff=0.000, SS=137.158, Ov=202.7% | Success
+[DEBUG] Sim Input: Kp=13.5841, Ki=49966.5854
+[02:24:45] Kp=6.0176, Ki=487.7907 | Cost=96.0323 | Trk=13.105, Eff=20.199, SS=81.917, Ov=691.1% | Success
+[02:24:46] Kp=3.1736, Ki=1.4852 | Cost=105.8267 | Trk=10.648, Eff=1.422, SS=95.107, Ov=716.9% | Success
+[DEBUG] Sim Input: Kp=4.8033, Ki=59.8326
+[DEBUG] Sim Input: Kp=0.6005, Ki=1218.1167
+[02:25:33] Kp=18.6749, Ki=39.3871 | Cost=72.8589 | Trk=9.616, Eff=172.451, SS=54.620, Ov=416.4% | Success
+[DEBUG] Sim Input: Kp=0.0204, Ki=470.1197
+[02:26:29] Kp=13.5841, Ki=49966.5854 | Cost=83.8327 | Trk=11.376, Eff=94.478, SS=67.733, Ov=459.2% | Success
+[02:26:31] Kp=4.8033, Ki=59.8326 | Cost=140.4527 | Trk=16.586, Eff=15.495, SS=123.092, Ov=723.8% | Success
+[DEBUG] Sim Input: Kp=0.0358, Ki=994.6537
+[DEBUG] Sim Input: Kp=0.3010, Ki=3.3857
+[02:26:41] Kp=0.6005, Ki=1218.1167 | Cost=6.7417 | Trk=2.102, Eff=0.000, SS=4.639, Ov=198.3% | Success
+[DEBUG] Sim Input: Kp=0.1248, Ki=62.0750
+[02:27:24] Kp=0.0204, Ki=470.1197 | Cost=8.5777 | Trk=4.062, Eff=0.000, SS=4.516, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=0.0150, Ki=49458.5392
+[02:27:59] Kp=0.3010, Ki=3.3857 | Cost=163.7573 | Trk=15.034, Eff=0.000, SS=148.723, Ov=176.3% | Success
+[DEBUG] Sim Input: Kp=0.0357, Ki=14.9423
+[02:28:10] Kp=0.1248, Ki=62.0750 | Cost=116.9524 | Trk=12.980, Eff=0.000, SS=103.972, Ov=172.1% | Success
+[02:28:12] Kp=0.0358, Ki=994.6537 | Cost=7.0093 | Trk=2.388, Eff=0.000, SS=4.621, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=8.3852, Ki=1.6846
+[DEBUG] Sim Input: Kp=20.8603, Ki=49868.4964
+[02:29:01] Kp=0.0150, Ki=49458.5392 | Cost=5.3306 | Trk=0.708, Eff=0.000, SS=4.622, Ov=179.6% | Success
+[DEBUG] Sim Input: Kp=21.8585, Ki=656.1452
+[02:29:28] Kp=0.0357, Ki=14.9423 | Cost=161.6225 | Trk=15.272, Eff=0.000, SS=146.351, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.0226, Ki=0.8477
+[02:29:48] Kp=8.3852, Ki=1.6846 | Cost=120.1539 | Trk=13.439, Eff=37.982, SS=104.816, Ov=602.2% | Success
+[DEBUG] Sim Input: Kp=0.1237, Ki=0.9106
+[02:29:52] Kp=20.8603, Ki=49868.4964 | Cost=74.2744 | Trk=9.674, Eff=215.608, SS=53.820, Ov=392.4% | Success
+[DEBUG] Sim Input: Kp=0.0151, Ki=162.5352
+[02:30:52] Kp=21.8585, Ki=656.1452 | Cost=66.4897 | Trk=8.611, Eff=239.785, SS=45.889, Ov=390.9% | Success
+[DEBUG] Sim Input: Kp=0.0431, Ki=179.7947
+[02:31:09] Kp=0.0226, Ki=0.8477 | Cost=173.0800 | Trk=15.863, Eff=0.000, SS=157.217, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=0.2917, Ki=29.2884
+[02:31:25] Kp=0.1237, Ki=0.9106 | Cost=169.7286 | Trk=15.551, Eff=0.000, SS=154.177, Ov=172.1% | Success
+[DEBUG] Sim Input: Kp=0.2804, Ki=0.3130
+[02:31:29] Kp=0.0151, Ki=162.5352 | Cost=47.9202 | Trk=9.151, Eff=0.000, SS=38.769, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=0.5259, Ki=0.4697
+[02:32:23] Kp=0.0431, Ki=179.7947 | Cost=41.3694 | Trk=8.575, Eff=0.000, SS=32.794, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=10.8779, Ki=174.3833
+[02:32:35] Kp=0.2917, Ki=29.2884 | Cost=142.1271 | Trk=14.001, Eff=0.000, SS=128.126, Ov=176.3% | Success
+[DEBUG] Sim Input: Kp=0.0768, Ki=7.4750
+[02:32:56] Kp=0.2804, Ki=0.3130 | Cost=167.2763 | Trk=15.257, Eff=0.000, SS=152.019, Ov=173.6% | Success
+[DEBUG] Sim Input: Kp=0.0139, Ki=1.0985
+[02:33:03] Kp=0.5259, Ki=0.4697 | Cost=160.9923 | Trk=14.688, Eff=0.000, SS=146.304, Ov=193.9% | Success
+[DEBUG] Sim Input: Kp=4.7447, Ki=16978.3764
+[02:34:12] Kp=10.8779, Ki=174.3833 | Cost=104.3695 | Trk=12.591, Eff=64.186, SS=88.569, Ov=512.9% | Success
+[DEBUG] Sim Input: Kp=27.0435, Ki=21047.7631
+[02:34:18] Kp=0.0768, Ki=7.4750 | Cost=167.4995 | Trk=15.477, Eff=0.000, SS=152.022, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=4.5503, Ki=3100.4092
+[02:34:37] Kp=0.0139, Ki=1.0985 | Cost=173.1111 | Trk=15.893, Eff=0.000, SS=157.218, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=11.1158, Ki=2012.1068
+[02:34:45] Kp=4.7447, Ki=16978.3764 | Cost=43.3522 | Trk=9.376, Eff=10.345, SS=33.459, Ov=590.9% | Success
+[DEBUG] Sim Input: Kp=6.4922, Ki=5.7573
+[02:35:47] Kp=4.5503, Ki=3100.4092 | Cost=45.9128 | Trk=10.097, Eff=9.905, SS=35.320, Ov=601.2% | Success
+[02:35:47] Kp=27.0435, Ki=21047.7631 | Cost=72.9487 | Trk=8.139, Eff=371.227, SS=46.248, Ov=374.0% | Success
+[DEBUG] Sim Input: Kp=0.1332, Ki=6.7326
+[DEBUG] Sim Input: Kp=8.8662, Ki=0.2547
+[02:36:07] Kp=11.1158, Ki=2012.1068 | Cost=102.1803 | Trk=12.394, Eff=66.628, SS=86.455, Ov=528.2% | Success
+[DEBUG] Sim Input: Kp=0.1409, Ki=49748.8768
+[02:36:15] Kp=6.4922, Ki=5.7573 | Cost=141.1986 | Trk=14.694, Eff=25.460, SS=125.232, Ov=684.6% | Success
+[DEBUG] Sim Input: Kp=0.1336, Ki=2997.7483
+[02:37:27] Kp=0.1332, Ki=6.7326 | Cost=166.6366 | Trk=15.359, Eff=0.000, SS=151.277, Ov=172.1% | Success
+[DEBUG] Sim Input: Kp=0.0401, Ki=5248.5103
+[02:37:32] Kp=8.8662, Ki=0.2547 | Cost=115.9663 | Trk=13.391, Eff=41.835, SS=100.484, Ov=579.8% | Success
+[DEBUG] Sim Input: Kp=0.1933, Ki=0.1000
+[02:37:57] Kp=0.1409, Ki=49748.8768 | Cost=5.3280 | Trk=0.706, Eff=0.000, SS=4.622, Ov=181.8% | Success
+[DEBUG] Sim Input: Kp=2.9134, Ki=89.7165
+[02:38:05] Kp=0.1336, Ki=2997.7483 | Cost=5.8838 | Trk=1.261, Eff=0.000, SS=4.623, Ov=172.1% | Success
+[DEBUG] Sim Input: Kp=0.8646, Ki=2.9777
+[02:39:00] Kp=0.1933, Ki=0.1000 | Cost=169.6500 | Trk=15.473, Eff=0.000, SS=154.177, Ov=172.1% | Success
+[02:39:03] Kp=0.0401, Ki=5248.5103 | Cost=5.6143 | Trk=0.992, Eff=0.000, SS=4.622, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=3.8344, Ki=0.1003
+[DEBUG] Sim Input: Kp=0.0790, Ki=332.4563
+[02:39:38] Kp=2.9134, Ki=89.7165 | Cost=68.3247 | Trk=8.417, Eff=0.894, SS=59.863, Ov=512.8% | Success
+[DEBUG] Sim Input: Kp=0.3993, Ki=2050.0966
+[02:39:46] Kp=0.8646, Ki=2.9777 | Cost=146.9397 | Trk=13.600, Eff=0.000, SS=133.339, Ov=207.1% | Success
+[DEBUG] Sim Input: Kp=26.2790, Ki=11.6154
+[02:40:52] Kp=3.8344, Ki=0.1003 | Cost=190.0784 | Trk=18.621, Eff=9.023, SS=171.006, Ov=642.1% | Success
+[02:40:54] Kp=0.0790, Ki=332.4563 | Cost=13.0851 | Trk=5.322, Eff=0.000, SS=7.763, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.8565, Ki=6366.2502
+[DEBUG] Sim Input: Kp=0.0967, Ki=636.0986
+[02:41:25] Kp=0.3993, Ki=2050.0966 | Cost=6.1704 | Trk=1.548, Eff=0.000, SS=4.622, Ov=176.3% | Success
+[02:41:26] Kp=26.2790, Ki=11.6154 | Cost=69.0543 | Trk=8.017, Eff=353.759, SS=43.349, Ov=367.9% | Success
+[DEBUG] Sim Input: Kp=0.0652, Ki=641.6755
+[DEBUG] Sim Input: Kp=0.0684, Ki=4163.5459
+[02:42:25] Kp=0.0967, Ki=636.0986 | Cost=7.8530 | Trk=3.239, Eff=0.000, SS=4.614, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.0170, Ki=2102.6771
+[02:42:28] Kp=0.8565, Ki=6366.2502 | Cost=5.5803 | Trk=0.941, Eff=0.000, SS=4.639, Ov=207.1% | Success
+[DEBUG] Sim Input: Kp=0.5662, Ki=9582.1400
+[02:43:08] Kp=0.0652, Ki=641.6755 | Cost=7.8342 | Trk=3.220, Eff=0.000, SS=4.614, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=1.5910, Ki=26066.8404
+[02:43:13] Kp=0.0684, Ki=4163.5459 | Cost=5.7085 | Trk=1.086, Eff=0.000, SS=4.623, Ov=177.1% | Success
+[DEBUG] Sim Input: Kp=0.9847, Ki=30580.3693
+[02:44:18] Kp=0.0170, Ki=2102.6771 | Cost=6.1377 | Trk=1.515, Eff=0.000, SS=4.622, Ov=174.3% | Success
+[DEBUG] Sim Input: Kp=0.3608, Ki=812.3191
+[02:44:26] Kp=0.5662, Ki=9582.1400 | Cost=5.4828 | Trk=0.844, Eff=0.000, SS=4.639, Ov=198.3% | Success
+[DEBUG] Sim Input: Kp=1.3522, Ki=5369.5533
+[02:44:54] Kp=1.5910, Ki=26066.8404 | Cost=5.3865 | Trk=0.738, Eff=0.001, SS=4.648, Ov=287.7% | Success
+[DEBUG] Sim Input: Kp=1.4775, Ki=1273.5037
+[02:45:01] Kp=0.9847, Ki=30580.3693 | Cost=5.3809 | Trk=0.730, Eff=0.000, SS=4.651, Ov=225.8% | Success
+[DEBUG] Sim Input: Kp=0.1523, Ki=1539.9932
+[02:45:53] Kp=0.3608, Ki=812.3191 | Cost=7.3458 | Trk=2.726, Eff=0.000, SS=4.620, Ov=176.3% | Success
+[DEBUG] Sim Input: Kp=0.0133, Ki=0.1007
+[02:46:04] Kp=1.3522, Ki=5369.5533 | Cost=5.6537 | Trk=1.003, Eff=0.001, SS=4.650, Ov=249.7% | Success
+[DEBUG] Sim Input: Kp=0.0274, Ki=8311.9923
+[02:46:38] Kp=1.4775, Ki=1273.5037 | Cost=6.6937 | Trk=2.045, Eff=0.002, SS=4.649, Ov=258.6% | Success
+[DEBUG] Sim Input: Kp=0.6633, Ki=20822.4003
+[02:46:53] Kp=0.1523, Ki=1539.9932 | Cost=6.4419 | Trk=1.820, Eff=0.000, SS=4.622, Ov=172.1% | Success
+[DEBUG] Sim Input: Kp=0.0120, Ki=686.4658
+[02:47:40] Kp=0.0133, Ki=0.1007 | Cost=175.0774 | Trk=15.964, Eff=0.000, SS=159.113, Ov=174.3% | Success
+[ERROR] Error in Objective: 여러 가지 원인으로 인해 오류가 발생했습니다.
+[ERROR] Error in Objective: 시뮬레이션이 중단됨
+[ERROR] Error in Objective: 시뮬레이션이 중단됨
