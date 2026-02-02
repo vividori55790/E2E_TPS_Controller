@@ -1,0 +1,9 @@
+Manufacturer=Taiwan Semiconductor
+PartNumber=SS14
+PartCategory=Schottky Diode
+PackageCategory=Diodes Moulded
+PinCount=2
+Version=1.2
+Released=2021-12-04 04:46:02
+Downloaded=2026-01-21 06:27:53
+3D=Y

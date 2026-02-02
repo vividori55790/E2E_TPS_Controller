@@ -1,0 +1,11 @@
+FILE_TYPE = MULTI_PHYS_TABLE;
+
+PART 'SS14'
+CLASS = DISCRETE
+{========================================================================================}
+:"MANUFACTURER_NAME", "MANUFACTURER_PART_NUMBER"= "PART_NUMBER", "JEDEC_TYPE", "PACK_TYPE", "MOUSER_PART_NUMBER", "MOUSER_PRICE/STOCK", "ARROW_PART_NUMBER", "ARROW_PRICE/STOCK", "DESCRIPTION", "DATASHEET", "HEIGHT";
+{========================================================================================}
+ "Taiwan Semiconductor", "SS14" (!) = "", "DIOM5126X250N", "Diodes Moulded", "821-SS14", "https://www.mouser.co.uk/ProductDetail/Taiwan-Semiconductor/SS14?qs=JV7lzlMm3yLIdi0ESVd3YQ%3D%3D", "SS14", "https://www.arrow.com/en/products/ss14/taiwan-semiconductor?utm_currency=USD&region=nac", "TAIWAN SEMICONDUCTOR - SS14 - SCHOTTKY RECTIFIER, 1A, 40V, DO-214AC", "https://www.taiwansemi.com/assets/uploads/datasheet/SS12%20SERIES_Q2102.pdf", "2.5 mm"
+END_PART
+
+END.

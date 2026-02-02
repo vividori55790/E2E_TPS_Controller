@@ -1,0 +1,18 @@
+.UCC21550BDWKR :1 ;4A, 6A Gate Driver Capacitive Coupling 5000Vrms 2 Channel 14-SOIC
+UCC21550BDWKR
+*STM IC
+*NGS
+*PLB 1="INA" 2="INB" 3="VCCI_1" 4="GND" 5="DIS" 6="DT" 7="NC" 8="VCCI_2" 9="VSSB" 10="OUTB" 11="VDDB" 14="VSSA" 15="OUTA" 16="VDDA"
+*MXP 14
+*DFN UCC21550BDWKR
+~!Manufacturer_Name (Texas Instruments)
+~!Manufacturer_Part_Number (UCC21550BDWKR)
+~!Mouser Part Number (595-UCC21550BDWKR)
+~!Link Mouser Price/Stock (https://www.mouser.co.uk/ProductDetail/Texas-Instruments/UCC21550BDWKR?qs=IKkN%2F947nfBgJxNddjVcBA%3D%3D)
+~!Arrow Part Number (UCC21550BDWKR)
+~!Link Arrow Price/Stock (https://www.arrow.com/en/products/ucc21550bdwkr/texas-instruments?utm_currency=USD&region=nac)
+~!Link Datasheet (https://www.ti.com/lit/gpn/UCC21550)
+~!Height (2.65mm)
+~!3D_Model (UCC21550BDWKR)
+UCC21550BDWKR
+1.1!U 2.1!U 3.1!U 4.1!U 5.1!U 6.1!U 7.1!U 8.1!U 9.1!U 10.1!U 11.1!U 14.1!U 15.1!U 16.1!U 

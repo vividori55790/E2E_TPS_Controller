@@ -1,0 +1,18 @@
+.SS14 :1 ;TAIWAN SEMICONDUCTOR - SS14 - SCHOTTKY RECTIFIER, 1A, 40V, DO-214AC
+DIOM5126X250N
+*STM D
+*NGS
+*PLB 1="K" 2="A"
+*MXP 2
+*DFN SS14
+~!Manufacturer_Name (Taiwan Semiconductor)
+~!Manufacturer_Part_Number (SS14)
+~!Mouser Part Number (821-SS14)
+~!Link Mouser Price/Stock (https://www.mouser.co.uk/ProductDetail/Taiwan-Semiconductor/SS14?qs=JV7lzlMm3yLIdi0ESVd3YQ%3D%3D)
+~!Arrow Part Number (SS14)
+~!Link Arrow Price/Stock (https://www.arrow.com/en/products/ss14/taiwan-semiconductor?utm_currency=USD&region=nac)
+~!Link Datasheet (https://www.taiwansemi.com/assets/uploads/datasheet/SS12%20SERIES_Q2102.pdf)
+~!Height (2.5mm)
+~!3D_Model (SS14)
+SS14
+1.1!U 2.1!U 

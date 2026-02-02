@@ -1,0 +1,189 @@
+;Proteus Design Interchange Format
+(PDIF
+ (vendor "SamacSys Limited")
+ (version 1 0)
+ (library
+  (part "UCC21550BDWKR"
+   (description "4A, 6A Gate Driver Capacitive Coupling 5000Vrms 2 Channel 14-SOIC")
+   (family "ANA")
+   (package "UCC21550BDWKR")
+   (attribute "Datasheet Link" "https://www.ti.com/lit/gpn/UCC21550")
+   (attribute "Geometry.Height" "2.65mm")
+   (attribute "Manufacturer_Name" "Texas Instruments")
+   (attribute "Manufacturer_Part_Number" "UCC21550BDWKR")
+   (attribute "Mouser Part Number" "595-UCC21550BDWKR")
+   (attribute "Mouser Price/Stock" "https://www.mouser.co.uk/ProductDetail/Texas-Instruments/UCC21550BDWKR?qs=IKkN%2F947nfBgJxNddjVcBA%3D%3D")
+   (attribute "Arrow Part Number" "UCC21550BDWKR")
+   (attribute "Arrow Price/Stock" "https://www.arrow.com/en/products/ucc21550bdwkr/texas-instruments?utm_currency=USD&region=nac")
+   (gate
+    (symbol "UCC21550BDWKR")
+    (pin "INA" 1 PS)
+    (pin "INB" 2 PS)
+    (pin "VCCI_1" 3 PS)
+    (pin "GND" 4 PS)
+    (pin "DIS" 5 PS)
+    (pin "DT" 6 PS)
+    (pin "NC" 7 NC)
+    (pin "VCCI_2" 8 PS)
+    (pin "VSSB" 9 PS)
+    (pin "OUTB" 10 PS)
+    (pin "VDDB" 11 PS)
+    (pin "VSSA" 14 PS)
+    (pin "OUTA" 15 PS)
+    (pin "VDDA" 16 PS)
+   )
+  )
+  (symbol "UCC21550BDWKR"
+   (units THOU)
+   (origin (pt 0 0))
+   (graphic
+    (stroke 10)
+    (path (pt 200 100) (pt 1000 100) (pt 1000 -800) (pt 200 -800) (pt 200 100) (closed))
+   )
+   (terminal
+    (body (symbol "PIN") (pt 0 0) (rot 0) (mir 0) (visible true))
+    (name (pt 230 0) (rot 0) (just MIDDLE LEFT) (visible true))
+    (number (pt 140 20) (rot 0) (just BOTTOM RIGHT) (visible true)))
+   (terminal
+    (body (symbol "PIN") (pt 0 -100) (rot 0) (mir 0) (visible true))
+    (name (pt 230 0) (rot 0) (just MIDDLE LEFT) (visible true))
+    (number (pt 140 20) (rot 0) (just BOTTOM RIGHT) (visible true)))
+   (terminal
+    (body (symbol "PIN") (pt 0 -200) (rot 0) (mir 0) (visible true))
+    (name (pt 230 0) (rot 0) (just MIDDLE LEFT) (visible true))
+    (number (pt 140 20) (rot 0) (just BOTTOM RIGHT) (visible true)))
+   (terminal
+    (body (symbol "PIN") (pt 0 -300) (rot 0) (mir 0) (visible true))
+    (name (pt 230 0) (rot 0) (just MIDDLE LEFT) (visible true))
+    (number (pt 140 20) (rot 0) (just BOTTOM RIGHT) (visible true)))
+   (terminal
+    (body (symbol "PIN") (pt 0 -400) (rot 0) (mir 0) (visible true))
+    (name (pt 230 0) (rot 0) (just MIDDLE LEFT) (visible true))
+    (number (pt 140 20) (rot 0) (just BOTTOM RIGHT) (visible true)))
+   (terminal
+    (body (symbol "PIN") (pt 0 -500) (rot 0) (mir 0) (visible true))
+    (name (pt 230 0) (rot 0) (just MIDDLE LEFT) (visible true))
+    (number (pt 140 20) (rot 0) (just BOTTOM RIGHT) (visible true)))
+   (terminal
+    (body (symbol "PIN") (pt 0 -600) (rot 0) (mir 0) (visible true))
+    (name (pt 230 0) (rot 0) (just MIDDLE LEFT) (visible true))
+    (number (pt 140 20) (rot 0) (just BOTTOM RIGHT) (visible true)))
+   (terminal
+    (body (symbol "PIN") (pt 0 -700) (rot 0) (mir 0) (visible true))
+    (name (pt 230 0) (rot 0) (just MIDDLE LEFT) (visible true))
+    (number (pt 140 20) (rot 0) (just BOTTOM RIGHT) (visible true)))
+   (terminal
+    (body (symbol "PIN") (pt 1200 -500) (rot 0) (mir X) (visible true))
+    (name (pt 230 0) (rot 0) (just MIDDLE LEFT) (visible true))
+    (number (pt 140 20) (rot 0) (just BOTTOM RIGHT) (visible true)))
+   (terminal
+    (body (symbol "PIN") (pt 1200 -400) (rot 0) (mir X) (visible true))
+    (name (pt 230 0) (rot 0) (just MIDDLE LEFT) (visible true))
+    (number (pt 140 20) (rot 0) (just BOTTOM RIGHT) (visible true)))
+   (terminal
+    (body (symbol "PIN") (pt 1200 -300) (rot 0) (mir X) (visible true))
+    (name (pt 230 0) (rot 0) (just MIDDLE LEFT) (visible true))
+    (number (pt 140 20) (rot 0) (just BOTTOM RIGHT) (visible true)))
+   (terminal
+    (body (symbol "PIN") (pt 1200 -200) (rot 0) (mir X) (visible true))
+    (name (pt 230 0) (rot 0) (just MIDDLE LEFT) (visible true))
+    (number (pt 140 20) (rot 0) (just BOTTOM RIGHT) (visible true)))
+   (terminal
+    (body (symbol "PIN") (pt 1200 -100) (rot 0) (mir X) (visible true))
+    (name (pt 230 0) (rot 0) (just MIDDLE LEFT) (visible true))
+    (number (pt 140 20) (rot 0) (just BOTTOM RIGHT) (visible true)))
+   (terminal
+    (body (symbol "PIN") (pt 1200 0) (rot 0) (mir X) (visible true))
+    (name (pt 230 0) (rot 0) (just MIDDLE LEFT) (visible true))
+    (number (pt 140 20) (rot 0) (just BOTTOM RIGHT) (visible true)))
+  )
+  (symbol "PIN"
+   (units THOU)
+   (origin (pt 0 0))
+   (graphic
+    (stroke 10)
+    (path (pt 0 0) (pt 200 0))))
+  (symbol "PINSHORT"
+   (units THOU)
+   (origin (pt 0 0))
+   (graphic
+    (stroke 10)
+    (path (pt 0 0) (pt 100 0))))
+  (package "UCC21550BDWKR"
+   (units MM)
+   (layer TASM
+    (graphic
+     (stroke 0.1)
+     (path
+      (closed true)
+      (pt -3.75 5.15)
+      (pt 3.75 5.15)
+      (pt 3.75 -5.15)
+      (pt -3.75 -5.15)
+      (pt -3.75 5.15))))
+   (layer OCCA
+    (graphic
+     (stroke 0.1)
+     (path
+      (closed true)
+      (pt -6.65 6.15)
+      (pt 6.65 6.15)
+      (pt 6.65 -6.15)
+      (pt -6.65 -6.15)
+      (pt -6.65 6.15))))
+   (layer TSLK
+    (graphic
+     (stroke 0.1)
+     (path
+      (closed true)
+      (pt -6.2 4.445)
+      (arc (pt -6.200 4.445) (pt -6.200 4.395) (pt -6.100 4.495) (start 180.0) (sweep 180.0))
+      (pt -6.1 4.445)
+      (arc (pt -6.100 4.445) (pt -6.200 4.395) (pt -6.100 4.495) (start 180.0) (sweep .0))
+      (pt -6.2 4.445))))
+   (layer TSLK
+    (graphic
+     (stroke 0.2)
+     (path
+      (closed false)
+      (pt -3.75 5.15)
+      (pt 3.75 5.15))))
+   (layer TSLK
+    (graphic
+     (stroke 0.2)
+     (path
+      (closed false)
+      (pt -3.75 -5.15)
+      (pt 3.75 -5.15))))
+   (layer TSLK
+    (graphic
+     (stroke 0.2)
+     (path
+      (closed false)
+      (pt 3.75 -1)
+      (pt 3.75 1))))
+   (leg 1 (pt -4.650 4.445) (padstack 0))
+   (leg 2 (pt -4.650 3.175) (padstack 0))
+   (leg 3 (pt -4.650 1.905) (padstack 0))
+   (leg 4 (pt -4.650 0.635) (padstack 0))
+   (leg 5 (pt -4.650 -0.635) (padstack 0))
+   (leg 6 (pt -4.650 -1.905) (padstack 0))
+   (leg 7 (pt -4.650 -3.175) (padstack 0))
+   (leg 8 (pt -4.650 -4.445) (padstack 0))
+   (leg 9 (pt 4.650 -4.445) (padstack 0))
+   (leg 10 (pt 4.650 -3.175) (padstack 0))
+   (leg 11 (pt 4.650 -1.905) (padstack 0))
+   (leg 14 (pt 4.650 1.905) (padstack 0))
+   (leg 15 (pt 4.650 3.175) (padstack 0))
+   (leg 16 (pt 4.650 4.445) (padstack 0))
+   (padstack 0
+    (plated false)
+    (pad (layer TCOP) (rectf 0.600 2.000 0 0 0.000))
+   )
+   (model "UCC21550BDWKR.stp"
+    (euler 0 0 0)
+    (offset 0 0 0)
+   )
+  )
+ )
+)

@@ -1,0 +1,13 @@
+(unit MM)
+
+(package "UCC21550BDWKR"
+    (type UNDEF)
+    (uver 2)
+    (cuser "SamacSys")
+    (uuser "SamacSys")
+    (utime 2024-12-19-15:24:38)
+    (mountForm default
+        (footprintRef "UCC21550BDWKR")
+        (spec "System")
+    )
+)

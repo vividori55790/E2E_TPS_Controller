@@ -1,0 +1,11 @@
+FILE_TYPE = MULTI_PHYS_TABLE;
+
+PART 'UCC21550BDWKR'
+CLASS = IC
+{========================================================================================}
+:"MANUFACTURER_NAME", "MANUFACTURER_PART_NUMBER"= "PART_NUMBER", "JEDEC_TYPE", "PACK_TYPE", "MOUSER_PART_NUMBER", "MOUSER_PRICE/STOCK", "ARROW_PART_NUMBER", "ARROW_PRICE/STOCK", "DESCRIPTION", "DATASHEET", "HEIGHT";
+{========================================================================================}
+ "Texas Instruments", "UCC21550BDWKR" (!) = "", "UCC21550BDWKR", "Other", "595-UCC21550BDWKR", "https://www.mouser.co.uk/ProductDetail/Texas-Instruments/UCC21550BDWKR?qs=IKkN%2F947nfBgJxNddjVcBA%3D%3D", "UCC21550BDWKR", "https://www.arrow.com/en/products/ucc21550bdwkr/texas-instruments?utm_currency=USD&region=nac", "4A, 6A Gate Driver Capacitive Coupling 5000Vrms 2 Channel 14-SOIC", "https://www.ti.com/lit/gpn/UCC21550", "2.65 mm"
+END_PART
+
+END.

@@ -1,0 +1,9 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP UCC21550BDWKR
+D 4A, 6A Gate Driver Capacitive Coupling 5000Vrms 2 Channel 14-SOIC
+K
+F https://www.ti.com/lit/gpn/UCC21550
+$ENDCMP
+#
+#End Doc Library

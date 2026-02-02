@@ -1,0 +1,68 @@
+(Japanese_coding: sjis)
+(function "ECS_285288"
+    (uver 1)
+    (cuser "SamacSys")
+    (uuser "SamacSys")
+    (ctime 2021-12-04-04:46:02)
+    (utime 2023-03-07-16:10:32)
+    (interface
+        (port "1" (symbPinId 1) (portType INOUT))
+        (port "2" (symbPinId 2) (portType INOUT))
+    )
+    (property "symbolName" "SS14")
+)
+
+
+(pinAssign "ECS_285288"
+    (uver 1)
+    (cuser "SamacSys")
+    (uuser "SamacSys")
+    (ctime 2021-12-04-04:46:02)
+    (utime 2023-03-07-16:10:32)
+    (interface
+        (port "1" (symbPinId 1) (portName "K") (portType INOUT))
+        (port "2" (symbPinId 2) (portName "A") (portType INOUT))
+    )
+    (internal
+        (funcInst (functionRef "ECS_285288")
+                (port "1" (match "1"))
+                (port "2" (match "2"))
+        )
+    )
+    (property "usePowerBox" "No")
+    (property "symbolName" "SS14")
+)
+
+
+(part "SS14"
+    (uver 1)
+    (cuser "SamacSys")
+    (uuser "SamacSys")
+    (ctime 2021-12-04-04:46:02)
+    (utime 2023-03-07-16:10:32)
+    (packageRef "SS14")
+    (pinAssignRef "ECS_285288")
+    (interface
+        (port "1" (symbPinId 1) (portName "K") (portType INOUT))
+        (port "2" (symbPinId 2) (portName "A") (portType INOUT))
+    )
+    (partClass UNDEF)
+    (useInSchema Y)
+    (useInLayout Y)
+    (inPartsList Y)
+    (partType NORMAL)
+    (placeRestriction FREE)
+    (property "enetNonSeries" "NO")
+    (property "refDesPrefix" "D")
+    (property "description" "TAIWAN SEMICONDUCTOR - SS14 - SCHOTTKY RECTIFIER, 1A, 40V, DO-214AC")
+    (property "Manufacturer_Name" "Taiwan Semiconductor")
+    (property "Manufacturer_Part_Number" "SS14")
+    (property "Mouser_Part_Number" "821-SS14")
+    (property "Mouser_Price/Stock" "https://www.mouser.co.uk/ProductDetail/Taiwan-Semiconductor/SS14?qs=JV7lzlMm3yLIdi0ESVd3YQ%3D%3D")
+    (property "Arrow_Part_Number" "SS14")
+    (property "Arrow_Price/Stock" "https://www.arrow.com/en/products/ss14/taiwan-semiconductor?utm_currency=USD&region=nac")
+    (property "Datasheet_Link" "https://www.taiwansemi.com/assets/uploads/datasheet/SS12%20SERIES_Q2102.pdf")
+    (property "compAreaTopHeight" 2.5)
+)
+
+

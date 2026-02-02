@@ -1,0 +1,9 @@
+Manufacturer=Texas Instruments
+PartNumber=UCC21550BDWKR
+PartCategory=Integrated Circuit
+PackageCategory=Other
+PinCount=14
+Version=1.5
+Released=2024-12-19 15:24:38
+Downloaded=2026-01-21 03:35:20
+3D=Y

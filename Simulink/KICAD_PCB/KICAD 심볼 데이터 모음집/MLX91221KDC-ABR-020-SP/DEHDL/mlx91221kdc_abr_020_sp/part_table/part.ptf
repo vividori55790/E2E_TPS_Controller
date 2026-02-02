@@ -1,0 +1,11 @@
+FILE_TYPE = MULTI_PHYS_TABLE;
+
+PART 'MLX91221KDC_ABR_020_SP'
+CLASS = IC
+{========================================================================================}
+:"MANUFACTURER_NAME", "MANUFACTURER_PART_NUMBER"= "PART_NUMBER", "JEDEC_TYPE", "PACK_TYPE", "MOUSER_PART_NUMBER", "MOUSER_PRICE/STOCK", "ARROW_PART_NUMBER", "ARROW_PRICE/STOCK", "DESCRIPTION", "DATASHEET", "HEIGHT";
+{========================================================================================}
+ "Melexis", "MLX91221KDC-ABR-020-SP" (!) = "", "SOIC127P600X173-8N", "Small Outline Packages", "482-91221KDCABR020SP", "https://www.mouser.co.uk/ProductDetail/Melexis/MLX91221KDC-ABR-020-SP?qs=81r%252BiQLm7BROD1%252ByhTK6jg%3D%3D", "", "", "Board Mount Current Sensors Gen.2 Isolated Integ rated Current Senso", "https://www.mouser.in/datasheet/2/734/Melexis_MLX91221_Datasheet_Melexis_1-1947405.pdf", "1.73 mm"
+END_PART
+
+END.
