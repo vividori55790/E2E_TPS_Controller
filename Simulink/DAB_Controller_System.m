@@ -137,6 +137,9 @@ classdef DAB_Controller_System < matlab.System
         I_L_pri_Buffer;         % Inductor 전류 DC 검출용 버퍼
         I_L_pri_Sum;
         Flux_Integrator;        % Flux 제어기 적분항
+        
+        % [NEW] Time Counter (for Code Generation compatibility)
+        TickCount;              % 시뮬레이션 틱 카운터 (t = TickCount * Ts)
     end
 
     % =========================================================================
@@ -178,6 +181,9 @@ classdef DAB_Controller_System < matlab.System
             obj.V_LV_Sum = 0;
             
             obj.ControlCheckDone = 0;
+            
+            % [NEW] Time Counter Init
+            obj.TickCount = 0;
         end
 
     function [phi1_deg, phi3_deg, phi5_deg, phi7_deg, mode_active, status_flag, ...
@@ -187,49 +193,79 @@ classdef DAB_Controller_System < matlab.System
             
             % --- 1. 파라미터 계산 ---
             Ts = obj.Ts_ctrl;
-            t_current = getCurrentTime(obj);
             
-            % [DEBUG] Parameter Check
-            if obj.ControlCheckDone == 0 && t_current >= 0.005
-                 fprintf('>> [CTRL CHECK] Time=%.6f, Kp_ext=%.4f, Ki_ext=%.4f\n', t_current, Kp_ext, Ki_ext);
-                 obj.ControlCheckDone = 1;
+            % [MODIFIED] Time calculation using TickCount (Code Generation compatible)
+            t_current = double(obj.TickCount) * Ts;
+            obj.TickCount = obj.TickCount + 1;  % Increment tick counter
+            
+            % =====================================================================
+            % [STEP 1] Sensing & Filtering
+            % - MATLAB Mode: 125-sample Moving Average + Debug (for PC simulation)
+            % - Code Gen Mode: Direct input passthrough (for SIL/PIL/STM32 optimization)
+            % =====================================================================
+            
+            if coder.target('MATLAB')
+                % =====================================================================
+                % [MATLAB MODE] - PC Simulation / Debug
+                % 125-sample Moving Average Buffers, fprintf debugging enabled
+                % =====================================================================
+                
+                % [DEBUG] Parameter Check (Only in MATLAB mode)
+                if obj.ControlCheckDone == 0 && t_current >= 0.005
+                     fprintf('>> [CTRL CHECK] Time=%.6f, Kp_ext=%.4f, Ki_ext=%.4f\n', t_current, Kp_ext, Ki_ext);
+                     obj.ControlCheckDone = 1;
+                end
+                
+                % 1.1 V_HV Filtering (Moving Average)
+                old_vhv = obj.V_HV_Buffer(obj.BufferIdx);
+                obj.V_HV_Sum = obj.V_HV_Sum - old_vhv + V_HV;
+                obj.V_HV_Buffer(obj.BufferIdx) = V_HV;
+                obj.V_HV_Filtered = obj.V_HV_Sum / 125;
+                
+                % 1.2 V_LV Filtering (Moving Average)
+                old_vlv = obj.V_LV_Buffer(obj.BufferIdx);
+                obj.V_LV_Sum = obj.V_LV_Sum - old_vlv + V_LV;
+                obj.V_LV_Buffer(obj.BufferIdx) = V_LV;
+                obj.V_LV_Filtered = obj.V_LV_Sum / 125;
+                
+                V_HV_Ctrl = obj.V_HV_Filtered;
+                V_LV_Ctrl = obj.V_LV_Filtered;
+
+                % 1.3 I_LV Current Filtering (Fast MA)
+                old_ilv = obj.I_Buffer(obj.BufferIdx);
+                obj.I_Sum = obj.I_Sum - old_ilv + I_LV;
+                obj.I_Buffer(obj.BufferIdx) = I_LV;
+                
+                % 1.4 I_L_pri Filtering (Flux Balancing) - Same Index
+                old_pri = obj.I_L_pri_Buffer(obj.BufferIdx);
+                obj.I_L_pri_Sum = obj.I_L_pri_Sum - old_pri + I_L_pri;
+                obj.I_L_pri_Buffer(obj.BufferIdx) = I_L_pri;
+
+                % Buffer Index Update (Circular)
+                obj.BufferIdx = obj.BufferIdx + 1;
+                if obj.BufferIdx > 125, obj.BufferIdx = 1; end
+                
+                I_fb = obj.I_Sum / 125;      % Feedback Current
+                I_L_pri_DC = obj.I_L_pri_Sum / 125; % DC Offset Current
+                
+            else
+                % =====================================================================
+                % [CODE GENERATION MODE] - SIL/PIL/STM32
+                % Direct passthrough (No buffers, optimized for speed/memory)
+                % =====================================================================
+                
+                % Skip debug fprintf (not available in embedded target)
+                
+                % Direct input passthrough (bypass moving average buffers)
+                V_HV_Ctrl = V_HV;
+                V_LV_Ctrl = V_LV;
+                I_fb = I_LV;
+                I_L_pri_DC = I_L_pri;
+                
+                % Store for state reference (minimal updates)
+                obj.V_HV_Filtered = V_HV_Ctrl;
+                obj.V_LV_Filtered = V_LV_Ctrl;
             end
-
-            % =====================================================================
-            % [STEP 1] Sensing & Filtering (Common)
-            % =====================================================================
-            
-            % 1.1 V_HV Filtering (Moving Average)
-            old_vhv = obj.V_HV_Buffer(obj.BufferIdx);
-            obj.V_HV_Sum = obj.V_HV_Sum - old_vhv + V_HV;
-            obj.V_HV_Buffer(obj.BufferIdx) = V_HV;
-            obj.V_HV_Filtered = obj.V_HV_Sum / 125;
-            
-            % 1.2 V_LV Filtering (Moving Average)
-            old_vlv = obj.V_LV_Buffer(obj.BufferIdx);
-            obj.V_LV_Sum = obj.V_LV_Sum - old_vlv + V_LV;
-            obj.V_LV_Buffer(obj.BufferIdx) = V_LV;
-            obj.V_LV_Filtered = obj.V_LV_Sum / 125;
-            
-            V_HV_Ctrl = obj.V_HV_Filtered;
-            V_LV_Ctrl = obj.V_LV_Filtered;
-
-            % 1.3 I_LV Current Filtering (Fast MA)
-            old_ilv = obj.I_Buffer(obj.BufferIdx);
-            obj.I_Sum = obj.I_Sum - old_ilv + I_LV;
-            obj.I_Buffer(obj.BufferIdx) = I_LV;
-            
-            % 1.4 I_L_pri Filtering (Flux Balancing) - Same Index
-            old_pri = obj.I_L_pri_Buffer(obj.BufferIdx);
-            obj.I_L_pri_Sum = obj.I_L_pri_Sum - old_pri + I_L_pri;
-            obj.I_L_pri_Buffer(obj.BufferIdx) = I_L_pri;
-
-            % Buffer Index Update (Circular)
-            obj.BufferIdx = obj.BufferIdx + 1;
-            if obj.BufferIdx > 125, obj.BufferIdx = 1; end
-            
-            I_fb = obj.I_Sum / 125;      % Feedback Current
-            I_L_pri_DC = obj.I_L_pri_Sum / 125; % DC Offset Current
 
             % =====================================================================
             % [STEP 2] State Transition Logic
@@ -546,6 +582,9 @@ classdef DAB_Controller_System < matlab.System
             obj.V_LV_Sum = 0;
             
             obj.ControlCheckDone = 0;
+            
+            % [NEW] Time Counter Reset
+            obj.TickCount = 0;
         end
         
         % --- 출력 개수 지정 ---
@@ -634,6 +673,9 @@ classdef DAB_Controller_System < matlab.System
                 case 'V_LV_Buffer'
                     sz = [125 1]; dt = 'double'; cp = false;
                 case 'V_LV_Sum'
+                    sz = [1 1]; dt = 'double'; cp = false;
+                % [NEW] Time Counter
+                case 'TickCount'
                     sz = [1 1]; dt = 'double'; cp = false;
                 otherwise
                     error(['Unknown state: ', name]);

@@ -28,6 +28,17 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32g4xx_hal.h"
+#include "stm32g4xx_ll_dma.h"
+#include "stm32g4xx_ll_lpuart.h"
+#include "stm32g4xx_ll_rcc.h"
+#include "stm32g4xx_ll_bus.h"
+#include "stm32g4xx_ll_crs.h"
+#include "stm32g4xx_ll_system.h"
+#include "stm32g4xx_ll_exti.h"
+#include "stm32g4xx_ll_cortex.h"
+#include "stm32g4xx_ll_utils.h"
+#include "stm32g4xx_ll_pwr.h"
+#include "stm32g4xx_ll_gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -51,6 +62,9 @@ extern "C" {
 
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
+void MX_GPIO_Init(void);
+void MX_DMA_Init(void);
+void MX_LPUART1_UART_Init(void);
 
 /* USER CODE BEGIN EFP */
 
