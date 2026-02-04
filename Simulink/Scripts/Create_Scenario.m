@@ -3,7 +3,8 @@
 % Target: 0.1s Simulation, Step at 0.02s (0->10A)
 
 % 1. 시뮬레이션 기본 설정
-SIM_TIME = 0.05; 
+% 1. 시뮬레이션 기본 설정 (Extended for Multi-Step)
+SIM_TIME = 0.15; 
 assignin('base', 'SIM_TIME', SIM_TIME);
 
 % 2. 제어 및 회로 파라미터 (초기값 - GA가 나중에 덮어씀)
@@ -29,14 +30,14 @@ val_vh = [380, 380];
 Ref_VH = timeseries(val_vh, time_vec);
 assignin('base', 'Ref_VH', Ref_VH);
 
-% 4. ★ 중요: 전류 지령 (Step 입력)
-% 0 ~ 0.02s: 0A
-% 0.02s ~ 끝 : 10A (충전)
-step_time = 0.02;
-ref_current = 10;
+% 4. ★ 중요: 전류 지령 (Multi-Step Staircase 입력)
+% 종합 성능 평가를 위한 계단식 부하 테스트
+% - Stage 1 (Low Load):  2A (0.01s~)  -> 저전류 제어 정밀도 확인
+% - Stage 2 (Mid Load):  8A (0.05s~)  -> 일반 동작 확인
+% - Stage 3 (High Load): 15A (0.10s~) -> 과부하/포화 안정성 확인
 
-t_cmd = [0, step_time-1e-6, step_time, SIM_TIME];
-v_cmd = [0, 0,              ref_current, ref_current];
+t_cmd = [0, 0.01-1e-6, 0.01, 0.05-1e-6, 0.05, 0.10-1e-6, 0.10, SIM_TIME];
+v_cmd = [0, 0,         2,    2,         8,    8,         15,   15];
 
 Ref_I_ess_cmd = timeseries(v_cmd, t_cmd);
 assignin('base', 'Ref_I_ess_cmd', Ref_I_ess_cmd);

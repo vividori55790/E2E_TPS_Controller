@@ -63,24 +63,32 @@
 
 **목표**: 복잡한 연산이 필요한 TPS 최적해를 **HDC(Hyperdimensional Computing)**의 연관 메모리 추론을 통해 실시간으로 도출합니다.
 
-### 4-1. TPS 최적 데이터셋 구축 (Offline)
+### 4-1. TPS 최적 데이터셋 구축 (Offline - Scientific)
 
 - **Input (Context)**: 전압비 ($k = V_{in}/V_{out}$), 부하 전류 ($I_{req}$).
 - **Output (Label)**: 효율을 극대화(무효전력 최소화/ZVS 달성)하는 최적의 제어 변수 $(D_1, D_2, \phi)$.
 - **방법**: MATLAB 최적화 툴박스를 이용해 다양한 동작 조건에 대한 등고선(Look-up Table 수준) 데이터 생성.
 
-### 4-2. HDC 모델 학습 (Encoding & Training)
+### 4-2. Reality Validation & AI Data Generation (Offline - Empirical)
+
+> **Refer to:** `Simulink/Readme_Efficiency.md`
+
+- **목표**: 수식 모델의 한계를 극복하기 위해 실제 시뮬레이션(물리적 지연, 데드타임, 열적 변화 반영) 기반의 데이터를 수집.
+- **Protocol**: `Readme_Efficiency.md`의 v5.0 Master Verification Plan에 따라 Electro-Thermal Loop가 적용된 고정밀 데이터를 확보.
+- **활용**: HDC/RL Agent의 Fine-Tuning 및 Reality Gap 최소화.
+
+### 4-3. HDC 모델 학습 (Encoding & Training)
 
 - **Encoding**: 연속적인 상태 변수($k, I_{req}$)를 고차원 벡터(Hypervector)로 변환 (예: RBF Projection, Cyclic Encoding).
 - **Training**: 최적 제어 변수($D_1, D_2, \phi$)와 연관된 상태 벡터들을 결합(Bundling)하여 **Associative Memory** 구축.
 - **장점**: LUT 대비 메모리 효율적이며, 노이즈에 강건하고 연산 속도가 매우 빠름.
 
-### 4-3. 실시간 추론 제어기 구현 (Runtime Inference)
+### 4-4. 실시간 추론 제어기 구현 (Runtime Inference)
 
 - **Simulink Block**: 학습된 HDC 메모리를 탑재한 MATLAB Function 블록 구현.
 - **Process**: `Sensing -> Encoding -> Similarity Search (Query) -> Decoding -> Apply TPS Control`.
 
-### 4-4. Seamless Transition (Hybrid Mode)
+### 4-5. Seamless Transition (Hybrid Mode)
 
 - 경부하/특정 조건에서는 HDC 추론 결과가 불안정할 수 있으므로, 기존 SPS 제어와의 **Hybrid 운용** 전략 수립.
 - 모드 전환 시 Hysteresis 적용하여 과도 응답 최소화.
@@ -100,7 +108,8 @@
 
 ## 실행 순서 (Updated Action Plan)
 
-1.  **[진행 중]**: Phase 4-1 TPS 최적 동작 데이터셋(Oracle Data) 생성.
-2.  **[다음]**: Phase 4-2/4-3 HDC 인코더 및 추론 엔진 구현 (MATLAB/Simulink).
-3.  **[통합]**: HDC 제어기를 `DAB_Controller_System`에 통합 및 검증.
-4.  **[마무리]**: Phase 5 베이지안 최적화로 과도 응답 성능 튜닝.
+1.  **[완료]**: Phase 4-1 TPS 수식적 최적해 도출 (`Generate_TPS_Dataset.m`).
+2.  **[진행 중]**: Phase 4-2 Reality Validation 및 학습 데이터 생성 (`Readme_Efficiency.md` 참조).
+3.  **[다음]**: Phase 4-3/4-4 HDC 인코더 및 추론 엔진 구현.
+4.  **[통합]**: HDC 제어기를 `DAB_Controller_System`에 통합 및 검증.
+5.  **[마무리]**: Phase 5 베이지안 최적화로 과도 응답 성능 튜닝.
