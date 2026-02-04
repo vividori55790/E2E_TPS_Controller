@@ -65,6 +65,9 @@ classdef DAB_Controller_System < matlab.System
         % [NEW] Soft Start Time
         SoftStartTime = 0.2;    % 초기 기동 Soft Start 시간 (sec)
         
+        % [NEW] Initialization Delay
+        InitDelay = 0.001;      % FSM 초기화 지연 시간 (sec) - 센서 안정화 대기
+        
         % [NEW] Phase Change Rate Limiter
         MaxPhaseRate = 30000;   % 위상 변화율 제한 (deg/s)
         
@@ -200,72 +203,49 @@ classdef DAB_Controller_System < matlab.System
             
             % =====================================================================
             % [STEP 1] Sensing & Filtering
-            % - MATLAB Mode: 125-sample Moving Average + Debug (for PC simulation)
-            % - Code Gen Mode: Direct input passthrough (for SIL/PIL/STM32 optimization)
+            % - 125-sample Moving Average (runs in both MATLAB and Code Gen modes)
+            % - Debug fprintf only in MATLAB mode
             % =====================================================================
             
+            % [DEBUG] Parameter Check (Only in MATLAB mode - fprintf not supported in embedded)
             if coder.target('MATLAB')
-                % =====================================================================
-                % [MATLAB MODE] - PC Simulation / Debug
-                % 125-sample Moving Average Buffers, fprintf debugging enabled
-                % =====================================================================
-                
-                % [DEBUG] Parameter Check (Only in MATLAB mode)
                 if obj.ControlCheckDone == 0 && t_current >= 0.005
                      fprintf('>> [CTRL CHECK] Time=%.6f, Kp_ext=%.4f, Ki_ext=%.4f\n', t_current, Kp_ext, Ki_ext);
                      obj.ControlCheckDone = 1;
                 end
-                
-                % 1.1 V_HV Filtering (Moving Average)
-                old_vhv = obj.V_HV_Buffer(obj.BufferIdx);
-                obj.V_HV_Sum = obj.V_HV_Sum - old_vhv + V_HV;
-                obj.V_HV_Buffer(obj.BufferIdx) = V_HV;
-                obj.V_HV_Filtered = obj.V_HV_Sum / 125;
-                
-                % 1.2 V_LV Filtering (Moving Average)
-                old_vlv = obj.V_LV_Buffer(obj.BufferIdx);
-                obj.V_LV_Sum = obj.V_LV_Sum - old_vlv + V_LV;
-                obj.V_LV_Buffer(obj.BufferIdx) = V_LV;
-                obj.V_LV_Filtered = obj.V_LV_Sum / 125;
-                
-                V_HV_Ctrl = obj.V_HV_Filtered;
-                V_LV_Ctrl = obj.V_LV_Filtered;
-
-                % 1.3 I_LV Current Filtering (Fast MA)
-                old_ilv = obj.I_Buffer(obj.BufferIdx);
-                obj.I_Sum = obj.I_Sum - old_ilv + I_LV;
-                obj.I_Buffer(obj.BufferIdx) = I_LV;
-                
-                % 1.4 I_L_pri Filtering (Flux Balancing) - Same Index
-                old_pri = obj.I_L_pri_Buffer(obj.BufferIdx);
-                obj.I_L_pri_Sum = obj.I_L_pri_Sum - old_pri + I_L_pri;
-                obj.I_L_pri_Buffer(obj.BufferIdx) = I_L_pri;
-
-                % Buffer Index Update (Circular)
-                obj.BufferIdx = obj.BufferIdx + 1;
-                if obj.BufferIdx > 125, obj.BufferIdx = 1; end
-                
-                I_fb = obj.I_Sum / 125;      % Feedback Current
-                I_L_pri_DC = obj.I_L_pri_Sum / 125; % DC Offset Current
-                
-            else
-                % =====================================================================
-                % [CODE GENERATION MODE] - SIL/PIL/STM32
-                % Direct passthrough (No buffers, optimized for speed/memory)
-                % =====================================================================
-                
-                % Skip debug fprintf (not available in embedded target)
-                
-                % Direct input passthrough (bypass moving average buffers)
-                V_HV_Ctrl = V_HV;
-                V_LV_Ctrl = V_LV;
-                I_fb = I_LV;
-                I_L_pri_DC = I_L_pri;
-                
-                % Store for state reference (minimal updates)
-                obj.V_HV_Filtered = V_HV_Ctrl;
-                obj.V_LV_Filtered = V_LV_Ctrl;
             end
+            
+            % 1.1 V_HV Filtering (Moving Average)
+            old_vhv = obj.V_HV_Buffer(obj.BufferIdx);
+            obj.V_HV_Sum = obj.V_HV_Sum - old_vhv + V_HV;
+            obj.V_HV_Buffer(obj.BufferIdx) = V_HV;
+            obj.V_HV_Filtered = obj.V_HV_Sum / 125;
+            
+            % 1.2 V_LV Filtering (Moving Average)
+            old_vlv = obj.V_LV_Buffer(obj.BufferIdx);
+            obj.V_LV_Sum = obj.V_LV_Sum - old_vlv + V_LV;
+            obj.V_LV_Buffer(obj.BufferIdx) = V_LV;
+            obj.V_LV_Filtered = obj.V_LV_Sum / 125;
+            
+            V_HV_Ctrl = obj.V_HV_Filtered;
+            V_LV_Ctrl = obj.V_LV_Filtered;
+
+            % 1.3 I_LV Current Filtering (Fast MA)
+            old_ilv = obj.I_Buffer(obj.BufferIdx);
+            obj.I_Sum = obj.I_Sum - old_ilv + I_LV;
+            obj.I_Buffer(obj.BufferIdx) = I_LV;
+            
+            % 1.4 I_L_pri Filtering (Flux Balancing) - Same Index
+            old_pri = obj.I_L_pri_Buffer(obj.BufferIdx);
+            obj.I_L_pri_Sum = obj.I_L_pri_Sum - old_pri + I_L_pri;
+            obj.I_L_pri_Buffer(obj.BufferIdx) = I_L_pri;
+
+            % Buffer Index Update (Circular)
+            obj.BufferIdx = obj.BufferIdx + 1;
+            if obj.BufferIdx > 125, obj.BufferIdx = 1; end
+            
+            I_fb = obj.I_Sum / 125;      % Feedback Current
+            I_L_pri_DC = obj.I_L_pri_Sum / 125; % DC Offset Current
 
             % =====================================================================
             % [STEP 2] State Transition Logic
@@ -274,7 +254,7 @@ classdef DAB_Controller_System < matlab.System
             NextState = obj.CurrentState;
             
             % Global Transitions (Highest Priority)
-            if t_current < 0.001
+            if t_current < obj.InitDelay
                 NextState = obj.ST_INIT;
             elseif Mode_Select == 1
                 NextState = obj.ST_MANUAL;
@@ -725,7 +705,7 @@ classdef DAB_Controller_System < matlab.System
             % 1. 시스템 설정
             groupSys = matlab.system.display.Section(...
                 'Title', '1. 시스템 기본 설정 (Hardware Spec)', ...
-                'PropertyList', {'Fs', 'Ts_ctrl', 'L_leakage', 'SPS_Inner_Phase'});
+                'PropertyList', {'Fs', 'Ts_ctrl', 'L_leakage', 'SPS_Inner_Phase', 'InitDelay'});
 
             % 2. 운전 모드 및 전압/전류 제한
             groupMode = matlab.system.display.Section(...
