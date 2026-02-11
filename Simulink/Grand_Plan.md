@@ -63,30 +63,34 @@
 
 **목표**: 복잡한 연산이 필요한 TPS 최적해를 **HDC(Hyperdimensional Computing)**의 연관 메모리 추론을 통해 실시간으로 도출합니다.
 
-### 4-1. TPS 최적 데이터셋 구축 (Offline - Scientific)
+### 4-1. TPS 최적 데이터셋 구축 (Offline - Scientific) **[완료]**
 
 - **Input (Context)**: 전압비 ($k = V_{in}/V_{out}$), 부하 전류 ($I_{req}$).
 - **Output (Label)**: 효율을 극대화(무효전력 최소화/ZVS 달성)하는 최적의 제어 변수 $(D_1, D_2, \phi)$.
 - **방법**: MATLAB 최적화 툴박스를 이용해 다양한 동작 조건에 대한 등고선(Look-up Table 수준) 데이터 생성.
 
-### 4-2. Reality Validation & AI Data Generation (Offline - Empirical)
+### 4-2. HDC 초기 모델 학습 (Initial Training with Analytical Data) **[Next Step]**
 
-> **Refer to:** `Simulink/Readme_Efficiency.md`
+- **Input**: 4-1에서 생성된 수식 기반 최적 해(Analytical Data).
+- **Process**:
+  1. **Encoding**: 연속 상태 변수($k, I_{req}$)를 고차원 벡터로 변환 (RBF/Cyclic Encoding).
+  2. **Training**: 상태 벡터와 제어 변수($D_1, D_2, \phi$)를 결합(Bundling)하여 **Associative Memory** 구축.
+- **Output**: `HDC_Model_Initial.mat` (초기 제어용 모델).
 
-- **목표**: 수식 모델의 한계를 극복하기 위해 실제 시뮬레이션(물리적 지연, 데드타임, 열적 변화 반영) 기반의 데이터를 수집.
-- **Protocol**: `Readme_Efficiency.md`의 v5.0 Master Verification Plan에 따라 Electro-Thermal Loop가 적용된 고정밀 데이터를 확보.
-- **활용**: HDC/RL Agent의 Fine-Tuning 및 Reality Gap 최소화.
+### 4-3. 실시간 추론 제어기 구현 (Runtime Inference)
 
-### 4-3. HDC 모델 학습 (Encoding & Training)
-
-- **Encoding**: 연속적인 상태 변수($k, I_{req}$)를 고차원 벡터(Hypervector)로 변환 (예: RBF Projection, Cyclic Encoding).
-- **Training**: 최적 제어 변수($D_1, D_2, \phi$)와 연관된 상태 벡터들을 결합(Bundling)하여 **Associative Memory** 구축.
-- **장점**: LUT 대비 메모리 효율적이며, 노이즈에 강건하고 연산 속도가 매우 빠름.
-
-### 4-4. 실시간 추론 제어기 구현 (Runtime Inference)
-
-- **Simulink Block**: 학습된 HDC 메모리를 탑재한 MATLAB Function 블록 구현.
+- **Implementation**: 학습된 HDC 메모리를 탑재한 **MATLAB System Object** 블록 구현.
 - **Process**: `Sensing -> Encoding -> Similarity Search (Query) -> Decoding -> Apply TPS Control`.
+- **Hybrid Strategy**: 경부하/과도 구간에서는 기존 제어와 Hybrid 운용.
+
+### 4-4. RL용 강인성 데이터 생성 (Simulated Experience for Fine-Tuning)
+
+> **Detail Protocol:** `Simulink/Readme_Efficiency.md` (AI-Ready Digital Twin v5.0)
+
+- **Timing**: 초기 모델(4-2) 탑재 후 시뮬레이션 기반으로 수집.
+- **목표**: 수식 모델이 놓친 물리적 현상(데드타임, 열적 변화, 지연 등)을 반영하여 강화학습(RL)을 위한 **"Real-World Feedback"** 데이터 확보.
+- **방법**: Electro-Thermal Iteration 및 몬테카를로 노후화 테스트(Monte Carlo) 수행.
+- **활용**: Offline RL을 통한 정책 미세 조정(Fine-Tuning) 및 Reality Gap 보정.
 
 ### 4-5. Seamless Transition (Hybrid Mode)
 
@@ -109,7 +113,7 @@
 ## 실행 순서 (Updated Action Plan)
 
 1.  **[완료]**: Phase 4-1 TPS 수식적 최적해 도출 (`Generate_TPS_Dataset.m`).
-2.  **[진행 중]**: Phase 4-2 Reality Validation 및 학습 데이터 생성 (`Readme_Efficiency.md` 참조).
-3.  **[다음]**: Phase 4-3/4-4 HDC 인코더 및 추론 엔진 구현.
-4.  **[통합]**: HDC 제어기를 `DAB_Controller_System`에 통합 및 검증.
+2.  **[다음]**: Phase 4-2 수식 데이터 기반 **HDC 초기 모델 학습** (`Train_HDC_Model.m`).
+3.  **[예정]**: Phase 4-3 실시간 제어기 (**MATLAB System Object**) 구현 및 통합.
+4.  **[추후]**: Phase 4-4 RL/검증용 실제(Simulated) 데이터 대량 생성 (`Generate_Simulated_Dataset.m`).
 5.  **[마무리]**: Phase 5 베이지안 최적화로 과도 응답 성능 튜닝.

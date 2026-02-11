@@ -17,7 +17,7 @@ clear; clc;
 % =========================================================================
 % 1. System Parameters (High Fidelity)
 % =========================================================================
-L = 90e-6;       
+L = 35e-6;       % 35uH (Optimized for 1kW Power Transfer, Max ~2kW)
 fs = 80e3;        
 n = 1;           
 R_total = 0.2;        
@@ -27,7 +27,7 @@ I_min_zvs = 1.0;
 % Operating Ranges
 V_in_Range  = linspace(320, 420, 10);   
 V_out_Range = linspace(80, 120, 10);    
-P_Steps = 0:250:5000; % Positive Power Steps
+P_Steps = 0:50:1200; % Optimized for 1kW Target (Steps of 50W)
 
 P_Range_Pos = P_Steps;
 P_Range_Neg = -fliplr(P_Steps(2:end)); % -5000 ... -250
@@ -142,7 +142,9 @@ function data_chunk = run_power_sweep(v1, v2, P_range, options, L, fs, R, t_fall
     num_pts = length(P_range);
     data_chunk = zeros(num_pts, 10);
     
-    P_max_theoretical = (n*v1*v2) / (8*fs*L);
+    % Theoretical Max Power (Updated based on user feedback: 4x standard SPS estimate)
+    % P_max = (4 * n * V1 * V2) / (8 * fs * L) = (n * V1 * V2) / (2 * fs * L)
+    P_max_theoretical = (n*v1*v2) / (2*fs*L);
     
     lb = [0, 0, -0.25];
     ub = [0.5, 0.5, 0.25];
