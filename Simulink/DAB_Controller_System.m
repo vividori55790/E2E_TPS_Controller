@@ -4,7 +4,8 @@ classdef DAB_Controller_System < matlab.System
     %
     % 아키텍처 (v8.0):
     %   1. Sensing & Filtering
-    %   2. Control Strategy Selection (SPS/TPS)
+    %   2. Control Strategy Selection (SPS/EPS/TPS)
+    %      Ctrl_Mode_Ext: 0=SPS, 1=EPS, 2=DPS(Reserved), 3=TPS/HDC
     %   3. PI Feedback + Signal Synthesis
     %   4. Flux Balancing
     %   5. Phase Assignment (D1, D2, Phi → phi1~phi7)
@@ -28,6 +29,7 @@ classdef DAB_Controller_System < matlab.System
         SPS_Inner_Phase = 180;  % [SPS] 내부 위상 고정값 (180도)
         HDC_Data = struct('D',0);
         L_leakage = 90e-6;      % 변압기 누설 인덕턴스 (H)
+        n_transformer = 4;      % 변압기 턴비 (V_HV_nom / V_LV_nom = 380/95)
         EnableFF = true;        % 피드포워드(FF) 제어 활성화
         MaxSlewRate = inf;      % 전류 지령 변화율 제한 (A/s)
         HDC_Update_V_Th = 2.0;  % HDC 재실행 전압 변화 임계값 (V)
@@ -147,6 +149,24 @@ classdef DAB_Controller_System < matlab.System
             PWM_Enable = double(PWM_Enable_in > 0.5);
 
             switch Ctrl_Mode_Ext
+                case 1  % ===== EPS: Extended Phase Shift =====
+                    % 전압비 기반 내부 위상 계산 → 순환전류 저감
+                    V_LV_safe = max(V_LV_f, 1);
+                    k_eps = V_HV_f / (obj.n_transformer * V_LV_safe);
+                    if k_eps > 1
+                        % V_HV 과다 → Primary duty 축소
+                        D1_set = max(0.05, min(0.50, 1 / (2 * k_eps)));
+                        D2_set = 0.5;
+                    else
+                        % V_LV 과다 → Secondary duty 축소
+                        D1_set = 0.5;
+                        D2_set = max(0.05, min(0.50, k_eps / 2));
+                    end
+                    % Feedforward (SPS와 동일 수식)
+                    if obj.EnableFF && abs(V_HV_f) > 10
+                        Phi_FF = -1 * obj.I_ref_ramped * (2*obj.L_leakage*obj.Fs*180)/V_HV_f;
+                    end
+
                 case 3
                     has_hdc = isfield(obj.HDC_Model_Data, 'D') && obj.HDC_Model_Data.D > 0;
                     has_lut = isfield(obj.HDC_Model_Data, 'D1_table');
@@ -379,7 +399,7 @@ classdef DAB_Controller_System < matlab.System
         end
         function groups = getPropertyGroupsImpl
             g1 = matlab.system.display.Section('Title','1. Hardware Spec', ...
-                'PropertyList',{'Fs','Ts_ctrl','L_leakage','SPS_Inner_Phase'});
+                'PropertyList',{'Fs','Ts_ctrl','L_leakage','n_transformer','SPS_Inner_Phase'});
             g2 = matlab.system.display.Section('Title','2. Advanced Control', ...
                 'PropertyList',{'EnableFF','SoftStartTime','MaxSlewRate','MaxPhaseRate','DeadZone','GainSched_Threshold','GainSched_Factor'});
             g3 = matlab.system.display.Section('Title','3. Flux Balancing', ...
