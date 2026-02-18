@@ -26,6 +26,7 @@ Desktop.ini
 # Exceptions (Add necessary model/data files here)
 !TPS_Table.mat
 !HDC_Model.mat
+!Simulink/HDC/*.mat
 !DAB_Parameters.sldd
 
 # Simulation Results & Artifacts
