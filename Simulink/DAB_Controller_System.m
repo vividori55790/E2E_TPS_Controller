@@ -1,13 +1,20 @@
 classdef DAB_Controller_System < matlab.System
-    % DAB_Controller_System
-    % DAB 컨버터 자동 모드 전환 (ESS <-> UPS) 및 SPS 위상 제어기
+    % DAB_Controller_System  (v6.0 — Unified Linear Pipeline)
+    % DAB 컨버터 자동 모드 전환 (ESS <-> UPS) 및 위상 제어기
     %
-    % 개선사항 (v3.0 - SPS Mode):
-    %   - SPS (Single Phase Shift) 제어만 사용
-    %   - 위상 출력을 360도 각도로 출력 (시간 대신)
-    %   - D1, D2는 SPS 고정값 (50%)으로 출력
+    % 아키텍처:
+    %   1. Sensing & Filtering
+    %   2. FSM (State Transition)
+    %   3. Reference Generation & BMS Safety
+    %   4. Control Strategy Selection (SPS Default → TPS Override)
+    %   5. PI Feedback (항상 동작)
+    %   6. Signal Synthesis & Limiting
+    %   7. Flux Balancing
+    %   8. Phase Assignment (통합 수식: D1, D2, Phi → phi1~phi7)
     %
-    % 입력: V_HV, I_HV, V_LV, I_LV, I_L_pri, I_ess_cmd, Kp_ext, Ki_ext, Kpv, Kiv, Mode_Select, Phi_Manual
+    % Ctrl_Mode_Ext: 0=SPS, 1=EPS(Reserved), 2=DPS(Reserved), 3=TPS/HDC
+    %
+    % 입력: V_HV, I_HV, V_LV, I_LV, I_L_pri, I_ess_cmd, Kp_ext, Ki_ext, Kpv, Kiv, Mode_Select, Phi_Manual, Ctrl_Mode_Ext
     % 출력: phi1_deg, phi3_deg, phi5_deg, phi7_deg, mode_active, status_flag, 
     %       I_cmd_out, phi_ext_out, D1_out, D2_out, integrator_out, PWM_Enable
     %
@@ -42,10 +49,12 @@ classdef DAB_Controller_System < matlab.System
         % Psi_Max = 25;           % 최대 내부 위상 (대전력)
         % I_Base = 10;            % 내부위상 계산용 기준 전류 (A)
         
-        % [주석 처리됨] HDC Control Parameters
-        % TODO: 사용자가 복구시키라고 할 때까지 주석으로 유지할 것
-        % EnableHDC = false; 
-        % HDC_Model = struct(); 
+         % [TPS/HDC] Control Parameters
+         % HDC 모델 기반 TPS 제어 — Ctrl_Mode_Ext=3 일 때 활성화
+         % [TPS/HDC] Control Parameters
+         % HDC 모델 구조체 (Code Gen 호환)
+         % 사용법: MATLAB 워크스페이스에 로드된 HDC 구조체 변수명을 입력
+         HDC_Data = struct('D',0);
         
         % [NEW] Feedforward & System Params
         L_leakage = 90e-6;      % 변압기 누설 인덕턴스 (H)
@@ -53,6 +62,10 @@ classdef DAB_Controller_System < matlab.System
         
         % [NEW] Reference Slew Rate
         MaxSlewRate = inf;      % 전류 지령 변화율 제한 (A/s) [inf: OFF]
+        
+        % [HDC Optimization] Execution Triggers (연산량 감소용)
+        HDC_Update_V_Th = 2.0;    % HDC 재실행 전압 변화 임계값 (V)
+        HDC_Update_P_Th = 50.0;   % HDC 재실행 전력 변화 임계값 (W)
         
         % [NEW] 전압 센싱 필터 (Sliding Window 사용)
         % Tau_Voltage_Filter = 30e-3; % [REMOVED] LPF 대신 이동평균 사용
@@ -103,6 +116,13 @@ classdef DAB_Controller_System < matlab.System
     end
 
     % =========================================================================
+    % 1.5 Internal (Hidden) Properties — 외부 노출 불필요
+    % =========================================================================
+    properties(Access = private)
+        HDC_Model_Data = struct();  % setupImpl에서 자동 로드되는 HDC 파라미터
+    end
+
+    % =========================================================================
     % 2. Internal States (DiscreteState) - persistent 대체
     % =========================================================================
     properties(DiscreteState)
@@ -143,6 +163,14 @@ classdef DAB_Controller_System < matlab.System
         
         % [NEW] Time Counter (for Code Generation compatibility)
         TickCount;              % 시뮬레이션 틱 카운터 (t = TickCount * Ts)
+        
+        % [HDC Optimization] Caching States
+        Last_Vin_HDC;
+        Last_Vout_HDC;
+        Last_Pref_HDC;
+        Cached_D1;
+        Cached_D2;
+        Cached_Phi;
     end
 
     % =========================================================================
@@ -184,234 +212,344 @@ classdef DAB_Controller_System < matlab.System
             obj.V_LV_Sum = 0;
             
             obj.ControlCheckDone = 0;
+            obj.TickCount = 0; % [RESTORED]
             
-            % [NEW] Time Counter Init
-            obj.TickCount = 0;
+            % [HDC Cache Init] Force run on first step
+            obj.Last_Vin_HDC = -9999; 
+            obj.Last_Vout_HDC = -9999;
+            obj.Last_Pref_HDC = -9999;
+            obj.Cached_D1 = 0.5;
+            obj.Cached_D2 = 0.5;
+            obj.Cached_Phi = 0;
+            
+            % =====================================================================
+            % [HDC] Assign Model Data from Parameter (Nontunable Property)
+            % =====================================================================
+            obj.HDC_Model_Data = obj.HDC_Data;
+            
+            % Debug info (MATLAB only)
+            if coder.target('MATLAB')
+                if isfield(obj.HDC_Model_Data, 'D') && obj.HDC_Model_Data.D > 0
+                     fprintf('>> [HDC] Model Parameter Loaded: Dim=%d, Bins=%d\n', ...
+                        obj.HDC_Model_Data.D, obj.HDC_Model_Data.N_bins);
+                elseif isfield(obj.HDC_Model_Data, 'D1_table')
+                     fprintf('>> [HDC] LUT Table Loaded: Size=[%d x %d x %d]\n', ...
+                        length(obj.HDC_Model_Data.Vin_bp), length(obj.HDC_Model_Data.Vout_bp), length(obj.HDC_Model_Data.P_bp));
+                else
+                     fprintf('>> [HDC] Empty Model Parameter detected. TPS Mode will be inactive.\n');
+                end
+            end
         end
 
     function [phi1_deg, phi3_deg, phi5_deg, phi7_deg, mode_active, status_flag, ...
                   I_cmd_out, phi_ext_out, D1_out, D2_out, integrator_out, PWM_Enable, ...
                   err_out, phi_raw_out, excess_out, ifb_out] = ...
-                stepImpl(obj, V_HV, I_HV, V_LV, I_LV, I_L_pri, I_ess_cmd, Kp_ext, Ki_ext, Kpv, Kiv, Mode_Select, Phi_Manual)
+                stepImpl(obj, V_HV, I_HV, V_LV, I_LV, I_L_pri, I_ess_cmd, Kp_ext, Ki_ext, Kpv, Kiv, Mode_Select, Phi_Manual, Ctrl_Mode_Ext)
             
-            % --- 1. 파라미터 계산 ---
             Ts = obj.Ts_ctrl;
-            
-            % [MODIFIED] Time calculation using TickCount (Code Generation compatible)
             t_current = double(obj.TickCount) * Ts;
-            obj.TickCount = obj.TickCount + 1;  % Increment tick counter
+            obj.TickCount = obj.TickCount + 1;
             
-            % =====================================================================
-            % [STEP 1] Sensing & Filtering
-            % - 125-sample Moving Average (runs in both MATLAB and Code Gen modes)
-            % - Debug fprintf only in MATLAB mode
-            % =====================================================================
+            % =================================================================
+            % [STAGE 1] Sensing & Filtering (125-sample Moving Average)
+            % =================================================================
             
-            % [DEBUG] Parameter Check (Only in MATLAB mode - fprintf not supported in embedded)
+            % Debug check (MATLAB only)
             if coder.target('MATLAB')
                 if obj.ControlCheckDone == 0 && t_current >= 0.005
-                     fprintf('>> [CTRL CHECK] Time=%.6f, Kp_ext=%.4f, Ki_ext=%.4f\n', t_current, Kp_ext, Ki_ext);
+                     fprintf('>> [CTRL CHECK] Time=%.6f, Kp=%.4f, Ki=%.4f, Mode=%d\n', ...
+                             t_current, Kp_ext, Ki_ext, Ctrl_Mode_Ext);
                      obj.ControlCheckDone = 1;
                 end
             end
             
-            % 1.1 V_HV Filtering (Moving Average)
+            % V_HV Filtering
             old_vhv = obj.V_HV_Buffer(obj.BufferIdx);
             obj.V_HV_Sum = obj.V_HV_Sum - old_vhv + V_HV;
             obj.V_HV_Buffer(obj.BufferIdx) = V_HV;
             obj.V_HV_Filtered = obj.V_HV_Sum / 125;
             
-            % 1.2 V_LV Filtering (Moving Average)
+            % V_LV Filtering
             old_vlv = obj.V_LV_Buffer(obj.BufferIdx);
             obj.V_LV_Sum = obj.V_LV_Sum - old_vlv + V_LV;
             obj.V_LV_Buffer(obj.BufferIdx) = V_LV;
             obj.V_LV_Filtered = obj.V_LV_Sum / 125;
             
-            V_HV_Ctrl = obj.V_HV_Filtered;
-            V_LV_Ctrl = obj.V_LV_Filtered;
+            V_HV_f = obj.V_HV_Filtered;
+            V_LV_f = obj.V_LV_Filtered;
 
-            % 1.3 I_LV Current Filtering (Fast MA)
+            % I_LV Current Filtering
             old_ilv = obj.I_Buffer(obj.BufferIdx);
             obj.I_Sum = obj.I_Sum - old_ilv + I_LV;
             obj.I_Buffer(obj.BufferIdx) = I_LV;
             
-            % 1.4 I_L_pri Filtering (Flux Balancing) - Same Index
+            % I_L_pri Filtering (Flux Balancing)
             old_pri = obj.I_L_pri_Buffer(obj.BufferIdx);
             obj.I_L_pri_Sum = obj.I_L_pri_Sum - old_pri + I_L_pri;
             obj.I_L_pri_Buffer(obj.BufferIdx) = I_L_pri;
 
-            % Buffer Index Update (Circular)
+            % Buffer Index (Circular)
             obj.BufferIdx = obj.BufferIdx + 1;
             if obj.BufferIdx > 125, obj.BufferIdx = 1; end
             
-            I_fb = obj.I_Sum / 125;      % Feedback Current
-            I_L_pri_DC = obj.I_L_pri_Sum / 125; % DC Offset Current
+            I_fb = obj.I_Sum / 125;
+            I_L_pri_DC = obj.I_L_pri_Sum / 125;
 
-            % =====================================================================
-            % [STEP 2] State Transition Logic
-            % =====================================================================
-            % Default: Stay in current state
+            % =================================================================
+            % [STAGE 2] FSM — State Transition Logic
+            % =================================================================
             NextState = obj.CurrentState;
             
-            % Global Transitions (Highest Priority)
             if t_current < obj.InitDelay
                 NextState = obj.ST_INIT;
             elseif Mode_Select == 1
                 NextState = obj.ST_MANUAL;
-            elseif V_LV_Ctrl < obj.V_Min_Limit
-                 % [Safety] Battery Undervoltage -> FAULT (Shutdown)
-                 NextState = obj.ST_FAULT; 
+            elseif V_LV_f < obj.V_Min_Limit
+                NextState = obj.ST_FAULT;
             else
-                % State-Specific Transitions
                 switch obj.CurrentState
                     case obj.ST_INIT
-                        % Init finished (t > 0.001) -> Decide Startup Mode
-                        if (V_HV_Ctrl < (obj.V_HV_Ref - obj.V_HV_Band)) || (V_HV_Ctrl > (obj.V_HV_Ref + obj.V_HV_Band))
+                        if (V_HV_f < (obj.V_HV_Ref - obj.V_HV_Band)) || ...
+                           (V_HV_f > (obj.V_HV_Ref + obj.V_HV_Band))
                             NextState = obj.ST_UPS_RUN;
                         else
                             NextState = obj.ST_ESS_RUN;
                         end
-                        
                     case obj.ST_ESS_RUN
-                        % ESS -> UPS (Grid Failure Logic)
-                        if (V_HV_Ctrl < (obj.V_HV_Ref - obj.V_HV_Band)) || (V_HV_Ctrl > (obj.V_HV_Ref + obj.V_HV_Band))
+                        if (V_HV_f < (obj.V_HV_Ref - obj.V_HV_Band)) || ...
+                           (V_HV_f > (obj.V_HV_Ref + obj.V_HV_Band))
                             NextState = obj.ST_UPS_RUN;
                         end
-                        
                     case obj.ST_UPS_RUN
-                        % UPS -> ESS (Grid Restoration)
-                        % Hysteresis can be added here if needed.
-                        if (V_HV_Ctrl >= (obj.V_HV_Ref - obj.V_HV_Band)) && (V_HV_Ctrl <= (obj.V_HV_Ref + obj.V_HV_Band))
-                             NextState = obj.ST_ESS_RUN;
+                        if (V_HV_f >= (obj.V_HV_Ref - obj.V_HV_Band)) && ...
+                           (V_HV_f <= (obj.V_HV_Ref + obj.V_HV_Band))
+                            NextState = obj.ST_ESS_RUN;
                         end
-                        
                     case obj.ST_MANUAL
-                        % Exiting Manual Mode -> Re-evaluate based on Grid
-                         if Mode_Select ~= 1
-                            if (V_HV_Ctrl < (obj.V_HV_Ref - obj.V_HV_Band)) || (V_HV_Ctrl > (obj.V_HV_Ref + obj.V_HV_Band))
+                        if Mode_Select ~= 1
+                            if (V_HV_f < (obj.V_HV_Ref - obj.V_HV_Band)) || ...
+                               (V_HV_f > (obj.V_HV_Ref + obj.V_HV_Band))
                                 NextState = obj.ST_UPS_RUN;
                             else
                                 NextState = obj.ST_ESS_RUN;
                             end
-                         end
-                         
+                        end
                     case obj.ST_FAULT
-                         % Latch Fault. Reset required to exit (Not implemented yet, or use Reset block)
-                         % If voltage recovers, maybe recover? For safety, stick to Fault.
-                         if V_LV_Ctrl > (obj.V_Min_Limit + 5.0) % Hysteresis 5V
-                             NextState = obj.ST_INIT; % Restart
-                         end
+                        if V_LV_f > (obj.V_Min_Limit + 5.0)
+                            NextState = obj.ST_INIT;
+                        end
                 end
             end
-            
-            % Update State
             obj.CurrentState = NextState;
             
-            % =====================================================================
-            % [STEP 3] State Action & Reference Generation
-            % =====================================================================
+            % =================================================================
+            % [STAGE 3] Reference Generation & BMS Safety
+            % =================================================================
             PWM_Enable = 0;
             I_target = 0;
-            phi_ext_deg = 0;
-            mode_active = 0; % [FIX] Default Initialization
-            status_flag = 0; % [FIX] Default Initialization
+            mode_active = 0;
             
             switch obj.CurrentState
                 case obj.ST_INIT
-                    PWM_Enable = 0;
-                    I_target = 0;
                     obj.Integrator_ext = 0;
                     obj.Integrator_v = 0;
                     
                 case obj.ST_FAULT
-                    PWM_Enable = 0; % Hard Shutdown
-                    I_target = 0;
+                    % Hard Shutdown
                     
                 case obj.ST_MANUAL
                     PWM_Enable = 1;
-                    phi_ext_deg = Phi_Manual;
-                    % Freeze Integrators or Reset
-                    % obj.Integrator_ext = 0; 
                     
                 case {obj.ST_ESS_RUN, obj.ST_UPS_RUN}
                     PWM_Enable = 1;
                     
-                    % --- Reference Generation ---
                     if obj.CurrentState == obj.ST_ESS_RUN
-                        % ESS: Direct Current Command
                         raw_ref = max(-obj.I_ESS_Max, min(obj.I_ESS_Max, I_ess_cmd));
-                        mode_active = 3; % ESS
+                        mode_active = 3;
                     else
-                        % UPS: Voltage Loop -> Current Command
-                        mode_active = 1; % UPS
-                        err_v = obj.V_HV_Ref - V_HV_Ctrl;
+                        mode_active = 1;
+                        err_v = obj.V_HV_Ref - V_HV_f;
                         temp_int_v = obj.Integrator_v + err_v * Ts;
-                        
-                        % Anti-Windup (Clamping)
                         limit_val = obj.I_UPS_Max;
                         temp_I_cmd = Kpv * err_v + Kiv * temp_int_v;
                         
                         if temp_I_cmd > limit_val
                             if err_v < 0, obj.Integrator_v = temp_int_v; end
-                             raw_ref = limit_val;
+                            raw_ref = limit_val;
                         elseif temp_I_cmd < -limit_val
-                             if err_v > 0, obj.Integrator_v = temp_int_v; end
-                             raw_ref = -limit_val;
+                            if err_v > 0, obj.Integrator_v = temp_int_v; end
+                            raw_ref = -limit_val;
                         else
                             obj.Integrator_v = temp_int_v;
                             raw_ref = temp_I_cmd;
                         end
                     end
                     
-                    % --- BMS / Safety Limiter (Common) ---
+                    % --- BMS Safety ---
                     I_safe = raw_ref;
-                    v_batt = V_LV_Ctrl;
+                    v_batt = V_LV_f;
                     
                     if raw_ref < 0  % Charging
                         if v_batt >= obj.V_Pack_Max
-                            I_safe = 0; % Overvoltage Protection
+                            I_safe = 0;
                         elseif v_batt >= obj.V_CV_Start
-                            % CV Mode
                             I_limit = (obj.V_Pack_Max - v_batt) * obj.K_CV;
                             I_safe = max(raw_ref, -I_limit);
                         end
-                        % Full Charge Cutoff
                         if abs(I_safe) < 0.1 && v_batt > obj.V_CV_Start
-                             I_safe = 0; 
+                            I_safe = 0;
                         end
-                        
-                    elseif raw_ref > 0 % Discharging
-                         if obj.CurrentState == obj.ST_ESS_RUN
-                             % ESS Limit
-                             if v_batt < obj.V_ESS_Limit
-                                 I_safe = 0; 
-                             end
-                         else
-                             % UPS Limit (Derating)
-                             if v_batt < obj.V_UPS_Limit
-                                 factor = (v_batt - obj.V_Min_Limit) / (obj.V_UPS_Limit - obj.V_Min_Limit);
-                                 factor = max(0, min(1, factor));
-                                 I_safe = raw_ref * factor;
-                             end
-                             % Note: < V_Min_Limit handled in Transition to FAULT
-                         end
+                    elseif raw_ref > 0  % Discharging
+                        if obj.CurrentState == obj.ST_ESS_RUN
+                            if v_batt < obj.V_ESS_Limit, I_safe = 0; end
+                        else
+                            if v_batt < obj.V_UPS_Limit
+                                factor = (v_batt - obj.V_Min_Limit) / (obj.V_UPS_Limit - obj.V_Min_Limit);
+                                factor = max(0, min(1, factor));
+                                I_safe = raw_ref * factor;
+                            end
+                        end
                     end
                     I_target = I_safe;
             end
-
-            % =====================================================================
-            % [STEP 4] Core Control Loop (Executed only if PWM_Enable & Not Manual)
-            % =====================================================================
             
-            % Default Outputs
+            % Status flags
             status_flag = double((obj.CurrentState == obj.ST_UPS_RUN) || (obj.CurrentState == obj.ST_FAULT));
-            % Use saved mode for explicit 'mode_active' if not set in switch (init/fault)
             if obj.CurrentState == obj.ST_INIT || obj.CurrentState == obj.ST_FAULT || obj.CurrentState == obj.ST_MANUAL
-                mode_active = 0; 
+                mode_active = 0;
             end
             
+            % =================================================================
+            % [STAGE 4] Control Strategy Selection
+            %   기본값: SPS (D1=0.5, D2=0.5, Phi_FF=0)
+            %   TPS 모드이면 HDC 추론으로 덮어쓰기 (Override)
+            % =================================================================
+            D1_set = 0.5;        % Primary duty ratio (SPS default)
+            D2_set = 0.5;        % Secondary duty ratio (SPS default)
+            Phi_FF = 0;          % Phase feedforward [deg]
+            is_hdc_active = false; %#ok<NASGU> % [CodeGen] 경로 보장
+            is_hdc_active = false;
+            
+            switch Ctrl_Mode_Ext
+                case 3  % ===== TPS: HDC 모델 기반 (또는 LUT) =====
+                    
+                    has_hdc = isfield(obj.HDC_Model_Data, 'D') && obj.HDC_Model_Data.D > 0;
+                    has_lut = isfield(obj.HDC_Model_Data, 'D1_table');
+
+                    % [CRITICAL ERROR CHECK]
+                    if ~has_hdc && ~has_lut
+                        error('>> [CTRL FAULT] TPS Mode(=3) Selected, BUT HDC/LUT Data is EMPTY! Check Sim Mode.');
+                    end
+
+                    if has_hdc
+                        % =========================================================
+                        % [Type A] HDC Model Inference (AI)
+                        % =========================================================
+                        
+                        % [HDC Optimization] Caching Logic
+                        % 입력 변화가 임계값보다 클 때만 HDC 모델 재실행
+                        Vin_curr  = V_HV_f;
+                        Vout_curr = V_LV_f;
+                        Pref_curr = obj.I_ref_ramped * V_LV_f;
+    
+                        dV_in  = abs(Vin_curr - obj.Last_Vin_HDC);
+                        dV_out = abs(Vout_curr - obj.Last_Vout_HDC);
+                        dP_ref = abs(Pref_curr - obj.Last_Pref_HDC);
+    
+                        if dV_in > obj.HDC_Update_V_Th || ...
+                           dV_out > obj.HDC_Update_V_Th || ...
+                           dP_ref > obj.HDC_Update_P_Th
+                            
+                            % Run Inference
+                            [d1_new, d2_new, phi_new] = hdc_inference_inline( ...
+                                obj.HDC_Model_Data, Vin_curr, Vout_curr, Pref_curr);
+                            
+                            % Update Cache
+                            obj.Cached_D1 = d1_new;
+                            obj.Cached_D2 = d2_new;
+                            obj.Cached_Phi = phi_new;
+                            
+                            obj.Last_Vin_HDC = Vin_curr;
+                            obj.Last_Vout_HDC = Vout_curr;
+                            obj.Last_Pref_HDC = Pref_curr;
+                        end
+                        
+                        % Use Cached Values
+                        d1_hdc = obj.Cached_D1;
+                        d2_hdc = obj.Cached_D2;
+                        phi_hdc = obj.Cached_Phi;
+                        
+                        is_hdc_active = true;
+                        
+                        % Safety Clamp & Override
+                        D1_set = max(0.05, min(0.50, d1_hdc));
+                        D2_set = max(0.05, min(0.50, d2_hdc));
+                        phi_hdc = max(-0.48, min(0.48, phi_hdc));
+                        
+                        % HDC의 Phi를 피드포워드 위상으로 변환 (ratio → deg)
+                        Phi_FF = phi_hdc * 360;
+
+                    elseif has_lut
+                        % =========================================================
+                        % [Type B] LUT Interpolation (Table)
+                        % =========================================================
+                        
+                        % 입력 클램핑 (LUT 범위 내)
+                        Vin_in  = max(min(V_HV_f, max(obj.HDC_Model_Data.Vin_bp)), min(obj.HDC_Model_Data.Vin_bp));
+                        Vout_in = max(min(V_LV_f, max(obj.HDC_Model_Data.Vout_bp)), min(obj.HDC_Model_Data.Vout_bp));
+                        P_in    = max(min(obj.I_ref_ramped * V_LV_f, max(obj.HDC_Model_Data.P_bp)), min(obj.HDC_Model_Data.P_bp));
+                        
+                        % LUT 보간 실행
+                        [d1_lut, d2_lut, phi_lut] = lut_inference_inline(obj.HDC_Model_Data, Vin_in, Vout_in, P_in);
+                        
+                        D1_set = d1_lut;
+                        D2_set = d2_lut;
+                        
+                        % LUT Phi는 보통 ratio(0~0.5) 단위이므로 deg 변환
+                        Phi_FF = phi_lut * 360;
+                        
+                        is_hdc_active = true;
+                    end
+                
+                % case 1  % ===== EPS (미구현) =====
+                    % TODO: D1 가변, D2 = 0.5 고정
+                    % D1_set = ... ;
+                    % Phi_FF = ... ;
+                
+                % case 2  % ===== DPS (미구현) =====
+                    % TODO: D1 = D2 가변 (대칭)
+                    % D1_set = ... ;
+                    % D2_set = ... ;
+                    % Phi_FF = ... ;
+                
+                otherwise  % ===== SPS (Default) =====
+                    % D1_set = 0.5, D2_set = 0.5 유지
+                    if obj.EnableFF && abs(V_HV_f) > 10
+                        K_ff = (2 * obj.L_leakage * obj.Fs * 180) / V_HV_f;
+                        Phi_FF = -1 * obj.I_ref_ramped * K_ff;
+                    end
+            end
+            
+            % Soft Start Gain (모든 모드 공통)
+            if t_current < obj.SoftStartTime
+                ss_gain = t_current / obj.SoftStartTime;
+            else
+                ss_gain = 1.0;
+            end
+            Phi_FF = Phi_FF * ss_gain;
+            
+            % =================================================================
+            % [STAGE 5~6] PI Feedback + Signal Synthesis
+            %   PI 제어기는 모드와 무관하게 항상 동작
+            %   최종 위상 = PI + Feedforward
+            % =================================================================
+            err_ext = 0;
+            phi_raw_unbounded = 0;
+            excess = 0;
+            phi_ext_deg = 0;
+            
             if PWM_Enable && (obj.CurrentState ~= obj.ST_MANUAL)
-                % 4.1 Slew Rate Limiter
+                % Slew Rate Limiter
                 if isinf(obj.MaxSlewRate)
                     obj.I_ref_ramped = I_target;
                 else
@@ -424,7 +562,7 @@ classdef DAB_Controller_System < matlab.System
                     end
                 end
                 
-                % 4.2 Current PI Controller
+                % PI Controller
                 raw_err = obj.I_ref_ramped - I_fb;
                 
                 % Deadzone
@@ -440,32 +578,16 @@ classdef DAB_Controller_System < matlab.System
                     Kp_curr = Kp_ext * obj.GainSched_Factor;
                 end
                 
-                % PI Output
-                phi_pi = -1 * (Kp_curr * err_ext + Ki_ext * obj.Integrator_ext);
+                % PI Output + Feedforward
+                Phi_PI = -1 * (Kp_curr * err_ext + Ki_ext * obj.Integrator_ext);
+                phi_total_raw = Phi_PI + Phi_FF;
                 
-                % 4.3 Feedforward (Soft Start)
-                phi_ff = 0;
-                if obj.EnableFF && abs(V_HV_Ctrl) > 10
-                     K_ff = (2 * obj.L_leakage * obj.Fs * 180) / V_HV_Ctrl;
-                     phi_ff_val = -1 * obj.I_ref_ramped * K_ff;
-                     
-                     % Soft Start
-                     if t_current < obj.SoftStartTime
-                         gain = t_current / obj.SoftStartTime;
-                         phi_ff = phi_ff_val * gain;
-                     else
-                         phi_ff = phi_ff_val;
-                     end
-                end
-                
-                % 4.4 Saturation & Anti-Windup
-                phi_total_raw = phi_pi + phi_ff;
+                % Saturation
                 phi_saturated = max(-90, min(90, phi_total_raw));
                 
                 % Rate Limiter
                 delta_phi = phi_saturated - obj.Prev_Phi_Output;
                 max_phi_step = obj.MaxPhaseRate * Ts;
-                
                 if abs(delta_phi) > max_phi_step
                     phi_ext_deg = obj.Prev_Phi_Output + sign(delta_phi) * max_phi_step;
                 else
@@ -473,65 +595,75 @@ classdef DAB_Controller_System < matlab.System
                 end
                 obj.Prev_Phi_Output = phi_ext_deg;
                 
-                % Update Integrator (Back-Calculation)
+                % Integrator Update (Back-Calculation Anti-Windup)
                 excess = phi_ext_deg - phi_total_raw;
-                K_aw = 1.0; 
-                obj.Integrator_ext = obj.Integrator_ext + err_ext * Ts - (K_aw * excess * Ts);
+                obj.Integrator_ext = obj.Integrator_ext + err_ext * Ts - (excess * Ts);
                 
-                % Debug values
                 phi_raw_unbounded = phi_total_raw;
                 
+            elseif obj.CurrentState == obj.ST_MANUAL
+                phi_ext_deg = Phi_Manual;
+                D1_set = 0.5;  % Manual: SPS 고정
+                D2_set = 0.5;
             else
-                % PWM Disabled or Manual: Reset internal ramps/vars if needed
-                if obj.CurrentState ~= obj.ST_MANUAL
-                    obj.I_ref_ramped = 0;
-                    obj.Prev_Phi_Output = 0;
-                end
-                err_ext = 0;
-                phi_raw_unbounded = 0;
-                excess = 0;
+                % PWM OFF: Reset
+                obj.I_ref_ramped = 0;
+                obj.Prev_Phi_Output = 0;
             end
             
-            % =====================================================================
-            % [STEP 5] Flux Balancing & Final Output
-            % =====================================================================
+            % =================================================================
+            % [STAGE 7] Flux Balancing
+            % =================================================================
             D_offset = 0;
             if PWM_Enable && obj.EnableFluxBalancing
-                 % Flux Control (regulate DC current to 0)
-                 err_flux = -I_L_pri_DC; 
-                 obj.Flux_Integrator = obj.Flux_Integrator + err_flux * Ts;
-                 
-                 % Flux Anti-windup
-                 max_integ = obj.Flux_Limit / obj.Flux_Ki;
-                 obj.Flux_Integrator = max(-max_integ, min(max_integ, obj.Flux_Integrator));
-                 
-                 D_raw = obj.Flux_Kp * err_flux + obj.Flux_Ki * obj.Flux_Integrator;
-                 D_offset = max(-obj.Flux_Limit, min(obj.Flux_Limit, D_raw));
+                err_flux = -I_L_pri_DC;
+                obj.Flux_Integrator = obj.Flux_Integrator + err_flux * Ts;
+                max_integ = obj.Flux_Limit / obj.Flux_Ki;
+                obj.Flux_Integrator = max(-max_integ, min(max_integ, obj.Flux_Integrator));
+                D_raw = obj.Flux_Kp * err_flux + obj.Flux_Ki * obj.Flux_Integrator;
+                D_offset = max(-obj.Flux_Limit, min(obj.Flux_Limit, D_raw));
             end
             
-            D1_out = 0.5 + D_offset;
-            D2_out = 0.5;
+            % =================================================================
+            % [STAGE 8] Phase Assignment — 통합 수식
+            %   모든 모드에 대해 동일한 수식 사용:
+            %     phi1 = 0                           (Primary Leg A, 기준)
+            %     phi3 = D1 * 360                    (Primary Leg B)
+            %     phi5 = phi_ext_deg                  (Secondary Leg A)
+            %     phi7 = phi_ext_deg + D2 * 360       (Secondary Leg B)
+            %
+            %   SPS 일 때: D1=D2=0.5 → phi3=180, phi7=phi5+180 (기존과 동일)
+            %   TPS 일 때: D1,D2 가변 → 각각 HDC 결정값 사용
+            % =================================================================
+            D1_final = D1_set + D_offset;    % Flux 보정 적용
+            D2_final = D2_set;
             
-            % Output assignment
+            if PWM_Enable
+                phi1_deg = 0;
+                phi3_deg = D1_final * 360;
+                phi5_deg = phi_ext_deg;
+                phi7_deg = phi_ext_deg + D2_final * 360;
+                
+                D1_out = D1_final;
+                D2_out = D2_final;
+            else
+                phi1_deg = 0;
+                phi3_deg = 0;
+                phi5_deg = 0;
+                phi7_deg = 0;
+                D1_out = 0;
+                D2_out = 0;
+            end
+            
+            % =================================================================
+            % [STAGE 9] Output Assignment
+            % =================================================================
             I_cmd_out = obj.I_ref_ramped;
             phi_ext_out = phi_ext_deg;
             integrator_out = obj.Integrator_ext;
-            
-            if PWM_Enable == 0
-                D1_out = 0; D2_out = 0;
-            end
-            
-            % Phase Calculation (SPS)
-            phi_int_deg = obj.SPS_Inner_Phase;
-            phi1_deg = 0;
-            phi3_deg = phi_int_deg;
-            phi5_deg = phi_ext_deg;
-            phi7_deg = phi_ext_deg + phi_int_deg;
-            
-            % Debug Signals
             err_out = err_ext;
             phi_raw_out = phi_raw_unbounded;
-            excess_out = excess; 
+            excess_out = excess;
             ifb_out = I_fb;
             
             obj.PreviousMode = obj.CurrentState;
@@ -565,8 +697,21 @@ classdef DAB_Controller_System < matlab.System
             
             % [NEW] Time Counter Reset
             obj.TickCount = 0;
+            
+            % [HDC Cache Reset]
+            obj.Last_Vin_HDC = -9999; 
+            obj.Last_Vout_HDC = -9999;
+            obj.Last_Pref_HDC = -9999;
+            obj.Cached_D1 = 0.5;
+            obj.Cached_D2 = 0.5;
+            obj.Cached_Phi = 0;
         end
         
+        % --- 입력 개수 지정 ---
+        function num = getNumInputsImpl(~)
+            num = 13; % 12 기존 + Ctrl_Mode_Ext
+        end
+
         % --- 출력 개수 지정 ---
         function num = getNumOutputsImpl(~)
             num = 16; % 디버깅용 포트 4개 추가
@@ -657,6 +802,20 @@ classdef DAB_Controller_System < matlab.System
                 % [NEW] Time Counter
                 case 'TickCount'
                     sz = [1 1]; dt = 'double'; cp = false;
+                
+                % [HDC Cache States]
+                case 'Last_Vin_HDC'
+                    sz = [1 1]; dt = 'double'; cp = false;
+                case 'Last_Vout_HDC'
+                    sz = [1 1]; dt = 'double'; cp = false;
+                case 'Last_Pref_HDC'
+                    sz = [1 1]; dt = 'double'; cp = false;
+                case 'Cached_D1'
+                     sz = [1 1]; dt = 'double'; cp = false;
+                case 'Cached_D2'
+                     sz = [1 1]; dt = 'double'; cp = false;
+                case 'Cached_Phi'
+                     sz = [1 1]; dt = 'double'; cp = false;
                 otherwise
                     error(['Unknown state: ', name]);
             end
@@ -669,6 +828,17 @@ classdef DAB_Controller_System < matlab.System
             sts = createSampleTime(obj, 'Type', 'Discrete', ...
                                    'SampleTime', obj.Ts_ctrl, ...
                                    'OffsetTime', 0);
+        end
+
+        % --- [NEW] 입력 포트 이름 명시 ---
+        function [n1,n2,n3,n4,n5,n6,n7,n8,n9,n10,n11,n12,n13] = getInputNamesImpl(~)
+            n1 = 'V_HV';        n2 = 'I_HV';
+            n3 = 'V_LV';        n4 = 'I_LV';
+            n5 = 'I_L_pri';     n6 = 'I_ess_cmd';
+            n7 = 'Kp_ext';      n8 = 'Ki_ext';
+            n9 = 'Kpv';         n10 = 'Kiv';
+            n11 = 'Mode_Select'; n12 = 'Phi_Manual';
+            n13 = 'Ctrl_Mode';  % 0:SPS, 1:DPS(Reserved), 2:EPS(Reserved), 3:TPS/HDC
         end
 
         % --- [NEW] 출력 포트 이름 명시 (디버깅 편의성) ---
@@ -697,8 +867,9 @@ classdef DAB_Controller_System < matlab.System
             function header = getHeaderImpl
             header = matlab.system.display.Header(mfilename('class'), ...
                 'Title', 'DAB Converter Controller (Full Bridge)', ...
-                'Text', sprintf(['DAB 컨버터의 위상 천이(SPS) 및 모드 자동 전환 제어기입니다.\n', ...
-                                 'ESS(정상)/UPS(정전) 모드 자동 전환, 배터리 보호(BMS), 자속 평형(Flux Balancing) 기능을 수행합니다.']));
+                'Text', sprintf(['DAB 컨버터의 위상 천이(SPS/TPS) 및 모드 자동 전환 제어기입니다.\n', ...
+                                 'ESS(정상)/UPS(정전) 모드 자동 전환, 배터리 보호(BMS), 자속 평형(Flux Balancing) 기능을 수행합니다.\n', ...
+                                 'Ctrl_Mode_Ext=3 으로 HDC 기반 TPS 제어가 가능합니다.']));
         end
 
         function groups = getPropertyGroupsImpl
@@ -728,7 +899,261 @@ classdef DAB_Controller_System < matlab.System
                 'Title', '5. 변압기 자속 평형 (Flux Balancing)', ...
                 'PropertyList', {'EnableFluxBalancing', 'Flux_Kp', 'Flux_Ki', 'Flux_Limit'});
 
-            groups = [groupSys, groupMode, groupBMS, groupAdv, groupFlux];
+             % 6. HDC/TPS 제어 설정
+             groupHDC = matlab.system.display.Section(...
+                 'Title', '6. HDC/TPS 제어 (AI Phase Shift Control)', ...
+                 'PropertyList', {'HDC_Data', 'HDC_Update_V_Th', 'HDC_Update_P_Th'});
+
+            groups = [groupSys, groupMode, groupBMS, groupAdv, groupFlux, groupHDC];
         end
     end
+end
+
+% =====================================================================
+% HDC Model Auto-Loader (Called from setupImpl)
+% =====================================================================
+function HDC = load_hdc_model(model_path)
+    % LOAD_HDC_MODEL — .mat 파일에서 HDC 모델을 로드하고 Simulink 호환 구조체로 변환
+    %
+    % 입력: model_path — 'HDC/Supervised/Supervised_Model_Results.mat' 등
+    % 출력: HDC struct (flat matrices, no cell arrays)
+    %
+    % 파일이 없거나 로드 실패 시 빈 struct 반환 → Guard에 의해 SPS Fallback
+    
+    HDC = struct();  % Default: empty (SPS fallback)
+    
+    if ~exist(model_path, 'file')
+        error('>> [HDC] Model file NOT FOUND at: %s\nCheck your path. Currently in: %s', model_path, pwd);
+    end
+    
+    try
+        loaded = load(model_path);
+        
+        % Supervised_Model_Results.mat structure: results.hdc_model
+        if isfield(loaded, 'results') && isfield(loaded.results, 'hdc_model')
+            src = loaded.results.hdc_model;
+        elseif isfield(loaded, 'lut_data')
+             % Phase 2 Generated LUT
+             HDC = loaded.lut_data;
+             return;
+        elseif isfield(loaded, 'HDC')
+            % Already deployed file (deploy_supervised_lut)
+            HDC = loaded.HDC;
+            return;
+        else
+            error('>> [HDC] Invalid model format! Missing results.hdc_model structure.');
+        end
+        
+        % --- Cell Array → 3D Matrix 변환 (Simulink Coder 호환) ---
+        HDC.D        = double(src.D);
+        HDC.N_levels = double(src.N_levels);
+        HDC.N_inputs = double(src.N_inputs);
+        HDC.N_bins   = double(src.N_output_bins);
+        
+        % Base HVs [N_inputs x D]
+        HDC.BaseHVs = double(src.base_hvs);
+        
+        % Level HVs: Cell {i}[N_levels x D] → 3D [N_inputs x N_levels x D]
+        HDC.LevelHVs = zeros(HDC.N_inputs, HDC.N_levels, HDC.D);
+        for i = 1:HDC.N_inputs
+            HDC.LevelHVs(i, :, :) = double(src.level_hvs{i});
+        end
+        
+        % Prototypes: Cell {k}[N_bins x D] → 3D [3 x N_bins x D]
+        HDC.Prototypes = zeros(3, HDC.N_bins, HDC.D);
+        for k = 1:3
+            HDC.Prototypes(k, :, :) = double(src.output_prototypes{k});
+        end
+        
+        % Permutation Indices
+        HDC.PermIdx1 = double(src.perm_idx);
+        HDC.PermIdx2 = double(src.perm_idx2);
+        
+        % Encoding Parameters
+        HDC.Param_n       = double(src.encode_params.n);
+        HDC.Param_Prated  = double(src.encode_params.P_rated);
+        HDC.Param_VinNom  = double(src.encode_params.Vin_nom);
+        HDC.Param_VoutNom = double(src.encode_params.Vout_nom);
+        HDC.Param_Lnom    = double(src.encode_params.L_nom);
+        HDC.Param_fs      = double(src.encode_params.fs);
+        
+        % Temperature
+        if isfield(src, 'temperatures')
+            HDC.Temps = double(src.temperatures);
+        else
+            HDC.Temps = [src.temperature, src.temperature, src.temperature];
+        end
+        
+        % Output Ranges & Pre-calculated Bin Values
+        HDC.OutputRanges = double(src.output_ranges);
+        HDC.BinValues = zeros(3, HDC.N_bins);
+        for k = 1:3
+            HDC.BinValues(k, :) = linspace(HDC.OutputRanges(k,1), HDC.OutputRanges(k,2), HDC.N_bins);
+        end
+        
+    catch ME
+        error('>> [HDC] Exception while loading model: %s', ME.message);
+    end
+end
+% =====================================================================
+% HDC Inference Function (Inlined for Code Generation Compatibility)
+% =====================================================================
+function [D1, D2, Phi] = hdc_inference_inline(HDC, Vin, Vout, Pref)
+    % HDC_INFERENCE_INLINE — HDC 모델 추론 (Simulink Coder 호환)
+    %
+    % 입력: Vin (V), Vout (V), Pref (W)
+    % 출력: D1, D2 (duty ratio 0~0.5), Phi (phase ratio -0.5~0.5)
+    %
+    % HDC 구조체 필드 요구사항:
+    %   HDC.D, HDC.N_levels, HDC.N_bins, HDC.N_inputs
+    %   HDC.BaseHVs [N_inputs x D]
+    %   HDC.LevelHVs [N_inputs x N_levels x D]
+    %   HDC.Prototypes [3 x N_bins x D]
+    %   HDC.PermIdx1 [1 x D], HDC.PermIdx2 [1 x D]
+    %   HDC.Temps [1 x 3], HDC.BinValues [3 x N_bins]
+    %   HDC.Param_n, Param_Prated, Param_VinNom, Param_Lnom, Param_fs
+    
+    % --- Guard: HDC 모델이 비어있으면 SPS 기본값 반환 ---
+    if ~isfield(HDC, 'D') || HDC.D == 0
+        D1 = 0.5; D2 = 0.5; Phi = 0;
+        return;
+    end
+    
+    D_dim = HDC.D;
+    N_levels = HDC.N_levels;
+    
+    % --- Encoding Parameters ---
+    n_tr    = HDC.Param_n;
+    P_rated = HDC.Param_Prated;
+    Vin_nom = HDC.Param_VinNom;
+    L_nom   = HDC.Param_Lnom;
+    fs      = HDC.Param_fs;
+    
+    % --- Feature Extraction (12 physics-informed features) ---
+    M        = (n_tr * Vout) / max(Vin, 1);
+    P_norm   = Pref / P_rated;
+    V_ratio  = Vin / Vin_nom;
+    P_abs_norm = abs(Pref) / P_rated;
+    P_sign   = (sign(Pref) + 1) / 2;
+    
+    % Cross-Domain Features
+    Z_L = 2 * pi * fs * L_nom;
+    if abs(Pref) > 5
+        Z_load = Vin^2 / abs(Pref);
+        Z_norm = Z_L / Z_load;
+        R_load = Vout^2 / abs(Pref);
+        Load_Z = R_load / 100;
+    else
+        Z_norm = 0;
+        Load_Z = 1.0;
+    end
+    Z_norm = max(0, min(1, Z_norm / 2.0));
+    Load_Z = max(0, min(1, Load_Z));
+    
+    VP_cross = (M - 1.0) * P_norm;
+    VP_cross = max(0, min(1, (VP_cross + 2) / 4));
+    
+    B_est = Vin / (4 * 20 * 3e-4 * fs);
+    B_est = max(0, min(1, B_est / 0.35));
+    
+    % Feature Vector [12 x 1], all clamped to [0, 1]
+    features = zeros(12, 1);
+    features(1)  = max(0, min(1, (Vin - 180) / (460 - 180)));
+    features(2)  = max(0, min(1, (Vout - 65) / (115 - 65)));
+    features(3)  = max(0, min(1, (Pref + 1100) / 2200));
+    features(4)  = max(0, min(1, (M - 0.3) / 2.5));
+    features(5)  = max(0, min(1, (P_norm + 1) / 2));
+    features(6)  = max(0, min(1, V_ratio / 1.5));
+    features(7)  = max(0, min(1, P_abs_norm));
+    features(8)  = P_sign;
+    features(9)  = Z_norm;
+    features(10) = VP_cross;
+    features(11) = Load_Z;
+    features(12) = B_est;
+    
+    % --- Quantize to level indices ---
+    lvl_indices = zeros(12, 1);
+    for i = 1:12
+        idx_raw = floor(features(i) * (N_levels - 1)) + 1;
+        if idx_raw < 1, idx_raw = 1; end
+        if idx_raw > N_levels, idx_raw = N_levels; end
+        lvl_indices(i) = idx_raw;
+    end
+    
+    % --- Bind & Bundle ---
+    hv = zeros(1, D_dim);
+    for i = 1:12
+        lvl_vec = reshape(HDC.LevelHVs(i, lvl_indices(i), :), 1, D_dim);
+        base_vec = HDC.BaseHVs(i, :);
+        hv = hv + (base_vec .* lvl_vec);
+    end
+    
+    % --- N-gram Interactions ---
+    % 1. Vin(1) * Vout(2)
+    h1 = HDC.BaseHVs(1,:) .* reshape(HDC.LevelHVs(1, lvl_indices(1), :), 1, D_dim);
+    h2 = HDC.BaseHVs(2,:) .* reshape(HDC.LevelHVs(2, lvl_indices(2), :), 1, D_dim);
+    hv = hv + 0.5 * (h1 .* h2(HDC.PermIdx1));
+    
+    % 2. Pref(3) * M(4)
+    h3 = HDC.BaseHVs(3,:) .* reshape(HDC.LevelHVs(3, lvl_indices(3), :), 1, D_dim);
+    h4 = HDC.BaseHVs(4,:) .* reshape(HDC.LevelHVs(4, lvl_indices(4), :), 1, D_dim);
+    hv = hv + 0.5 * (h3 .* h4(HDC.PermIdx1));
+    
+    % 3. Z(9) * Load(11) with PermIdx2
+    h9  = HDC.BaseHVs(9,:)  .* reshape(HDC.LevelHVs(9,  lvl_indices(9),  :), 1, D_dim);
+    h11 = HDC.BaseHVs(11,:) .* reshape(HDC.LevelHVs(11, lvl_indices(11), :), 1, D_dim);
+    hv = hv + 0.3 * (h9 .* h11(HDC.PermIdx2));
+    
+    % --- Bipolarize ---
+    hv = sign(hv);
+    hv(hv == 0) = 1;
+    
+    % --- Readout: Softmax weighted average over bins ---
+    D1  = readout_hdc_var(hv, 1, HDC);
+    D2  = readout_hdc_var(hv, 2, HDC);
+    Phi = readout_hdc_var(hv, 3, HDC);
+end
+
+function val = readout_hdc_var(hv, k, HDC)
+    % READOUT_HDC_VAR — Single output variable readout via Softmax
+    D_dim  = HDC.D;
+    N_bins = HDC.N_bins;
+    
+    protos = reshape(HDC.Prototypes(k, :, :), N_bins, D_dim);
+    sims = protos * hv';
+    
+    % Prototype norms
+    norms = sqrt(sum(protos.^2, 2));
+    norms(norms < 1e-10) = 1;
+    sims = sims ./ norms;
+    
+    % Softmax with Temperature
+    T = HDC.Temps(k);
+    scaled = sims / T;
+    max_s = max(scaled);
+    exps = exp(scaled - max_s);
+    weights = exps / (sum(exps) + 1e-10);
+    
+    % Weighted sum
+    bins = HDC.BinValues(k, :)';
+    val = sum(weights .* bins);
+end
+
+% =====================================================================
+% LUT Inference Function (Trilinear Interpolation)
+% =====================================================================
+function [D1, D2, Phi] = lut_inference_inline(LUT, Vin, Vout, Pref)
+    % interpn 지원 (Code Generation 호환성: 'linear', 'nearest' 등 가능)
+    % LUT 구조체: Vin_bp, Vout_bp, P_bp (Vectors), D1_table (3D Array)
+    
+    % interpn(X1, X2, X3, V, x1q, x2q, x3q)
+    
+    D1  = interpn(LUT.Vin_bp, LUT.Vout_bp, LUT.P_bp, LUT.D1_table,  Vin, Vout, Pref, 'linear', 0.5);
+    D2  = interpn(LUT.Vin_bp, LUT.Vout_bp, LUT.P_bp, LUT.D2_table,  Vin, Vout, Pref, 'linear', 0.5);
+    Phi = interpn(LUT.Vin_bp, LUT.Vout_bp, LUT.P_bp, LUT.Phi_table, Vin, Vout, Pref, 'linear', 0);
+    
+    % Safety Clamp
+    D1  = max(0.05, min(0.50, D1));
+    D2  = max(0.05, min(0.50, D2));
+    Phi = max(-0.48, min(0.48, Phi));
 end
