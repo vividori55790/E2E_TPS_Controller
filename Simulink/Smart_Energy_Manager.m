@@ -18,6 +18,7 @@ classdef Smart_Energy_Manager < matlab.System
         Ts_ems = 1e-7;          % EMS 샘플링 시간 [sec]
         V_HV_Ref = 380;         % [UPS] HV 목표 전압 (V)
         V_HV_Band = 30;         % [UPS] 정전 감지 범위 (±V)
+        V_Ref_Ramp_Rate = 500;  % [UPS] 전압 복구 램프 속도 (V/s)
 
         % [BMS] 배터리 보호 임계값 (26S Li-ion)
         V_Pack_Max = 109.2;     % 만충 전압 (4.2V × 26)
@@ -66,21 +67,24 @@ classdef Smart_Energy_Manager < matlab.System
         I_LV_Buffer; I_LV_Sum; I_LV_Filtered;
         BufferIdx; TickCount;
         Iref_soft;  % [NEW] Soft-start 내부 램프 상태
+        V_Grid_Buffer; V_Grid_Sum; V_Grid_Filtered; % [New for UPS] 계통 전압 감지
+        V_Ref_Ramp; % [NEW] UPS 전압 지령 램프 (Soft-Recovery)
     end
 
     methods(Access = protected)
         function setupImpl(obj)
             obj.CurrentState=obj.ST_INIT; obj.PreviousMode=obj.ST_INIT;
-            obj.Integrator_v=0; obj.Iref_soft=0;
+            obj.Integrator_v=0; obj.Iref_soft=0; obj.V_Ref_Ramp=0;
             obj.V_HV_Buffer=zeros(125,1); obj.V_HV_Sum=0; obj.V_HV_Filtered=0;
             obj.V_LV_Buffer=zeros(125,1); obj.V_LV_Sum=0; obj.V_LV_Filtered=0;
             obj.I_HV_Buffer=zeros(125,1); obj.I_HV_Sum=0; obj.I_HV_Filtered=0;
             obj.I_LV_Buffer=zeros(125,1); obj.I_LV_Sum=0; obj.I_LV_Filtered=0;
+            obj.V_Grid_Buffer=zeros(125,1); obj.V_Grid_Sum=0; obj.V_Grid_Filtered=0;
             obj.BufferIdx=1; obj.TickCount=0;
         end
 
-        function [I_cmd, PWM_Enable, mode_active, status_flag, SOC_percent] = ...
-                stepImpl(obj, V_HV, I_HV, V_LV, I_LV, I_ess_cmd, Kpv, Kiv, Mode_Select, Time_Hour)
+        function [I_cmd, PWM_Enable, mode_active, status_flag, SOC_percent, Grid_Connect, V_Ref_Debug, I_Int_Debug] = ...
+                stepImpl(obj, V_HV, I_HV, V_LV, I_LV, I_ess_cmd, Kpv, Kiv, Mode_Select, Time_Hour, V_Grid)
 
             Ts = obj.Ts_ems; t_current = double(obj.TickCount)*Ts;
             obj.TickCount = obj.TickCount+1;
@@ -97,9 +101,12 @@ classdef Smart_Energy_Manager < matlab.System
             obj.I_HV_Filtered=obj.I_HV_Sum/125;
             obj.I_LV_Sum=obj.I_LV_Sum-obj.I_LV_Buffer(idx)+I_LV; obj.I_LV_Buffer(idx)=I_LV;
             obj.I_LV_Filtered=obj.I_LV_Sum/125;
+            obj.V_Grid_Sum=obj.V_Grid_Sum-obj.V_Grid_Buffer(idx)+V_Grid; obj.V_Grid_Buffer(idx)=V_Grid;
+            obj.V_Grid_Filtered=obj.V_Grid_Sum/125;
+
             obj.BufferIdx=obj.BufferIdx+1; if obj.BufferIdx>125, obj.BufferIdx=1; end
             V_HV_f=obj.V_HV_Filtered; V_LV_f=obj.V_LV_Filtered;
-            I_HV_f=obj.I_HV_Filtered;
+            I_HV_f=obj.I_HV_Filtered; V_Grid_f=obj.V_Grid_Filtered;
 
             % =================================================================
             % [STAGE 1.5] SOC Estimation (Voltage-Based, from EPS.m)
@@ -126,18 +133,23 @@ classdef Smart_Energy_Manager < matlab.System
             else
                 switch obj.CurrentState
                     case obj.ST_INIT
-                        if (V_HV_f<(obj.V_HV_Ref-obj.V_HV_Band))||(V_HV_f>(obj.V_HV_Ref+obj.V_HV_Band))
+                        % 초기화 중에는 계통 전압 확인
+                        if (V_Grid_f<(obj.V_HV_Ref-obj.V_HV_Band))||(V_Grid_f>(obj.V_HV_Ref+obj.V_HV_Band))
                             NextState=obj.ST_UPS_RUN;
                         else, NextState=obj.ST_ESS_RUN; end
                     case obj.ST_ESS_RUN
-                        if (V_HV_f<(obj.V_HV_Ref-obj.V_HV_Band))||(V_HV_f>(obj.V_HV_Ref+obj.V_HV_Band))
+                        % 계통 연결 운전 중: V_Grid 감시 (V_HV가 아님)
+                        % 외부 계통 전압이 무너지면 즉시 분리 후 UPS 모드 진입
+                        if (V_Grid_f<(obj.V_HV_Ref-obj.V_HV_Band))||(V_Grid_f>(obj.V_HV_Ref+obj.V_HV_Band))
                             NextState=obj.ST_UPS_RUN; end
                     case obj.ST_UPS_RUN
-                        if (V_HV_f>=(obj.V_HV_Ref-obj.V_HV_Band))&&(V_HV_f<=(obj.V_HV_Ref+obj.V_HV_Band))
+                        % UPS(단독) 운전 중: V_Grid 복구 감시
+                        % 외부 계통이 정상 범위로 돌아오면 재연계 준비 (상태 복귀)
+                        if (V_Grid_f>=(obj.V_HV_Ref-obj.V_HV_Band))&&(V_Grid_f<=(obj.V_HV_Ref+obj.V_HV_Band))
                             NextState=obj.ST_ESS_RUN; end
                     case obj.ST_MANUAL
                         if Mode_Select~=1
-                            if (V_HV_f<(obj.V_HV_Ref-obj.V_HV_Band))||(V_HV_f>(obj.V_HV_Ref+obj.V_HV_Band))
+                            if (V_Grid_f<(obj.V_HV_Ref-obj.V_HV_Band))||(V_Grid_f>(obj.V_HV_Ref+obj.V_HV_Band))
                                 NextState=obj.ST_UPS_RUN;
                             else, NextState=obj.ST_ESS_RUN; end
                         end
@@ -149,6 +161,9 @@ classdef Smart_Energy_Manager < matlab.System
             if NextState~=obj.CurrentState
                 if NextState==obj.ST_UPS_RUN||NextState==obj.ST_INIT
                     obj.Integrator_v=0; obj.Iref_soft=0;
+                    % [UPS 진입 초기화] 목표 전압 램프를 현재 전압(Instant V_HV)부터 시작
+                    % 필터링된 값(V_HV_f)은 지연이 있을 수 있으므로 raw V_HV 사용
+                    obj.V_Ref_Ramp = max(0, min(obj.V_HV_Ref, V_HV)); 
                 end
                 if NextState==obj.ST_ESS_RUN, obj.Iref_soft=0; end
             end
@@ -232,19 +247,71 @@ classdef Smart_Energy_Manager < matlab.System
                         % UPS Mode: 전압 PI → 전류 지령
                         % =====================================================
                         mode_active = 1;
-                        err_v = obj.V_HV_Ref - V_HV_f;
-                        temp_int_v = obj.Integrator_v + err_v*Ts;
-                        limit_val = obj.I_UPS_Max;
-                        temp_I_cmd = Kpv*err_v + Kiv*temp_int_v;
-                        if temp_I_cmd > limit_val
-                            if err_v<0, obj.Integrator_v=temp_int_v; end
-                            raw_ref = limit_val;
-                        elseif temp_I_cmd < -limit_val
-                            if err_v>0, obj.Integrator_v=temp_int_v; end
-                            raw_ref = -limit_val;
+
+                        % [UPS Logic: Adaptive Soft Voltage Recovery]
+                        % 목표 전압에 근접하면 감속하여 오버슈트 방지 및 부드러운 안착 유도
+                        
+                        dist = obj.V_HV_Ref - obj.V_Ref_Ramp;
+                        Decel_Zone = 30; % 감속 시작 구간 (V)
+                        Min_Rate = 10;   % 최저 속도 (V/s)
+                        
+                        if dist > 0
+                            if dist < Decel_Zone
+                                % 목표에 가까워지면 속도 줄임 (Linear Reduction)
+                                current_rate = obj.V_Ref_Ramp_Rate * (dist / Decel_Zone);
+                                current_rate = max(current_rate, Min_Rate);
+                            else
+                                % 일반 구간: 최대 속도
+                                current_rate = obj.V_Ref_Ramp_Rate;
+                            end
+                            
+                            obj.V_Ref_Ramp = obj.V_Ref_Ramp + current_rate * Ts;
+                            
+                            % Clamp to generic max
+                            if obj.V_Ref_Ramp > obj.V_HV_Ref
+                                obj.V_Ref_Ramp = obj.V_HV_Ref; 
+                            end
                         else
-                            obj.Integrator_v = temp_int_v;
+                            % 이미 목표 도달
+                            obj.V_Ref_Ramp = obj.V_HV_Ref;
+                        end
+
+                        % [UPS PI Control with Feedforward & Anti-Windup]
+                        % 목표치(V_Ref_Ramp)와 현재값(V_HV_f)의 차이로 제어
+                        err_v = obj.V_Ref_Ramp - V_HV_f;
+                        
+                        % Proportional Term
+                        P_term = Kpv * err_v;
+                        
+                        % Integral Term (Previous State)
+                        I_term = Kiv * obj.Integrator_v;
+                        
+                        % Feedforward Term (Load Current Compensation)
+                        % 부하 전류(I_HV)를 미리 더해줌으로써 전압이 떨어지기 전에 대응
+                        % I_HV가 양수(=부하 소비)일 때 방전(+)해야 하므로 더해줌
+                        I_FF = I_HV_f; 
+                        
+                        % Total Command
+                        temp_I_cmd = P_term + I_term + I_FF;
+                        limit_val = obj.I_UPS_Max;
+                        
+                        % Output Limiting & Conditional Integration (Clamping)
+                        if temp_I_cmd > limit_val
+                            raw_ref = limit_val;
+                            % Saturation Check: Only integrate if error reduces the output (unwinding)
+                            if err_v < 0
+                                obj.Integrator_v = obj.Integrator_v + err_v * Ts;
+                            end
+                        elseif temp_I_cmd < -limit_val
+                            raw_ref = -limit_val;
+                            % Saturation Check: Only integrate if error increases the output (unwinding)
+                            if err_v > 0
+                                obj.Integrator_v = obj.Integrator_v + err_v * Ts;
+                            end
+                        else
+                            % Normal Operation: Integrate freely
                             raw_ref = temp_I_cmd;
+                            obj.Integrator_v = obj.Integrator_v + err_v * Ts;
                         end
                     end
 
@@ -297,8 +364,21 @@ classdef Smart_Energy_Manager < matlab.System
             if obj.CurrentState==obj.ST_INIT||obj.CurrentState==obj.ST_FAULT||obj.CurrentState==obj.ST_MANUAL
                 mode_active=0;
             end
+            
+            % Grid Breaker Control
+            % 1: Connected (ESS Mode), 0: Disconnected (UPS Mode, Fault, Init)
+            if obj.CurrentState == obj.ST_ESS_RUN
+                Grid_Connect = 1;
+            else
+                Grid_Connect = 0; % UPS 동작 시 계통 분리 (Islanding)
+            end
+            
             I_cmd = I_target;
             obj.PreviousMode = obj.CurrentState;
+            
+            % Debug Outputs
+            V_Ref_Debug = obj.V_Ref_Ramp;
+            I_Int_Debug = obj.Integrator_v;
         end
 
         function resetImpl(obj)
@@ -311,29 +391,30 @@ classdef Smart_Energy_Manager < matlab.System
             obj.BufferIdx=1; obj.TickCount=0;
         end
 
-        function num=getNumInputsImpl(~), num=9; end
-        function num=getNumOutputsImpl(~), num=5; end  % +SOC_percent
-        function [s1,s2,s3,s4,s5]=getOutputSizeImpl(~), s1=[1 1];s2=[1 1];s3=[1 1];s4=[1 1];s5=[1 1]; end
-        function [d1,d2,d3,d4,d5]=getOutputDataTypeImpl(~), d1='double';d2='double';d3='double';d4='double';d5='double'; end
-        function [c1,c2,c3,c4,c5]=isOutputComplexImpl(~), c1=false;c2=false;c3=false;c4=false;c5=false; end
-        function [f1,f2,f3,f4,f5]=isOutputFixedSizeImpl(~), f1=true;f2=true;f3=true;f4=true;f5=true; end
+        function num=getNumInputsImpl(~), num=10; end % +V_Grid
+        function num=getNumOutputsImpl(~), num=8; end  % +Debug Ports
+        function [s1,s2,s3,s4,s5,s6,s7,s8]=getOutputSizeImpl(~), s1=[1 1];s2=[1 1];s3=[1 1];s4=[1 1];s5=[1 1];s6=[1 1];s7=[1 1];s8=[1 1]; end
+        function [d1,d2,d3,d4,d5,d6,d7,d8]=getOutputDataTypeImpl(~), d1='double';d2='double';d3='double';d4='double';d5='double';d6='double';d7='double';d8='double'; end
+        function [c1,c2,c3,c4,c5,c6,c7,c8]=isOutputComplexImpl(~), c1=false;c2=false;c3=false;c4=false;c5=false;c6=false;c7=false;c8=false; end
+        function [f1,f2,f3,f4,f5,f6,f7,f8]=isOutputFixedSizeImpl(~), f1=true;f2=true;f3=true;f4=true;f5=true;f6=true;f7=true;f8=true; end
         function [sz,dt,cp]=getDiscreteStateSpecificationImpl(~,name)
             switch name
                 case {'CurrentState','PreviousMode','Integrator_v','V_HV_Sum','V_LV_Sum', ...
                       'I_HV_Sum','I_LV_Sum','V_HV_Filtered','V_LV_Filtered', ...
-                      'I_HV_Filtered','I_LV_Filtered','BufferIdx','TickCount','Iref_soft'}
+                      'I_HV_Filtered','I_LV_Filtered','BufferIdx','TickCount','Iref_soft', ...
+                      'V_Grid_Sum','V_Grid_Filtered','V_Ref_Ramp'}
                     sz=[1 1]; dt='double'; cp=false;
-                case {'V_HV_Buffer','V_LV_Buffer','I_HV_Buffer','I_LV_Buffer'}
+                case {'V_HV_Buffer','V_LV_Buffer','I_HV_Buffer','I_LV_Buffer','V_Grid_Buffer'}
                     sz=[125 1]; dt='double'; cp=false;
                 otherwise, error(['Unknown state: ',name]);
             end
         end
         function sts=getSampleTimeImpl(obj), sts=createSampleTime(obj,'Type','Discrete','SampleTime',obj.Ts_ems,'OffsetTime',0); end
-        function [n1,n2,n3,n4,n5,n6,n7,n8,n9]=getInputNamesImpl(~)
-            n1='V_HV';n2='I_HV';n3='V_LV';n4='I_LV';n5='I_ess_cmd';n6='Kpv';n7='Kiv';n8='Mode_Select';n9='Time_Hour';
+        function [n1,n2,n3,n4,n5,n6,n7,n8,n9,n10]=getInputNamesImpl(~)
+            n1='V_HV';n2='I_HV';n3='V_LV';n4='I_LV';n5='I_ess_cmd';n6='Kpv';n7='Kiv';n8='Mode_Select';n9='Time_Hour';n10='V_Grid';
         end
-        function [o1,o2,o3,o4,o5]=getOutputNamesImpl(~)
-            o1='I_cmd';o2='PWM_Enable';o3='Active_Mode';o4='Status_Flag';o5='SOC_pct';
+        function [o1,o2,o3,o4,o5,o6,o7,o8]=getOutputNamesImpl(~)
+            o1='I_cmd';o2='PWM_Enable';o3='Active_Mode';o4='Status_Flag';o5='SOC_pct';o6='Grid_SW';o7='V_Ref_Debug';o8='I_Int_Debug';
         end
     end
 
@@ -344,7 +425,7 @@ classdef Smart_Energy_Manager < matlab.System
         end
         function groups=getPropertyGroupsImpl
             g1=matlab.system.display.Section('Title','1. System','PropertyList',{'Ts_ems','InitDelay'});
-            g2=matlab.system.display.Section('Title','2. Operation','PropertyList',{'V_HV_Ref','V_HV_Band','I_ESS_Max','I_UPS_Max'});
+            g2=matlab.system.display.Section('Title','2. Operation','PropertyList',{'V_HV_Ref','V_HV_Band','V_Ref_Ramp_Rate','I_ESS_Max','I_UPS_Max'});
             g3=matlab.system.display.Section('Title','3. BMS','PropertyList',{'V_Pack_Max','V_CV_Start','K_CV','V_ESS_Limit','V_UPS_Limit','V_Min_Limit','I_Charge_Limit','I_Discharge_Limit'});
             g4=matlab.system.display.Section('Title','4. TOU Schedule','PropertyList',{'ESS_Charge_Rate','ESS_Discharge_Rate','TOU_OffPeak_Start','TOU_OffPeak_End','TOU_OnPeak1_Start','TOU_OnPeak1_End','TOU_OnPeak2_Start','TOU_OnPeak2_End','SOC_Max_Threshold','SOC_Min_Threshold'});
             g5=matlab.system.display.Section('Title','5. Load-Following (from EPS)','PropertyList',{'P_load_threshold','P_DAB_max','n_transformer','I_LV_min_limit','Iref_ramp_rate'});
