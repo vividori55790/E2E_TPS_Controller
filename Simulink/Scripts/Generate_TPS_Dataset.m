@@ -147,6 +147,13 @@ function Generate_TPS_Dataset()
     baseIn = baseIn.setVariable('load_R', timeseries(1000 * ones(2,1), t_input));
     baseIn = baseIn.setVariable('timestamp', timeseries(12 * ones(2,1), t_input));
     
+    % [CRITICAL FIX] 제어 모드 강제 주입 (TPS 생성 전용)
+    % Ctrl_Mode_Ext = 3 (TPS), Mode_Select = 2 (Auto Control)
+    baseIn = baseIn.setVariable('Mode_Select', timeseries(2 * ones(2,1), t_input));
+    baseIn = baseIn.setVariable('Ctrl_Mode_Ext', timeseries(3 * ones(2,1), t_input));
+    baseIn = baseIn.setVariable('PWM_Enable', timeseries(1 * ones(2,1), t_input));
+    baseIn = baseIn.setVariable('Phi_Manual', timeseries(0 * ones(2,1), t_input));
+    
     % [CRITICAL FIX] 회로 파라미터 주입 (병렬 워커 빈 메모리 에러 해결)
     baseIn = baseIn.setVariable('V_init_LV', 96);
     baseIn = baseIn.setVariable('V_batt', 96);
