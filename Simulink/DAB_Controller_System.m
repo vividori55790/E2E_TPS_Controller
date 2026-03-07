@@ -62,13 +62,11 @@ classdef DAB_Controller_System < matlab.System
         V_HV_Filtered;      V_LV_Filtered;
         V_HV_Buffer;        V_HV_Sum;
         V_LV_Buffer;        V_LV_Sum;
-        Last_Phi_FF;         Prev_Phi_Output;
+        Prev_Phi_Output;
         I_Buffer;            BufferIdx;           I_Sum;
-        ControlCheckDone;
         I_L_pri_Buffer;      I_L_pri_Sum;         Flux_Integrator;
         TickCount;
-        Last_Vin_HDC;        Last_Vout_HDC;       Last_Pref_HDC;
-        Cached_D1;           Cached_D2;           Cached_Phi;
+        % (데이터셋 생성용 버전에서는 HDC/로그용 상태 생략하여 경고 방지)
         % [PWM] Phase Counter
         PhaseCounter;
     end
@@ -81,14 +79,12 @@ classdef DAB_Controller_System < matlab.System
         function setupImpl(obj)
             obj.Integrator_ext = 0; obj.Flux_Integrator = 0;
             obj.I_ref_ramped = 0; obj.V_HV_Filtered = 0; obj.V_LV_Filtered = 0;
-            obj.Last_Phi_FF = 0; obj.Prev_Phi_Output = 0;
+            obj.Prev_Phi_Output = 0;
             obj.I_Buffer = zeros(125,1); obj.BufferIdx = 1; obj.I_Sum = 0;
             obj.I_L_pri_Buffer = zeros(125,1); obj.I_L_pri_Sum = 0;
             obj.V_HV_Buffer = zeros(125,1); obj.V_HV_Sum = 0;
             obj.V_LV_Buffer = zeros(125,1); obj.V_LV_Sum = 0;
-            obj.ControlCheckDone = 0; obj.TickCount = 0;
-            obj.Last_Vin_HDC = -9999; obj.Last_Vout_HDC = -9999; obj.Last_Pref_HDC = -9999;
-            obj.Cached_D1 = 0.5; obj.Cached_D2 = 0.5; obj.Cached_Phi = 0;
+            obj.TickCount = 0;
             obj.PhaseCounter = 0;
             obj.HDC_Model_Data = obj.HDC_Data;
             if coder.target('MATLAB')
@@ -117,12 +113,7 @@ classdef DAB_Controller_System < matlab.System
             % =================================================================
             % [STAGE 1] Sensing & Filtering (125-sample Moving Average)
             % =================================================================
-            if coder.target('MATLAB')
-                if obj.ControlCheckDone == 0 && t_current >= 0.005
-                    fprintf('>> [CTRL CHECK] t=%.6f, Kp=%.4f, Ki=%.4f, Mode=%d\n', t_current, Kp_ext, Ki_ext, Ctrl_Mode_Ext);
-                    obj.ControlCheckDone = 1;
-                end
-            end
+            % (Check log removed)
 
             idx = obj.BufferIdx;
             obj.V_HV_Sum = obj.V_HV_Sum - obj.V_HV_Buffer(idx) + V_HV;
@@ -368,9 +359,7 @@ classdef DAB_Controller_System < matlab.System
             obj.I_L_pri_Buffer=zeros(125,1); obj.I_L_pri_Sum=0;
             obj.V_HV_Buffer=zeros(125,1); obj.V_HV_Sum=0;
             obj.V_LV_Buffer=zeros(125,1); obj.V_LV_Sum=0;
-            obj.ControlCheckDone=0; obj.TickCount=0; obj.PhaseCounter=0;
-            obj.Last_Vin_HDC=-9999; obj.Last_Vout_HDC=-9999; obj.Last_Pref_HDC=-9999;
-            obj.Cached_D1=0.5; obj.Cached_D2=0.5; obj.Cached_Phi=0;
+            obj.TickCount=0; obj.PhaseCounter=0;
         end
 
         function num = getNumInputsImpl(~), num = 15; end
@@ -396,10 +385,9 @@ classdef DAB_Controller_System < matlab.System
         function [sz, dt, cp] = getDiscreteStateSpecificationImpl(~, name)
             switch name
                 case {'Integrator_ext','I_ref_ramped','V_HV_Filtered','V_LV_Filtered', ...
-                      'Last_Phi_FF','Prev_Phi_Output','BufferIdx','I_Sum','ControlCheckDone', ...
+                      'Prev_Phi_Output','BufferIdx','I_Sum', ...
                       'I_L_pri_Sum','Flux_Integrator','TickCount','V_HV_Sum','V_LV_Sum', ...
-                      'Last_Vin_HDC','Last_Vout_HDC','Last_Pref_HDC', ...
-                      'Cached_D1','Cached_D2','Cached_Phi','PhaseCounter'}
+                      'PhaseCounter'}
                     sz = [1 1]; dt = 'double'; cp = false;
                 case {'I_Buffer','I_L_pri_Buffer','V_HV_Buffer','V_LV_Buffer'}
                     sz = [125 1]; dt = 'double'; cp = false;

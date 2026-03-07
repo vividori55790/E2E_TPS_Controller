@@ -120,6 +120,14 @@ function Generate_TPS_Dataset()
         parpool;
     end
     
+    % 각 워커별로 독립된 파일 캐시 폴더 할당 (Simulink FileExistsError 캐시 충돌 방지)
+    fprintf('   Configuring worker-specific Simulink cache folders...\n');
+    spmd
+        worker_cache = fullfile(tempdir, sprintf('sl_cache_worker_%d', spmdIndex));
+        if ~exist(worker_cache, 'dir'), mkdir(worker_cache); end
+        Simulink.fileGenControl('set', 'CacheFolder', worker_cache, 'CodeGenFolder', worker_cache);
+    end
+    
     t_input = [0; SIM_TIME];
     baseIn = Simulink.SimulationInput(modelName);
     baseIn = baseIn.setModelParameter('StopTime', num2str(SIM_TIME));
