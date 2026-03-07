@@ -113,19 +113,22 @@ function Generate_TPS_Dataset()
     %% =====================================================================
     %  4. 병렬 풀(Parallel Pool) 및 시뮬레이션 환경 초기화
     % =====================================================================
+    % 캐시 충돌 방지를 위한 Simulink 캐시 끄기 및 삭제
+    try
+        if bdIsLoaded(modelName)
+            set_param(modelName, 'SimulinkCacheManifest', 'off');
+        end
+        cacheFileSLXC = fullfile(modelDir, [modelName '.slxc']);
+        if exist(cacheFileSLXC, 'file'), delete(cacheFileSLXC); end
+        fprintf('   Simulink Cache (.slxc) cleared for parallel safety.\n');
+    catch
+    end
+
     % 사전에 막대한 SimulationInput 배열을 만들지 않고 Base 객체 1개만 만듭니다.
     tic;
     poolobj = gcp('nocreate');
     if isempty(poolobj)
         parpool;
-    end
-    
-    % 각 워커별로 독립된 파일 캐시 폴더 할당 (Simulink FileExistsError 캐시 충돌 방지)
-    fprintf('   Configuring worker-specific Simulink cache folders...\n');
-    spmd
-        worker_cache = fullfile(tempdir, sprintf('sl_cache_worker_%d', spmdIndex));
-        if ~exist(worker_cache, 'dir'), mkdir(worker_cache); end
-        Simulink.fileGenControl('set', 'CacheFolder', worker_cache, 'CodeGenFolder', worker_cache);
     end
     
     t_input = [0; SIM_TIME];
@@ -144,9 +147,99 @@ function Generate_TPS_Dataset()
     baseIn = baseIn.setVariable('load_R', timeseries(1000 * ones(2,1), t_input));
     baseIn = baseIn.setVariable('timestamp', timeseries(12 * ones(2,1), t_input));
     
+    % [CRITICAL FIX] 회로 파라미터 주입 (병렬 워커 빈 메모리 에러 해결)
+    baseIn = baseIn.setVariable('V_init_LV', 96);
+    baseIn = baseIn.setVariable('V_batt', 96);
+    baseIn = baseIn.setVariable('C_HV', 1000e-6);
+    baseIn = baseIn.setVariable('R_ESR_HV', 0.05);
+    baseIn = baseIn.setVariable('R_ESR_LV', 0.01);
+    baseIn = baseIn.setVariable('R_batt_int', 0.15);
+    baseIn = baseIn.setVariable('Kp_ext', Kp_val);
+    baseIn = baseIn.setVariable('Ki_ext', Ki_val);
+    baseIn = baseIn.setVariable('Kpv', Kpv_val);
+    baseIn = baseIn.setVariable('Kiv', Kiv_val);
+    
     setup_elapsed = toc;
     fprintf('   Parallel Setup Complete (%.1f sec).\n\n', setup_elapsed);
     
+    %% =====================================================================
+    %  4.5 단일 테스트 시뮬레이션 (병렬 실행 전 검증)
+    % =====================================================================
+    fprintf('>> Running Pre-Flight Single Simulation Test...\n');
+    test_idx = 1;
+    P_curr  = P_all(test_idx);
+    V2_curr = V2_all(test_idx);
+    D1_curr = D1_all(test_idx);
+    D2_curr = D2_all(test_idx);
+    
+    testIn = baseIn;
+    testIn = testIn.setVariable('Ref_Power', timeseries(-P_curr * ones(2,1), t_input));
+    testIn = testIn.setVariable('D1', timeseries(D1_curr * ones(2,1), t_input));
+    testIn = testIn.setVariable('D2', timeseries(D2_curr * ones(2,1), t_input));
+    
+    % [FALLBACK] 마스크 에러 방지용으로 메인 작업공간에 변수 할당
+    assignin('base', 'V_init_LV', 96);       assignin('base', 'V_batt', 96);
+    assignin('base', 'C_HV', 1000e-6);       assignin('base', 'R_ESR_HV', 0.05);
+    assignin('base', 'R_ESR_LV', 0.01);      assignin('base', 'R_batt_int', 0.15);
+    assignin('base', 'Kp_ext', Kp_val);      assignin('base', 'Ki_ext', Ki_val);
+    assignin('base', 'Kpv', Kpv_val);        assignin('base', 'Kiv', Kiv_val);
+
+    if ~bdIsLoaded(modelName), load_system(modelName); end
+    
+    try
+        testOut = sim(testIn);
+        if ~isempty(testOut.ErrorMessage)
+            logStatusMsg(sprintf('   [TEST FAILED] Error: %s', testOut.ErrorMessage), logFile);
+        else
+            out_data = testOut;
+            I_L_data = []; t_sim = [];
+            if isprop(out_data, 'Inductor_Current')
+                raw_I = out_data.Inductor_Current;
+                I_L_data = getSignalData_local(raw_I);
+                t_sim = getSignalTime_local(raw_I, out_data);
+            elseif isprop(out_data, 'yout') && isprop(out_data.yout, 'getElement')
+                try
+                    raw_I = out_data.yout.getElement('Inductor_Current');
+                    I_L_data = getSignalData_local(raw_I);
+                    t_sim = getSignalTime_local(raw_I, out_data);
+                catch, end
+            end
+            
+            if isempty(I_L_data)
+                logStatusMsg('   [TEST FAILED] Inductor_Current data not found in simOut.', logFile);
+            else
+                ss_mask_test = t_sim >= SS_START;
+                I_L_ss_test = I_L_data(ss_mask_test);
+                T_cycle_test = 1 / spec.fs;
+                dt_sim_test = mean(diff(t_sim(ss_mask_test)));
+                samples_per_cycle_test = max(2, round(T_cycle_test / dt_sim_test));
+                
+                if length(I_L_ss_test) >= samples_per_cycle_test
+                    last_cycle_test = I_L_ss_test(end-samples_per_cycle_test+1:end);
+                else
+                    last_cycle_test = I_L_ss_test;
+                end
+                i_pk_val_test = max(abs(last_cycle_test));
+                
+                phi_data_test = [];
+                if isprop(out_data, 'Phi_ext_out')
+                    phi_data_test = getSignalData_local(out_data.Phi_ext_out);
+                end
+                phi_val_test = NaN;
+                if ~isempty(phi_data_test)
+                    phi_val_test = phi_data_test(end) / 360;
+                end
+                
+                testMsg = sprintf('   [TEST SUCCESS] idx(%d) P=%.0fW, V2=%.1fV -> i_pk_pri=%.2fA, D0_conv=%.3f', ...
+                    test_idx, P_curr, V2_curr, i_pk_val_test, phi_val_test);
+                logStatusMsg(testMsg, logFile);
+            end
+        end
+    catch ME_test
+        logStatusMsg(sprintf('   [TEST FATAL] %s', ME_test.message), logFile);
+    end
+    fprintf('\n');
+
     %% =====================================================================
     %  5. 병렬 시뮬레이션 및 데이터 동시 추출 (parfor 적용)
     % =====================================================================
@@ -170,6 +263,22 @@ function Generate_TPS_Dataset()
     % 핵심: parfor 루프 안에서 즉석으로 객체 만들고 지우기
     parfor idx = 1:N_total
         
+        % 워커별 고유 캐시 폴더 설정 (충돌 방지, SPMD 미지원 환경 대응)
+        task = getCurrentTask();
+        if ~isempty(task)
+            worker_id = task.ID;
+        else
+            worker_id = 0;
+        end
+        worker_cache = fullfile(tempdir, sprintf('sl_cache_worker_%d', worker_id));
+        if ~exist(worker_cache, 'dir'), mkdir(worker_cache); end
+        Simulink.fileGenControl('set', 'CacheFolder', worker_cache, 'CodeGenFolder', worker_cache);
+
+        % 워커별로 모델 로드 확인 (parfor 내에서 필수) - 변수 조작 전에 확실히 로드!
+        if ~bdIsLoaded(modelName)
+            load_system(modelName);
+        end
+
         simIn = baseIn; % Worker마다 base 설정 복사
         
         P_curr  = P_all(idx);
@@ -187,10 +296,12 @@ function Generate_TPS_Dataset()
         simIn = simIn.setVariable('D1', ts_D1);
         simIn = simIn.setVariable('D2', ts_D2);
         
-        % 워커별로 모델 로드 확인 (parfor 내에서 필수)
-        if ~bdIsLoaded(modelName)
-            load_system(modelName);
-        end
+        % [FALLBACK] 워커 메모리에 직접 변수 밀어넣기 (Mask 에러 방지용)
+        assignin('base', 'V_init_LV', 96);       assignin('base', 'V_batt', 96);
+        assignin('base', 'C_HV', 1000e-6);       assignin('base', 'R_ESR_HV', 0.05);
+        assignin('base', 'R_ESR_LV', 0.01);      assignin('base', 'R_batt_int', 0.15);
+        assignin('base', 'Kp_ext', Kp_val);      assignin('base', 'Ki_ext', Ki_val);
+        assignin('base', 'Kpv', Kpv_val);        assignin('base', 'Kiv', Kiv_val);
         
         try
             simOut = sim(simIn); % 개별 시뮬레이션 실행 (결과만 즉시 받음)
