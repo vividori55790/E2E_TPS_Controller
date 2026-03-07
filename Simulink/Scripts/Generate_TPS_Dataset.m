@@ -172,78 +172,84 @@ function Generate_TPS_Dataset()
     %% =====================================================================
     %  4.5 단일 테스트 시뮬레이션 (병렬 실행 전 검증)
     % =====================================================================
-    fprintf('>> Running Pre-Flight Single Simulation Test...\n');
-    test_idx = 1;
-    P_curr  = P_all(test_idx);
-    V2_curr = V2_all(test_idx);
-    D1_curr = D1_all(test_idx);
-    D2_curr = D2_all(test_idx);
+    fprintf('>> Running Pre-Flight Single Simulation Test (2 cases)...\n');
+    test_indices = [1, round(N_total/2)]; % 2번의 테스트로 변경
     
-    testIn = baseIn;
-    testIn = testIn.setVariable('Ref_Power', timeseries(-P_curr * ones(2,1), t_input));
-    testIn = testIn.setVariable('D1', timeseries(D1_curr * ones(2,1), t_input));
-    testIn = testIn.setVariable('D2', timeseries(D2_curr * ones(2,1), t_input));
+    for k_test = 1:length(test_indices)
+        test_idx = test_indices(k_test);
+        P_curr  = P_all(test_idx);
+        V2_curr = V2_all(test_idx);
+        D1_curr = D1_all(test_idx);
+        D2_curr = D2_all(test_idx);
+        
+        fprintf('   --- Test Case %d (idx=%d) ---\n', k_test, test_idx);
+        
+        testIn = baseIn;
+        testIn = testIn.setVariable('Ref_Power', timeseries(-P_curr * ones(2,1), t_input));
+        testIn = testIn.setVariable('D1', timeseries(D1_curr * ones(2,1), t_input));
+        testIn = testIn.setVariable('D2', timeseries(D2_curr * ones(2,1), t_input));
+        
+        % [FALLBACK] 마스크 에러 방지용으로 메인 작업공간에 변수 할당
+        assignin('base', 'V_init_LV', 96);       assignin('base', 'V_batt', 96);
+        assignin('base', 'C_HV', 1000e-6);       assignin('base', 'R_ESR_HV', 0.05);
+        assignin('base', 'R_ESR_LV', 0.01);      assignin('base', 'R_batt_int', 0.15);
+        assignin('base', 'Kp_ext', Kp_val);      assignin('base', 'Ki_ext', Ki_val);
+        assignin('base', 'Kpv', Kpv_val);        assignin('base', 'Kiv', Kiv_val);
     
-    % [FALLBACK] 마스크 에러 방지용으로 메인 작업공간에 변수 할당
-    assignin('base', 'V_init_LV', 96);       assignin('base', 'V_batt', 96);
-    assignin('base', 'C_HV', 1000e-6);       assignin('base', 'R_ESR_HV', 0.05);
-    assignin('base', 'R_ESR_LV', 0.01);      assignin('base', 'R_batt_int', 0.15);
-    assignin('base', 'Kp_ext', Kp_val);      assignin('base', 'Ki_ext', Ki_val);
-    assignin('base', 'Kpv', Kpv_val);        assignin('base', 'Kiv', Kiv_val);
-
-    if ~bdIsLoaded(modelName), load_system(modelName); end
-    
-    try
-        testOut = sim(testIn);
-        if ~isempty(testOut.ErrorMessage)
-            logStatusMsg(sprintf('   [TEST FAILED] Error: %s', testOut.ErrorMessage), logFile);
-        else
-            out_data = testOut;
-            I_L_data = []; t_sim = [];
-            if isprop(out_data, 'Inductor_Current')
-                raw_I = out_data.Inductor_Current;
-                I_L_data = getSignalData_local(raw_I);
-                t_sim = getSignalTime_local(raw_I, out_data);
-            elseif isprop(out_data, 'yout') && isprop(out_data.yout, 'getElement')
-                try
-                    raw_I = out_data.yout.getElement('Inductor_Current');
+        if ~bdIsLoaded(modelName), load_system(modelName); end
+        
+        try
+            testOut = sim(testIn);
+            if ~isempty(testOut.ErrorMessage)
+                logStatusMsg(sprintf('   [TEST FAILED] Error: %s', testOut.ErrorMessage), logFile);
+            else
+                out_data = testOut;
+                I_L_data = []; t_sim = [];
+                if isprop(out_data, 'Inductor_Current')
+                    raw_I = out_data.Inductor_Current;
                     I_L_data = getSignalData_local(raw_I);
                     t_sim = getSignalTime_local(raw_I, out_data);
-                catch, end
-            end
-            
-            if isempty(I_L_data)
-                logStatusMsg('   [TEST FAILED] Inductor_Current data not found in simOut.', logFile);
-            else
-                ss_mask_test = t_sim >= SS_START;
-                I_L_ss_test = I_L_data(ss_mask_test);
-                T_cycle_test = 1 / spec.fs;
-                dt_sim_test = mean(diff(t_sim(ss_mask_test)));
-                samples_per_cycle_test = max(2, round(T_cycle_test / dt_sim_test));
+                elseif isprop(out_data, 'yout') && isprop(out_data.yout, 'getElement')
+                    try
+                        raw_I = out_data.yout.getElement('Inductor_Current');
+                        I_L_data = getSignalData_local(raw_I);
+                        t_sim = getSignalTime_local(raw_I, out_data);
+                    catch, end
+                end
                 
-                if length(I_L_ss_test) >= samples_per_cycle_test
-                    last_cycle_test = I_L_ss_test(end-samples_per_cycle_test+1:end);
+                if isempty(I_L_data)
+                    logStatusMsg('   [TEST FAILED] Inductor_Current data not found in simOut.', logFile);
                 else
-                    last_cycle_test = I_L_ss_test;
+                    ss_mask_test = t_sim >= SS_START;
+                    I_L_ss_test = I_L_data(ss_mask_test);
+                    T_cycle_test = 1 / spec.fs;
+                    dt_sim_test = mean(diff(t_sim(ss_mask_test)));
+                    samples_per_cycle_test = max(2, round(T_cycle_test / dt_sim_test));
+                    
+                    if length(I_L_ss_test) >= samples_per_cycle_test
+                        last_cycle_test = I_L_ss_test(end-samples_per_cycle_test+1:end);
+                    else
+                        last_cycle_test = I_L_ss_test;
+                    end
+                    i_pk_val_test = max(abs(last_cycle_test));
+                    
+                    phi_data_test = [];
+                    if isprop(out_data, 'Phi_ext_out')
+                        phi_data_test = getSignalData_local(out_data.Phi_ext_out);
+                    end
+                    phi_val_test = NaN;
+                    if ~isempty(phi_data_test)
+                        phi_val_test = phi_data_test(end) / 360;
+                    end
+                    
+                    testMsg = sprintf('   [TEST SUCCESS] idx(%d) P=%.0fW, V2=%.1fV -> i_pk_pri=%.2fA, D0_conv=%.3f', ...
+                        test_idx, P_curr, V2_curr, i_pk_val_test, phi_val_test);
+                    logStatusMsg(testMsg, logFile);
                 end
-                i_pk_val_test = max(abs(last_cycle_test));
-                
-                phi_data_test = [];
-                if isprop(out_data, 'Phi_ext_out')
-                    phi_data_test = getSignalData_local(out_data.Phi_ext_out);
-                end
-                phi_val_test = NaN;
-                if ~isempty(phi_data_test)
-                    phi_val_test = phi_data_test(end) / 360;
-                end
-                
-                testMsg = sprintf('   [TEST SUCCESS] idx(%d) P=%.0fW, V2=%.1fV -> i_pk_pri=%.2fA, D0_conv=%.3f', ...
-                    test_idx, P_curr, V2_curr, i_pk_val_test, phi_val_test);
-                logStatusMsg(testMsg, logFile);
             end
+        catch ME_test
+            logStatusMsg(sprintf('   [TEST FATAL] %s', ME_test.message), logFile);
         end
-    catch ME_test
-        logStatusMsg(sprintf('   [TEST FATAL] %s', ME_test.message), logFile);
     end
     fprintf('\n');
 
@@ -402,15 +408,14 @@ function Generate_TPS_Dataset()
             error_msg{idx} = sprintf('Error: %s', ME_inner.message);
         end
         
-        % 예외 규정: 가장 처음 시뮬레이션(idx==1)은 결과 요약하여 전송
-        if idx == 1 && valid_flag(idx)
-            send(DQueue, sprintf('   [FIRST PREVIEW] idx=1: P=%.0fW, V2=%.1fV -> i_pk_pri=%.2fA, D0_conv=%.3f', ...
-                P_curr, V2_curr, i_pk_val, D0_converged(idx)));
-        elseif valid_flag(idx) == false && mod(idx, 10) == 0
-            % 실패한 케이스도 10번에 한번 모니터링
-            send(DQueue, sprintf('   [%d / %d] Failed. (P=%.0fW) Error: %s', idx, N_total, P_curr, error_msg{idx}));
-        elseif mod(idx, 10) == 0
-            send(DQueue, sprintf('   [%d / %d] Simulations reached. (P=%.0fW, V2=%.1fV)', idx, N_total, P_curr, V2_curr));
+        % 각 시뮬레이션 결과 모두 큐에 전송 (DataQueue를 통해 마스터 워커에서 안전하게 로깅)
+        % 병렬 풀 충돌을 방지하면서 실시간 체킹 가능
+        if valid_flag(idx)
+            send(DQueue, sprintf('   [Worker %d : %d / %d] SUCCESS. P=%.0fW, V2=%.1fV, D1=%.2f, D2=%.2f -> i_pk_pri=%.2fA, D0_conv=%.3f', ...
+                worker_id, idx, N_total, P_curr, V2_curr, D1_curr, D2_curr, i_pk_val, D0_converged(idx)));
+        else
+            send(DQueue, sprintf('   [Worker %d : %d / %d] FAILED. P=%.0fW, V2=%.1fV, D1=%.2f, D2=%.2f | Error: %s', ...
+                worker_id, idx, N_total, P_curr, V2_curr, D1_curr, D2_curr, error_msg{idx}));
         end
     end
     
