@@ -268,8 +268,11 @@ classdef Direct_Efficiency_Analyzer < matlab.System
             out1=true; out2=true; out3=true; out4=true; out5=true;
         end
         
+    end
+    
+    methods (Static, Access = protected)
         % --- Parameter Grouping & Display Labels ---
-        function groups = getPropertyGroupsImpl(~)
+        function groups = getPropertyGroupsImpl()
             % Group: Component Parameters
             groupComp = matlab.system.display.Section(...
                 'Title', 'Component Parameters (Loss Calculation)', ...
@@ -283,7 +286,7 @@ classdef Direct_Efficiency_Analyzer < matlab.System
             groups = [groupComp, groupTime];
         end
         
-        function header = getHeaderImpl
+        function header = getHeaderImpl()
             header = matlab.system.display.Header(mfilename('class'), ...
                 'Title', 'DAB Efficiency Analyzer (1-Cycle Moving Average)', ...
                 'Text', sprintf(['DAB 컨버터의 효율을 직접 측정하는 블록입니다.\n', ...
@@ -291,9 +294,5 @@ classdef Direct_Efficiency_Analyzer < matlab.System
                                  '윈도우 크기 = round(1 / (Fs * Ts))\n', ...
                                  '기본값: 80kHz, 1e-7s → 125 샘플']));
         end
-    end
-    
-    methods (Static, Access = protected)
-        % Static methods if needed in the future
     end
 end

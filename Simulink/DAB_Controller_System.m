@@ -1,24 +1,26 @@
 classdef DAB_Controller_System < matlab.System
-    % DAB_Controller_System  (v8.0 — Current Tracking + PWM Generation)
-    % DAB 컨버터 전류 추종 제어기 + PWM 신호 생성기 통합
+    % DAB_Controller_System  (v9.0 — Power Tracking + PWM Generation)
+    % DAB 컨버터 전력 추종 제어기 + PWM 신호 생성기 통합
     %
-    % 아키텍처 (v8.0):
+    % 아키텍처 (v9.0):
     %   1. Sensing & Filtering
     %   2. Control Strategy Selection (SPS/EPS/TPS)
-    %      Ctrl_Mode_Ext: 0=SPS, 1=EPS, 2=DPS(Reserved), 3=TPS/HDC
-    %   3. PI Feedback + Signal Synthesis
+    %      Ctrl_Mode_Ext: 0=SPS, 1=EPS, 2=DPS(Reserved), 3=TPS
+    %   3. PI Feedback + Signal Synthesis (Power-Based)
     %   4. Flux Balancing
     %   5. Phase Assignment (D1, D2, Phi → phi1~phi7)
     %   6. PWM Generation (Phase → Gate Signals, 데드타임 적용)
     %
-    % 입력(13): V_HV, I_HV, V_LV, I_LV, I_L_pri, I_cmd_in, PWM_Enable_in,
-    %           Kp_ext, Ki_ext, Mode_Select, Phi_Manual, Ctrl_Mode_Ext, DeadTime_ns
-    % 출력(18): G1~G8(8), I_cmd_out, phi_ext_out, D1_out, D2_out,
-    %           integrator_out, PWM_Enable, err_out, phi_raw_out, excess_out, ifb_out
+    % 입력(15): V_HV, I_HV, V_LV, I_LV, I_L_pri, Power_cmd_in, PWM_Enable_in,
+    %           Kp_ext, Ki_ext, Mode_Select, Phi_Manual, Ctrl_Mode_Ext, DeadTime_ns,
+    %           D1_ext_in, D2_ext_in
+    % 출력(18): G1~G8(8), Power_cmd_out, phi_ext_out, D1_out, D2_out,
+    %           integrator_out, PWM_Enable, err_out, phi_raw_out, excess_out, P_fb_out
     %
     % [부호 규약]
-    %   - 전류(I): (+)=방전(LV->HV), (-)=충전(HV->LV)
+    %   - 전력(P): (+)=방전(LV->HV), (-)=충전(HV->LV)
     %   - 위상(Phi): (+)=충전, (-)=방전
+    %   - 전력 피드백: 받는 쪽 기준 (충전→배터리측, 방전→HV부하측)
     %
     % =========================================================================
     % 1. Properties
@@ -31,7 +33,7 @@ classdef DAB_Controller_System < matlab.System
         L_leakage = 90e-6;      % 변압기 누설 인덕턴스 (H)
         n_transformer = 4;      % 변압기 턴비 (V_HV_nom / V_LV_nom = 380/95)
         EnableFF = true;        % 피드포워드(FF) 제어 활성화
-        MaxSlewRate = inf;      % 전류 지령 변화율 제한 (A/s)
+        MaxSlewRate = 50000;    % 최종 목표 전력 지령 변화율 제한 (Soft-start 등 충격 방지용) [W/s]
         HDC_Update_V_Th = 2.0;  % HDC 재실행 전압 변화 임계값 (V)
         HDC_Update_P_Th = 50.0; % HDC 재실행 전력 변화 임계값 (W)
         DeadZone = 0;           % 제어 불감대 [A]
@@ -102,10 +104,11 @@ classdef DAB_Controller_System < matlab.System
         end
 
         function [G1,G2,G3,G4,G5,G6,G7,G8, ...
-                  I_cmd_out, phi_ext_out, D1_out, D2_out, integrator_out, PWM_Enable_out, ...
-                  err_out, phi_raw_out, excess_out, ifb_out] = ...
-                stepImpl(obj, V_HV, I_HV, V_LV, I_LV, I_L_pri, I_cmd_in, PWM_Enable_in, ...
-                         Kp_ext, Ki_ext, Mode_Select, Phi_Manual, Ctrl_Mode_Ext, DeadTime_ns)
+                  Power_cmd_out, phi_ext_out, D1_out, D2_out, integrator_out, PWM_Enable_out, ...
+                  err_out, phi_raw_out, excess_out, P_fb_out] = ...
+                stepImpl(obj, V_HV, I_HV, V_LV, I_LV, I_L_pri, Power_cmd_in, PWM_Enable_in, ...
+                         Kp_ext, Ki_ext, Mode_Select, Phi_Manual, Ctrl_Mode_Ext, DeadTime_ns, ...
+                         D1_ext_in, D2_ext_in)
 
             Ts = obj.Ts_ctrl;
             t_current = double(obj.TickCount) * Ts;
@@ -162,41 +165,60 @@ classdef DAB_Controller_System < matlab.System
                         D1_set = 0.5;
                         D2_set = max(0.05, min(0.50, k_eps / 2));
                     end
-                    % Feedforward (SPS와 동일 수식)
+                    % Feedforward (전력→위상 변환)
                     if obj.EnableFF && abs(V_HV_f) > 10
-                        Phi_FF = -1 * obj.I_ref_ramped * (2*obj.L_leakage*obj.Fs*180)/V_HV_f;
+                        V_LV_safe_ff = max(V_LV_f, 1);
+                        I_equiv = obj.I_ref_ramped / V_LV_safe_ff;
+                        Phi_FF = -1 * I_equiv * (2*obj.L_leakage*obj.Fs*180)/V_HV_f;
                     end
 
                 case 3
-                    has_hdc = isfield(obj.HDC_Model_Data, 'D') && obj.HDC_Model_Data.D > 0;
-                    has_lut = isfield(obj.HDC_Model_Data, 'D1_table');
-                    if ~has_hdc && ~has_lut
-                        error('>> [CTRL FAULT] TPS Mode(=3) but HDC/LUT EMPTY!');
+                    % ============================================================
+                    % [TPS Mode — External D1/D2 Direct Injection]
+                    % HDC/LUT 추론 비활성화: 데이터셋 수집 전용
+                    % 외부에서 주입된 D1_ext_in, D2_ext_in을 직접 사용
+                    % 외부 위상(Phi)만 PI 제어기가 조절
+                    % ============================================================
+                    D1_set = max(0.05, min(0.50, D1_ext_in));
+                    D2_set = max(0.05, min(0.50, D2_ext_in));
+                    % Feedforward: 전력→위상 변환 (외부 위상 PI만 사용)
+                    if obj.EnableFF && abs(V_HV_f) > 10
+                        V_LV_safe_ff = max(V_LV_f, 1);
+                        I_equiv = obj.I_ref_ramped / V_LV_safe_ff;
+                        Phi_FF = -1 * I_equiv * (2*obj.L_leakage*obj.Fs*180)/V_HV_f;
                     end
-                    if has_hdc
-                        Vin_curr = V_HV_f; Vout_curr = V_LV_f;
-                        Pref_curr = obj.I_ref_ramped * V_LV_f;
-                        if abs(Vin_curr-obj.Last_Vin_HDC) > obj.HDC_Update_V_Th || ...
-                           abs(Vout_curr-obj.Last_Vout_HDC) > obj.HDC_Update_V_Th || ...
-                           abs(Pref_curr-obj.Last_Pref_HDC) > obj.HDC_Update_P_Th
-                            [d1_n,d2_n,phi_n] = hdc_inference_inline(obj.HDC_Model_Data, Vin_curr, Vout_curr, Pref_curr);
-                            obj.Cached_D1=d1_n; obj.Cached_D2=d2_n; obj.Cached_Phi=phi_n;
-                            obj.Last_Vin_HDC=Vin_curr; obj.Last_Vout_HDC=Vout_curr; obj.Last_Pref_HDC=Pref_curr;
-                        end
-                        D1_set = max(0.05, min(0.50, obj.Cached_D1));
-                        D2_set = max(0.05, min(0.50, obj.Cached_D2));
-                        Phi_FF = max(-0.48, min(0.48, obj.Cached_Phi)) * 360;
-                        is_hdc_active = true;
-                    elseif has_lut
-                        Vin_in = max(min(V_HV_f, max(obj.HDC_Model_Data.Vin_bp)), min(obj.HDC_Model_Data.Vin_bp));
-                        Vout_in = max(min(V_LV_f, max(obj.HDC_Model_Data.Vout_bp)), min(obj.HDC_Model_Data.Vout_bp));
-                        P_in = max(min(obj.I_ref_ramped*V_LV_f, max(obj.HDC_Model_Data.P_bp)), min(obj.HDC_Model_Data.P_bp));
-                        [d1_l,d2_l,phi_l] = lut_inference_inline(obj.HDC_Model_Data, Vin_in, Vout_in, P_in);
-                        D1_set=d1_l; D2_set=d2_l; Phi_FF=phi_l*360; is_hdc_active=true;
-                    end
+                    % --- [COMMENTED OUT] HDC/LUT Inference ---
+                    % has_hdc = isfield(obj.HDC_Model_Data, 'D') && obj.HDC_Model_Data.D > 0;
+                    % has_lut = isfield(obj.HDC_Model_Data, 'D1_table');
+                    % if ~has_hdc && ~has_lut
+                    %     error('>> [CTRL FAULT] TPS Mode(=3) but HDC/LUT EMPTY!');
+                    % end
+                    % if has_hdc
+                    %     Vin_curr = V_HV_f; Vout_curr = V_LV_f;
+                    %     Pref_curr = obj.I_ref_ramped * V_LV_f;
+                    %     if abs(Vin_curr-obj.Last_Vin_HDC) > obj.HDC_Update_V_Th || ...
+                    %        abs(Vout_curr-obj.Last_Vout_HDC) > obj.HDC_Update_V_Th || ...
+                    %        abs(Pref_curr-obj.Last_Pref_HDC) > obj.HDC_Update_P_Th
+                    %         [d1_n,d2_n,phi_n] = hdc_inference_inline(obj.HDC_Model_Data, Vin_curr, Vout_curr, Pref_curr);
+                    %         obj.Cached_D1=d1_n; obj.Cached_D2=d2_n; obj.Cached_Phi=phi_n;
+                    %         obj.Last_Vin_HDC=Vin_curr; obj.Last_Vout_HDC=Vout_curr; obj.Last_Pref_HDC=Pref_curr;
+                    %     end
+                    %     D1_set = max(0.05, min(0.50, obj.Cached_D1));
+                    %     D2_set = max(0.05, min(0.50, obj.Cached_D2));
+                    %     Phi_FF = max(-0.48, min(0.48, obj.Cached_Phi)) * 360;
+                    %     is_hdc_active = true;
+                    % elseif has_lut
+                    %     Vin_in = max(min(V_HV_f, max(obj.HDC_Model_Data.Vin_bp)), min(obj.HDC_Model_Data.Vin_bp));
+                    %     Vout_in = max(min(V_LV_f, max(obj.HDC_Model_Data.Vout_bp)), min(obj.HDC_Model_Data.Vout_bp));
+                    %     P_in = max(min(obj.I_ref_ramped*V_LV_f, max(obj.HDC_Model_Data.P_bp)), min(obj.HDC_Model_Data.P_bp));
+                    %     [d1_l,d2_l,phi_l] = lut_inference_inline(obj.HDC_Model_Data, Vin_in, Vout_in, P_in);
+                    %     D1_set=d1_l; D2_set=d2_l; Phi_FF=phi_l*360; is_hdc_active=true;
+                    % end
                 otherwise
                     if obj.EnableFF && abs(V_HV_f) > 10
-                        Phi_FF = -1 * obj.I_ref_ramped * (2*obj.L_leakage*obj.Fs*180)/V_HV_f;
+                        V_LV_safe_ff = max(V_LV_f, 1);
+                        I_equiv = obj.I_ref_ramped / V_LV_safe_ff;
+                        Phi_FF = -1 * I_equiv * (2*obj.L_leakage*obj.Fs*180)/V_HV_f;
                     end
             end
 
@@ -210,19 +232,30 @@ classdef DAB_Controller_System < matlab.System
             err_ext = 0; phi_raw_unbounded = 0; excess = 0; phi_ext_deg = 0;
 
             if PWM_Enable && (Mode_Select ~= 1)
-                I_target = I_cmd_in;
+                P_target = Power_cmd_in;
                 if isinf(obj.MaxSlewRate)
-                    obj.I_ref_ramped = I_target;
+                    obj.I_ref_ramped = P_target;
                 else
                     max_step = obj.MaxSlewRate * Ts;
-                    delta = I_target - obj.I_ref_ramped;
+                    delta = P_target - obj.I_ref_ramped;
                     if abs(delta) > max_step
                         obj.I_ref_ramped = obj.I_ref_ramped + sign(delta) * max_step;
                     else
-                        obj.I_ref_ramped = I_target;
+                        obj.I_ref_ramped = P_target;
                     end
                 end
-                raw_err = obj.I_ref_ramped - I_fb;
+                % [전력 피드백: 받는 쪽 기준]
+                %   충전(P<0): 배터리측 = V_LV * I_LV
+                %   방전(P>0): HV부하측 = V_HV * I_HV
+                if obj.I_ref_ramped <= 0
+                    % 충전: 배터리가 받는 쪽 → P_fb = V_LV * I_fb
+                    P_fb = V_LV_f * I_fb;
+                else
+                    % 방전(UPS): HV 부하가 받는 쪽 → P_fb = V_HV * I_HV
+                    % I_HV는 필터링 안 됨 → V_HV_f로 보상
+                    P_fb = V_HV_f * I_HV;
+                end
+                raw_err = obj.I_ref_ramped - P_fb;
                 if abs(raw_err) < obj.DeadZone, err_ext = 0;
                 else, err_ext = raw_err - sign(raw_err) * obj.DeadZone; end
                 Kp_curr = Kp_ext;
@@ -243,8 +276,10 @@ classdef DAB_Controller_System < matlab.System
                 phi_raw_unbounded = phi_total_raw;
             elseif Mode_Select == 1
                 phi_ext_deg = Phi_Manual; D1_set = 0.5; D2_set = 0.5;
+                P_fb = V_LV_f * I_fb;
             else
                 obj.I_ref_ramped = 0; obj.Prev_Phi_Output = 0;
+                P_fb = V_LV_f * I_fb;
             end
 
             % =================================================================
@@ -317,14 +352,14 @@ classdef DAB_Controller_System < matlab.System
             % =================================================================
             % [STAGE 8] Output Assignment
             % =================================================================
-            I_cmd_out = obj.I_ref_ramped;
+            Power_cmd_out = obj.I_ref_ramped;
             phi_ext_out = phi_ext_deg;
             integrator_out = obj.Integrator_ext;
             PWM_Enable_out = PWM_Enable;
             err_out = err_ext;
             phi_raw_out = phi_raw_unbounded;
             excess_out = excess;
-            ifb_out = I_fb;
+            P_fb_out = P_fb;
         end
 
         function resetImpl(obj)
@@ -338,7 +373,7 @@ classdef DAB_Controller_System < matlab.System
             obj.Cached_D1=0.5; obj.Cached_D2=0.5; obj.Cached_Phi=0;
         end
 
-        function num = getNumInputsImpl(~), num = 13; end
+        function num = getNumInputsImpl(~), num = 15; end
         function num = getNumOutputsImpl(~), num = 18; end
 
         function [s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13,s14,s15,s16,s17,s18] = getOutputSizeImpl(~)
@@ -377,16 +412,17 @@ classdef DAB_Controller_System < matlab.System
             sts = createSampleTime(obj, 'Type', 'Discrete', 'SampleTime', obj.Ts_ctrl, 'OffsetTime', 0);
         end
 
-        function [n1,n2,n3,n4,n5,n6,n7,n8,n9,n10,n11,n12,n13] = getInputNamesImpl(~)
+        function [n1,n2,n3,n4,n5,n6,n7,n8,n9,n10,n11,n12,n13,n14,n15] = getInputNamesImpl(~)
             n1='V_HV'; n2='I_HV'; n3='V_LV'; n4='I_LV'; n5='I_L_pri';
-            n6='I_cmd_in'; n7='PWM_En_in'; n8='Kp_ext'; n9='Ki_ext';
+            n6='Power_cmd_in'; n7='PWM_En_in'; n8='Kp_ext'; n9='Ki_ext';
             n10='Mode_Select'; n11='Phi_Manual'; n12='Ctrl_Mode'; n13='DeadTime_ns';
+            n14='D1_ext_in'; n15='D2_ext_in';
         end
 
         function [o1,o2,o3,o4,o5,o6,o7,o8,o9,o10,o11,o12,o13,o14,o15,o16,o17,o18] = getOutputNamesImpl(~)
             o1='G1'; o2='G2'; o3='G3'; o4='G4'; o5='G5'; o6='G6'; o7='G7'; o8='G8';
-            o9='I_Ref'; o10='Phi_Ext'; o11='D1'; o12='D2';
-            o13='Integ'; o14='PWM_En'; o15='Err'; o16='Phi_Raw'; o17='Excess'; o18='I_Filt';
+            o9='P_Ref'; o10='Phi_Ext'; o11='D1'; o12='D2';
+            o13='Integ'; o14='PWM_En'; o15='Err'; o16='Phi_Raw'; o17='Excess'; o18='P_fb';
         end
     end
 
