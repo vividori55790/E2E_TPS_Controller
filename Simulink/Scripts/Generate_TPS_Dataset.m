@@ -403,21 +403,29 @@ function Generate_TPS_Dataset()
             simIn_array(k) = simIn_array(k).setVariable('V_batt', V2_curr);
         end
         
-        % === parsim 실행 ===
-        % - UseFastRestart: 모델 컴파일 1회만 수행 (속도 향상)
-        % - ShowProgress: 콘솔 진행률 표시
-        % - TransferBaseWorkspaceVariables: base workspace 변수 자동 전달
-        % - SetupFcn: 워커에 필요한 base 변수 주입 (Mask 에러 방지)
-        simOut_array = parsim(simIn_array, ...
-            'UseFastRestart', 'on', ...
-            'ShowProgress', 'on', ...
-            'TransferBaseWorkspaceVariables', 'on', ...
-            'ShowSimulationManager', 'off', ...
-            'SetupFcn', @()workerSetupFcn(Kp_val, Ki_val, Kpv_val, Kiv_val));
+        % === parsim 실행 (안전장벽 적용) ===
+        parsim_success = false;
+        try
+            simOut_array = parsim(simIn_array, ...
+                'UseFastRestart', 'off', ...
+                'ShowProgress', 'on', ...
+                'TransferBaseWorkspaceVariables', 'on', ...
+                'ShowSimulationManager', 'off', ...
+                'SetupFcn', @()workerSetupFcn(Kp_val, Ki_val, Kpv_val, Kiv_val));
+            parsim_success = true;
+        catch ME_parsim
+            logStatusMsg(sprintf('   [BATCH %d FATAL] parsim crashed: %s', batchIdx, ME_parsim.message), logFile);
+            for k = 1:n_batch
+                global_idx = batch_indices(k);
+                error_msg{global_idx} = sprintf('parsim fatal crash: %s', ME_parsim.message);
+                completed_mask(global_idx) = true;
+            end
+        end
         
         % === parsim 결과 후처리 (기존 추출 로직 동일) ===
-        for k = 1:n_batch
-            global_idx = batch_indices(k);
+        if parsim_success
+            for k = 1:n_batch
+                global_idx = batch_indices(k);
             P_curr  = P_all(global_idx);
             V2_curr = V2_all(global_idx);
             D1_curr = D1_all(global_idx);
@@ -587,19 +595,38 @@ function Generate_TPS_Dataset()
                     global_idx, N_total, P_curr, V2_curr, D1_curr, D2_curr, error_msg{global_idx}), logFile);
             end
         end  % 후처리 for loop end
+        end  % if parsim_success end
         
-        % simOut_array 메모리 해제 (배치마다 즉시 정리)
-        clear simIn_array simOut_array;
+        % 메모리 해제
+        if parsim_success
+            clear simOut_array;
+        end
+        clear simIn_array;
         
-        % === 체크포인트 저장 ===
+        % === 체크포인트 저장 (Safe Save 방식 적용) ===
         N_total_cp    = N_total;  %#ok<NASGU>
         timestamp_cp  = timestamp;  %#ok<NASGU>
-        save(checkpointFile, 'i_pk_pri', 'i_pk_sec', 'D0_converged', 'P_actual_all', ...
-             'valid_flag', 'error_msg', 'completed_mask', 'N_total_cp', 'timestamp_cp', '-v7.3');
         
-        n_done_now = sum(completed_mask);
-        fprintf('   [Checkpoint Saved] %d/%d done (%.1f%%) -> %s\n\n', ...
-            n_done_now, N_total, 100*n_done_now/N_total, checkpointFile);
+        tempCheckpoint = fullfile(dataDir, 'TPS_Checkpoint_temp.mat');
+        try
+            save(tempCheckpoint, 'i_pk_pri', 'i_pk_sec', 'D0_converged', 'P_actual_all', ...
+                 'valid_flag', 'error_msg', 'completed_mask', 'N_total_cp', 'timestamp_cp', '-v7.3');
+            movefile(tempCheckpoint, checkpointFile, 'f');
+            
+            n_done_now = sum(completed_mask);
+            fprintf('   [Checkpoint Saved (Safe)] %d/%d done (%.1f%%) -> %s\n\n', ...
+                n_done_now, N_total, 100*n_done_now/N_total, checkpointFile);
+        catch ME_save
+            logStatusMsg(sprintf('   [SAVE ERROR] Disk full or write error: %s\n', ME_save.message), logFile);
+        end
+        
+        % 메모리 누수 방지용: 10 배치마다 Parallel Pool 리셋 (가비지 컬렉션)
+        if mod(batchIdx, 10) == 0
+            fprintf('   [Memory Flush] Restarting parallel pool to prevent memory leaks...\n');
+            delete(gcp('nocreate'));
+            parpool;
+        end
+        
     end  % batch loop end
     
     parsim_elapsed = toc;
