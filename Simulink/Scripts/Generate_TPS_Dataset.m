@@ -113,6 +113,7 @@ function Generate_TPS_Dataset()
     valid_flag = false(N_total, 1);
     error_msg = cell(N_total, 1);
     completed_mask = false(N_total, 1);  % 시뮬레이션 시도 완료 여부 (성공/실패 모두)
+    is_resume = false; % 체크포인트 로드 여부 플래그
     
     if exist(checkpointFile, 'file')
         fprintf('>> [RESUME] Checkpoint found: %s\n', checkpointFile);
@@ -139,6 +140,8 @@ function Generate_TPS_Dataset()
             n_done = sum(completed_mask);
             fprintf('   Restored %d / %d completed results (%.1f%%)\n', n_done, N_total, 100*n_done/N_total);
             fprintf('   Remaining: %d simulations\n\n', N_total - n_done);
+            
+            is_resume = true; % 복원 성공 시 플래그 설정
         else
             fprintf('   [WARNING] Checkpoint grid size mismatch (cp=%d vs current=%d). Starting fresh.\n\n', ...
                 cp.N_total_cp, N_total);
@@ -223,10 +226,11 @@ function Generate_TPS_Dataset()
     %% =====================================================================
     %  4.5 단일 테스트 시뮬레이션 (병렬 실행 전 검증)
     % =====================================================================
-    fprintf('>> Running Pre-Flight Single Simulation Test (2 cases)...\n');
-    test_indices = [1, round(N_total/2)]; % 2번의 테스트로 변경
-    
-    for k_test = 1:length(test_indices)
+    if ~is_resume
+        fprintf('>> Running Pre-Flight Single Simulation Test (2 cases)...\n');
+        test_indices = [1, round(N_total/2)]; % 2번의 테스트로 변경
+        
+        for k_test = 1:length(test_indices)
         test_idx = test_indices(k_test);
         P_curr  = P_all(test_idx);
         V2_curr = V2_all(test_idx);
@@ -348,6 +352,9 @@ function Generate_TPS_Dataset()
         end
     end
     fprintf('\n');
+    else
+        fprintf('>> Pre-Flight Test skipped (Resuming from checkpoint).\n\n');
+    end
 
     %% =====================================================================
     %  5. 병렬 시뮬레이션 및 데이터 동시 추출 (배치 parsim + 체크포인트)
