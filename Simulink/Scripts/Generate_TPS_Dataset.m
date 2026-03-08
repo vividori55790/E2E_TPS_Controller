@@ -86,8 +86,8 @@ function Generate_TPS_Dataset()
     
     P_vec  = linspace(100, 1000, N_steps);       % 출력 전력 (W)
     V2_vec = linspace(84, 109.2, N_steps);       % 출력 전압 (V)
-    D1_vec = linspace(0.1, 0.5, N_steps);       % 1차 듀티
-    D2_vec = linspace(0.1, 0.5, N_steps);       % 2차 듀티
+    D1_vec = linspace(0.2, 0.5, N_steps);       % 1차 듀티
+    D2_vec = linspace(0.2, 0.5, N_steps);       % 2차 듀티
     
     [P_grid, V2_grid, D1_grid, D2_grid] = ndgrid(P_vec, V2_vec, D1_vec, D2_vec);
     P_all  = P_grid(:);
