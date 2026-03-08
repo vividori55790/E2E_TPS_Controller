@@ -235,18 +235,23 @@ classdef DAB_Controller_System < matlab.System
                         obj.I_ref_ramped = P_target;
                     end
                 end
-                % [전력 피드백: 받는 쪽 기준]
-                %   충전(P<0): 배터리측 = V_LV * I_LV
-                %   방전(P>0): HV부하측 = V_HV * I_HV
+                % [전류 피드백 기반 제어: 외부 전력 지령을 내부 전류 지령으로 변환]
+                %   충전(P<0): 배터리측 전류 = I_LV_f (여기선 I_fb)
+                %   방전(P>0): HV부하측 전류 = I_HV
                 if obj.I_ref_ramped <= 0
-                    % 충전: 배터리가 받는 쪽 → P_fb = V_LV * I_fb
+                    % 충전: 배터리가 받는 쪽
+                    V_safe = max(abs(V_LV_f), 1);
+                    I_cmd = obj.I_ref_ramped / V_safe;
+                    I_fb_use = I_fb;
                     P_fb = V_LV_f * I_fb;
                 else
-                    % 방전(UPS): HV 부하가 받는 쪽 → P_fb = V_HV * I_HV
-                    % I_HV는 필터링 안 됨 → V_HV_f로 보상
+                    % 방전(UPS): HV 부하가 받는 쪽
+                    V_safe = max(abs(V_HV_f), 1);
+                    I_cmd = obj.I_ref_ramped / V_safe;
+                    I_fb_use = I_HV;
                     P_fb = V_HV_f * I_HV;
                 end
-                raw_err = obj.I_ref_ramped - P_fb;
+                raw_err = I_cmd - I_fb_use;
                 if abs(raw_err) < obj.DeadZone, err_ext = 0;
                 else, err_ext = raw_err - sign(raw_err) * obj.DeadZone; end
                 Kp_curr = Kp_ext;
@@ -277,7 +282,9 @@ classdef DAB_Controller_System < matlab.System
             % [STAGE 5] Flux Balancing
             % =================================================================
             D_offset = 0;
-            if PWM_Enable && obj.EnableFluxBalancing
+            % Ctrl_Mode_Ext == 3 (TPS/Dataset Gen) 에서는 두 내부 위상(D1, D2)이 
+            % 지령치를 기계적으로 따르도록 Flux Balancing을 비활성화합니다.
+            if PWM_Enable && obj.EnableFluxBalancing && (Ctrl_Mode_Ext ~= 3)
                 err_flux = -I_L_pri_DC;
                 obj.Flux_Integrator = obj.Flux_Integrator + err_flux * Ts;
                 max_integ = obj.Flux_Limit / obj.Flux_Ki;

@@ -82,8 +82,8 @@ function Generate_TPS_Dataset()
     
     P_vec  = linspace(100, 1000, N_steps);       % 출력 전력 (W)
     V2_vec = linspace(84, 109.2, N_steps);       % 출력 전압 (V)
-    D1_vec = linspace(0.05, 0.5, N_steps);       % 1차 듀티
-    D2_vec = linspace(0.05, 0.5, N_steps);       % 2차 듀티
+    D1_vec = linspace(0.1, 0.5, N_steps);       % 1차 듀티
+    D2_vec = linspace(0.1, 0.5, N_steps);       % 2차 듀티
     
     [P_grid, V2_grid, D1_grid, D2_grid] = ndgrid(P_vec, V2_vec, D1_vec, D2_vec);
     P_all  = P_grid(:);
@@ -139,6 +139,7 @@ function Generate_TPS_Dataset()
     
     % 공통(상수) 파라미터 미리 셋팅
     baseIn = baseIn.setVariable('Ref_VH', timeseries(spec.V_in * ones(2,1), t_input));
+    baseIn = baseIn.setVariable('Ref_VL', timeseries(spec.V_out_nom * ones(2,1), t_input));
     baseIn = baseIn.setVariable('Ref_Kp_ext', timeseries(Kp_val * ones(2,1), t_input));
     baseIn = baseIn.setVariable('Ref_Ki_ext', timeseries(Ki_val * ones(2,1), t_input));
     baseIn = baseIn.setVariable('Ref_Kpv', timeseries(Kpv_val * ones(2,1), t_input));
@@ -188,6 +189,7 @@ function Generate_TPS_Dataset()
         testIn = testIn.setVariable('Ref_Power', timeseries(-P_curr * ones(2,1), t_input));
         I_ess_cmd_val = -P_curr / V2_curr;
         testIn = testIn.setVariable('Ref_I_ess_cmd', timeseries(I_ess_cmd_val * ones(2,1), t_input));
+        testIn = testIn.setVariable('Ref_VL', timeseries(V2_curr * ones(2,1), t_input));
         testIn = testIn.setVariable('D1', timeseries(D1_curr * ones(2,1), t_input));
         testIn = testIn.setVariable('D2', timeseries(D2_curr * ones(2,1), t_input));
         testIn = testIn.setVariable('V_init_LV', V2_curr);
@@ -209,20 +211,30 @@ function Generate_TPS_Dataset()
             else
                 out_data = testOut;
                 I_L_data = []; t_sim = [];
-                if isprop(out_data, 'Inductor_Current')
+                if isprop(out_data, 'Inductor_Current1')
+                    raw_I = out_data.Inductor_Current1;
+                    I_L_data = getSignalData_local(raw_I);
+                    t_sim = getSignalTime_local(raw_I, out_data);
+                elseif isprop(out_data, 'Inductor_Current')
                     raw_I = out_data.Inductor_Current;
                     I_L_data = getSignalData_local(raw_I);
                     t_sim = getSignalTime_local(raw_I, out_data);
                 elseif isprop(out_data, 'yout') && isprop(out_data.yout, 'getElement')
                     try
-                        raw_I = out_data.yout.getElement('Inductor_Current');
+                        raw_I = out_data.yout.getElement('Inductor_Current1');
                         I_L_data = getSignalData_local(raw_I);
                         t_sim = getSignalTime_local(raw_I, out_data);
-                    catch, end
+                    catch
+                        try
+                            raw_I = out_data.yout.getElement('Inductor_Current');
+                            I_L_data = getSignalData_local(raw_I);
+                            t_sim = getSignalTime_local(raw_I, out_data);
+                        catch, end
+                    end
                 end
                 
                 if isempty(I_L_data)
-                    logStatusMsg('   [TEST FAILED] Inductor_Current data not found in simOut.', logFile);
+                    logStatusMsg('   [TEST FAILED] Inductor_Current1 data not found in simOut.', logFile);
                 else
                     ss_mask_test = t_sim >= SS_START;
                     I_L_ss_test = I_L_data(ss_mask_test);
@@ -238,7 +250,9 @@ function Generate_TPS_Dataset()
                     i_pk_val_test = max(abs(last_cycle_test));
                     
                     phi_data_test = [];
-                    if isprop(out_data, 'Phi_ext_out')
+                    if isprop(out_data, 'Phi_ext_out1')
+                        phi_data_test = getSignalData_local(out_data.Phi_ext_out1);
+                    elseif isprop(out_data, 'Phi_ext_out')
                         phi_data_test = getSignalData_local(out_data.Phi_ext_out);
                     end
                     phi_val_test = NaN;
@@ -246,8 +260,36 @@ function Generate_TPS_Dataset()
                         phi_val_test = phi_data_test(end) / 360;
                     end
                     
-                    testMsg = sprintf('   [TEST SUCCESS] idx(%d) P=%.0fW, V2=%.1fV -> i_pk_pri=%.2fA, D0_conv=%.3f', ...
-                        test_idx, P_curr, V2_curr, i_pk_val_test, phi_val_test);
+                    % 3. 실제 전력 직접 계산 (V_LV * I_LV)
+                    p_actual_test = NaN;
+                    v_lv_data_t = []; i_lv_data_t = [];
+                    
+                    if isprop(out_data, 'V_LV1'), v_lv_data_t = getSignalData_local(out_data.V_LV1);
+                    elseif isprop(out_data, 'V_LV'), v_lv_data_t = getSignalData_local(out_data.V_LV); 
+                    elseif isprop(out_data, 'yout')
+                        try v_lv_data_t = getSignalData_local(out_data.yout.get('V_LV1')); catch
+                            try v_lv_data_t = getSignalData_local(out_data.yout.get('V_LV')); catch, end
+                        end
+                    end
+                    
+                    if isprop(out_data, 'I_LV1'), i_lv_data_t = getSignalData_local(out_data.I_LV1);
+                    elseif isprop(out_data, 'I_LV'), i_lv_data_t = getSignalData_local(out_data.I_LV); 
+                    elseif isprop(out_data, 'yout')
+                        try i_lv_data_t = getSignalData_local(out_data.yout.get('I_LV1')); catch
+                            try i_lv_data_t = getSignalData_local(out_data.yout.get('I_LV')); catch, end
+                        end
+                    end
+                    
+                    if ~isempty(v_lv_data_t) && ~isempty(i_lv_data_t)
+                        p_calc_data_t = v_lv_data_t .* i_lv_data_t;
+                        p_calc_ss_t = p_calc_data_t(ss_mask_test);
+                        p_actual_test = mean(p_calc_ss_t);
+                    else
+                        p_actual_test = P_curr; % Fallback
+                    end
+                    
+                    testMsg = sprintf('   [TEST SUCCESS] idx(%d) P_cmd=%.0fW, P_act=%.1fW, V2=%.1fV -> i_pk_pri=%.2fA, D0_conv=%.3f', ...
+                        test_idx, P_curr, p_actual_test, V2_curr, i_pk_val_test, phi_val_test);
                     logStatusMsg(testMsg, logFile);
                 end
             end
@@ -267,6 +309,7 @@ function Generate_TPS_Dataset()
     i_pk_pri = NaN(N_total, 1);
     i_pk_sec = NaN(N_total, 1);
     D0_converged = NaN(N_total, 1);
+    P_actual_all = NaN(N_total, 1);
     valid_flag = false(N_total, 1);
     error_msg = cell(N_total, 1);
     
@@ -309,11 +352,13 @@ function Generate_TPS_Dataset()
         
         ts_P = timeseries(Power_cmd_val * ones(2,1), t_input);
         ts_I_ess = timeseries(I_ess_cmd_val * ones(2,1), t_input);
+        ts_VL = timeseries(V2_curr * ones(2,1), t_input);
         ts_D1 = timeseries(D1_curr * ones(2,1), t_input);
         ts_D2 = timeseries(D2_curr * ones(2,1), t_input);
         
         simIn = simIn.setVariable('Ref_Power', ts_P);
         simIn = simIn.setVariable('Ref_I_ess_cmd', ts_I_ess);
+        simIn = simIn.setVariable('Ref_VL', ts_VL);
         simIn = simIn.setVariable('D1', ts_D1);
         simIn = simIn.setVariable('D2', ts_D2);
         simIn = simIn.setVariable('V_init_LV', V2_curr);
@@ -340,8 +385,16 @@ function Generate_TPS_Dataset()
             t_sim = [];
             
             % 1. 인덕터 피크 추출 (getSignalData_local 함수 활용)
-            if isprop(out_data, 'Inductor_Current')
+            if isprop(out_data, 'Inductor_Current1')
+                raw_I = out_data.Inductor_Current1;
+                I_L_data = getSignalData_local(raw_I);
+                t_sim = getSignalTime_local(raw_I, out_data);
+            elseif isprop(out_data, 'Inductor_Current')
                 raw_I = out_data.Inductor_Current;
+                I_L_data = getSignalData_local(raw_I);
+                t_sim = getSignalTime_local(raw_I, out_data);
+            elseif isprop(out_data, 'I_L1')
+                raw_I = out_data.I_L1;
                 I_L_data = getSignalData_local(raw_I);
                 t_sim = getSignalTime_local(raw_I, out_data);
             elseif isprop(out_data, 'I_L')
@@ -350,14 +403,20 @@ function Generate_TPS_Dataset()
                 t_sim = getSignalTime_local(raw_I, out_data);
             elseif isprop(out_data, 'yout')
                 try
-                    raw_I = out_data.yout.get('Inductor_Current');
+                    raw_I = out_data.yout.get('Inductor_Current1');
                     I_L_data = getSignalData_local(raw_I);
                     t_sim = getSignalTime_local(raw_I, out_data);
-                catch, end
+                catch
+                    try
+                        raw_I = out_data.yout.get('Inductor_Current');
+                        I_L_data = getSignalData_local(raw_I);
+                        t_sim = getSignalTime_local(raw_I, out_data);
+                    catch, end
+                end
             end
             
             if isempty(I_L_data) || isempty(t_sim)
-                error_msg{idx} = 'Current data (Inductor_Current) not found.';
+                error_msg{idx} = 'Current data (Inductor_Current1) not found.';
                 continue;
             end
             
@@ -397,10 +456,16 @@ function Generate_TPS_Dataset()
             
             % 2. 외부 위상 추출
             phi_data = [];
-            if isprop(out_data, 'Phi_ext_out')
+            if isprop(out_data, 'Phi_ext_out1')
+                phi_data = getSignalData_local(out_data.Phi_ext_out1);
+            elseif isprop(out_data, 'Phi_ext_out')
                 phi_data = getSignalData_local(out_data.Phi_ext_out);
+            elseif isprop(out_data, 'phi_ext_out1')
+                phi_data = getSignalData_local(out_data.phi_ext_out1);
             elseif isprop(out_data, 'phi_ext_out')
                 phi_data = getSignalData_local(out_data.phi_ext_out);
+            elseif isprop(out_data, 'Phi_ext1')
+                phi_data = getSignalData_local(out_data.Phi_ext1);
             elseif isprop(out_data, 'Phi_ext')
                 phi_data = getSignalData_local(out_data.Phi_ext);
             end
@@ -408,6 +473,36 @@ function Generate_TPS_Dataset()
             if ~isempty(phi_data)
                 D0_converged(idx) = phi_data(end) / 360;
             end
+            
+            % 3. 실제 전력 직접 계산 (V_LV * I_LV)
+            p_actual_val = NaN;
+            v_lv_data = []; i_lv_data = [];
+            
+            if isprop(out_data, 'V_LV1'), v_lv_data = getSignalData_local(out_data.V_LV1);
+            elseif isprop(out_data, 'V_LV'), v_lv_data = getSignalData_local(out_data.V_LV); 
+            elseif isprop(out_data, 'yout')
+                try v_lv_data = getSignalData_local(out_data.yout.get('V_LV1')); catch
+                    try v_lv_data = getSignalData_local(out_data.yout.get('V_LV')); catch, end
+                end
+            end
+            
+            if isprop(out_data, 'I_LV1'), i_lv_data = getSignalData_local(out_data.I_LV1);
+            elseif isprop(out_data, 'I_LV'), i_lv_data = getSignalData_local(out_data.I_LV); 
+            elseif isprop(out_data, 'yout')
+                try i_lv_data = getSignalData_local(out_data.yout.get('I_LV1')); catch
+                    try i_lv_data = getSignalData_local(out_data.yout.get('I_LV')); catch, end
+                end
+            end
+            
+            if ~isempty(v_lv_data) && ~isempty(i_lv_data)
+                p_calc_data = v_lv_data .* i_lv_data;
+                p_calc_ss = p_calc_data(ss_mask);
+                p_actual_val = mean(p_calc_ss);
+            else
+                p_actual_val = P_curr; % Fallback
+            end
+            
+            P_actual_all(idx) = p_actual_val;
             
             % 안전한 값으로 저장
             i_pk_pri(idx) = i_pk_val;
@@ -421,10 +516,10 @@ function Generate_TPS_Dataset()
         % 각 시뮬레이션 결과 모두 큐에 전송 (DataQueue를 통해 마스터 워커에서 안전하게 로깅)
         % 병렬 풀 충돌을 방지하면서 실시간 체킹 가능
         if valid_flag(idx)
-            send(DQueue, sprintf('   [Worker %d : %d / %d] SUCCESS. P=%.0fW, V2=%.1fV, D1=%.2f, D2=%.2f -> i_pk_pri=%.2fA, D0_conv=%.3f', ...
-                worker_id, idx, N_total, P_curr, V2_curr, D1_curr, D2_curr, i_pk_val, D0_converged(idx)));
+            send(DQueue, sprintf('   [Worker %d : %d / %d] SUCCESS. P_cmd=%.0fW, P_act=%.1fW, V2=%.1fV, D1=%.2f, D2=%.2f -> i_pk_pri=%.2fA, D0_conv=%.3f', ...
+                worker_id, idx, N_total, P_curr, p_actual_val, V2_curr, D1_curr, D2_curr, i_pk_val, D0_converged(idx)));
         else
-            send(DQueue, sprintf('   [Worker %d : %d / %d] FAILED. P=%.0fW, V2=%.1fV, D1=%.2f, D2=%.2f | Error: %s', ...
+            send(DQueue, sprintf('   [Worker %d : %d / %d] FAILED. P_cmd=%.0fW, V2=%.1fV, D1=%.2f, D2=%.2f | Error: %s', ...
                 worker_id, idx, N_total, P_curr, V2_curr, D1_curr, D2_curr, error_msg{idx}));
         end
     end
@@ -466,9 +561,9 @@ function Generate_TPS_Dataset()
     
     I_cmd_all = P_all ./ V2_all;  % 참고용 전류 환산값
     
-    dataset = table(P_all, V2_all, D1_all, D2_all, I_cmd_all, ...
+    dataset = table(P_actual_all, P_all, V2_all, D1_all, D2_all, I_cmd_all, ...
                     i_pk_pri, i_pk_sec, D0_converged, valid_flag, ...
-                    'VariableNames', {'P_W', 'V2_V', 'D1', 'D2', 'I_cmd_ref_A', ...
+                    'VariableNames', {'P_W', 'P_cmd_W', 'V2_V', 'D1', 'D2', 'I_cmd_ref_A', ...
                                       'i_pk_pri_A', 'i_pk_sec_A', 'D0_norm', 'valid'});
     dataset_valid = dataset(valid_flag, :);
     
@@ -513,7 +608,7 @@ function Generate_TPS_Dataset()
         
         subplot(2,3,4);
         P_mid = P_vec(round(N_steps/2)); V2_mid = V2_vec(round(N_steps/2));
-        mask_mid = abs(dataset_valid.P_W - P_mid) < 50 & abs(dataset_valid.V2_V - V2_mid) < 2;
+        mask_mid = abs(dataset_valid.P_W - P_mid) < 100 & abs(dataset_valid.V2_V - V2_mid) < 2;
         if sum(mask_mid) > 10
             scatter(dataset_valid.D1(mask_mid), dataset_valid.D2(mask_mid), ...
                     20, dataset_valid.i_pk_pri_A(mask_mid), 'filled');
