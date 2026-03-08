@@ -31,6 +31,10 @@ function Generate_TPS_Dataset()
     dataDir = fullfile(projectDir, 'Data');
     if ~exist(dataDir, 'dir'), mkdir(dataDir); end
     
+    % 체크포인트 파일 (고정 이름 — 재개 시 동일 파일 사용)
+    checkpointFile = fullfile(dataDir, 'TPS_Checkpoint.mat');
+    BATCH_SIZE = 100;  % 배치 크기: 이 단위마다 중간 저장
+    
     % 타임스탬프
     timestamp = datestr(now, 'yyyymmdd_HHMMss');
     resultFile = fullfile(dataDir, sprintf('TPS_Dataset_%s.mat', timestamp));
@@ -97,6 +101,52 @@ function Generate_TPS_Dataset()
     fprintf('   V2: [%.1f, %.1f] V\n', min(V2_all), max(V2_all));
     fprintf('   D1: [%.2f, %.2f]\n', min(D1_all), max(D1_all));
     fprintf('   D2: [%.2f, %.2f]\n\n', min(D2_all), max(D2_all));
+    
+    %% =====================================================================
+    %  2.5 체크포인트 로드 (이전 진행분 복원)
+    % =====================================================================
+    % 결과를 저장할 벡터 사전 할당
+    i_pk_pri = NaN(N_total, 1);
+    i_pk_sec = NaN(N_total, 1);
+    D0_converged = NaN(N_total, 1);
+    P_actual_all = NaN(N_total, 1);
+    valid_flag = false(N_total, 1);
+    error_msg = cell(N_total, 1);
+    completed_mask = false(N_total, 1);  % 시뮬레이션 시도 완료 여부 (성공/실패 모두)
+    
+    if exist(checkpointFile, 'file')
+        fprintf('>> [RESUME] Checkpoint found: %s\n', checkpointFile);
+        cp = load(checkpointFile);
+        
+        % 그리드 일관성 확인 (N_total이 같아야 안전하게 복원 가능)
+        if isfield(cp, 'N_total_cp') && cp.N_total_cp == N_total
+            i_pk_pri      = cp.i_pk_pri;
+            i_pk_sec      = cp.i_pk_sec;
+            D0_converged  = cp.D0_converged;
+            P_actual_all  = cp.P_actual_all;
+            valid_flag    = cp.valid_flag;
+            error_msg     = cp.error_msg;
+            completed_mask = cp.completed_mask;
+            
+            % 이전 타임스탬프/로그 복원
+            if isfield(cp, 'timestamp_cp')
+                timestamp  = cp.timestamp_cp;
+                resultFile = fullfile(dataDir, sprintf('TPS_Dataset_%s.mat', timestamp));
+                csvFile    = fullfile(dataDir, sprintf('TPS_Dataset_%s.csv', timestamp));
+                logFile    = fullfile(dataDir, sprintf('TPS_Dataset_%s.log', timestamp));
+            end
+            
+            n_done = sum(completed_mask);
+            fprintf('   Restored %d / %d completed results (%.1f%%)\n', n_done, N_total, 100*n_done/N_total);
+            fprintf('   Remaining: %d simulations\n\n', N_total - n_done);
+        else
+            fprintf('   [WARNING] Checkpoint grid size mismatch (cp=%d vs current=%d). Starting fresh.\n\n', ...
+                cp.N_total_cp, N_total);
+            completed_mask = false(N_total, 1);
+        end
+    else
+        fprintf('>> No checkpoint found. Starting fresh.\n\n');
+    end
     
     %% =====================================================================
     %  3. Simulink 경로 설정
@@ -300,18 +350,15 @@ function Generate_TPS_Dataset()
     fprintf('\n');
 
     %% =====================================================================
-    %  5. 병렬 시뮬레이션 및 데이터 동시 추출 (parfor 적용)
+    %  5. 병렬 시뮬레이션 및 데이터 동시 추출 (배치 parfor + 체크포인트)
     % =====================================================================
-    fprintf('>> Running simulations (%d combinations) via Workers...\n', N_total);
-    fprintf('   This avoids memory explosion by allocating directly in workers.\n\n');
     
-    % 결과를 저장할 벡터 사전 할당 (시뮬레이션 객체 보존 안 함)
-    i_pk_pri = NaN(N_total, 1);
-    i_pk_sec = NaN(N_total, 1);
-    D0_converged = NaN(N_total, 1);
-    P_actual_all = NaN(N_total, 1);
-    valid_flag = false(N_total, 1);
-    error_msg = cell(N_total, 1);
+    % 남은 인덱스만 추출
+    remaining_indices = find(~completed_mask);
+    N_remaining = length(remaining_indices);
+    
+    fprintf('>> Running simulations (%d remaining / %d total) via Workers...\n', N_remaining, N_total);
+    fprintf('   Batch size: %d (checkpoint saved after each batch)\n\n', BATCH_SIZE);
     
     % 진행 상태 피드백용 DataQueue (로그 파일에 동시 기록)
     DQueue = parallel.pool.DataQueue;
@@ -320,209 +367,259 @@ function Generate_TPS_Dataset()
     cd(modelDir);
     tic;
     
-    % 핵심: parfor 루프 안에서 즉석으로 객체 만들고 지우기
-    parfor idx = 1:N_total
+    % 배치 단위로 parfor 실행 + 각 배치 후 체크포인트 저장
+    N_batches = ceil(N_remaining / BATCH_SIZE);
+    
+    for batchIdx = 1:N_batches
+        % 이번 배치에 해당하는 remaining_indices 범위 계산
+        batchStart = (batchIdx - 1) * BATCH_SIZE + 1;
+        batchEnd   = min(batchIdx * BATCH_SIZE, N_remaining);
+        batch_indices = remaining_indices(batchStart:batchEnd);
+        n_batch = length(batch_indices);
         
-        % 워커별 고유 캐시 폴더 설정 (충돌 방지, SPMD 미지원 환경 대응)
-        task = getCurrentTask();
-        if ~isempty(task)
-            worker_id = task.ID;
-        else
-            worker_id = 0;
-        end
-        worker_cache = fullfile(tempdir, sprintf('sl_cache_worker_%d', worker_id));
-        if ~exist(worker_cache, 'dir'), mkdir(worker_cache); end
-        Simulink.fileGenControl('set', 'CacheFolder', worker_cache, 'CodeGenFolder', worker_cache);
-
-        % 워커별로 모델 로드 확인 (parfor 내에서 필수) - 변수 조작 전에 확실히 로드!
-        if ~bdIsLoaded(modelName)
-            load_system(modelName);
-        end
-
-        simIn = baseIn; % Worker마다 base 설정 복사
+        n_done_so_far = sum(completed_mask);
+        fprintf('>> [Batch %d/%d] Processing indices %d~%d (%d sims) | Overall: %d/%d done (%.1f%%)\n', ...
+            batchIdx, N_batches, batch_indices(1), batch_indices(end), n_batch, ...
+            n_done_so_far, N_total, 100*n_done_so_far/N_total);
         
-        P_curr  = P_all(idx);
-        V2_curr = V2_all(idx);
-        D1_curr = D1_all(idx);
-        D2_curr = D2_all(idx);
+        % 배치 내 임시 결과 벡터 (parfor용 슬라이싱 변수)
+        b_i_pk_pri     = NaN(n_batch, 1);
+        b_i_pk_sec     = NaN(n_batch, 1);
+        b_D0_converged = NaN(n_batch, 1);
+        b_P_actual     = NaN(n_batch, 1);
+        b_valid_flag   = false(n_batch, 1);
+        b_error_msg    = cell(n_batch, 1);
         
-        % 가변 변수 주입 (충전 방향 기준 전력)
-        Power_cmd_val = -P_curr;
-        I_ess_cmd_val = Power_cmd_val / V2_curr;
+        % 배치 내 파라미터 슬라이싱 (parfor broadcast 최적화)
+        b_P  = P_all(batch_indices);
+        b_V2 = V2_all(batch_indices);
+        b_D1 = D1_all(batch_indices);
+        b_D2 = D2_all(batch_indices);
         
-        ts_P = timeseries(Power_cmd_val * ones(2,1), t_input);
-        ts_I_ess = timeseries(I_ess_cmd_val * ones(2,1), t_input);
-        ts_VL = timeseries(V2_curr * ones(2,1), t_input);
-        ts_D1 = timeseries(D1_curr * ones(2,1), t_input);
-        ts_D2 = timeseries(D2_curr * ones(2,1), t_input);
-        
-        simIn = simIn.setVariable('Ref_Power', ts_P);
-        simIn = simIn.setVariable('Ref_I_ess_cmd', ts_I_ess);
-        simIn = simIn.setVariable('Ref_VL', ts_VL);
-        simIn = simIn.setVariable('D1', ts_D1);
-        simIn = simIn.setVariable('D2', ts_D2);
-        simIn = simIn.setVariable('V_init_LV', V2_curr);
-        simIn = simIn.setVariable('V_batt', V2_curr);
-        
-        % [FALLBACK] 워커 메모리에 직접 변수 밀어넣기 (Mask 에러 방지용)
-        assignin('base', 'V_init_LV', V2_curr);  assignin('base', 'V_batt', V2_curr);
-        assignin('base', 'C_HV', 1000e-6);       assignin('base', 'R_ESR_HV', 0.05);
-        assignin('base', 'R_ESR_LV', 0.01);      assignin('base', 'R_batt_int', 0.15);
-        assignin('base', 'Kp_ext', Kp_val);      assignin('base', 'Ki_ext', Ki_val);
-        assignin('base', 'Kpv', Kpv_val);        assignin('base', 'Kiv', Kiv_val);
-        
-        try
-            simOut = sim(simIn); % 개별 시뮬레이션 실행 (결과만 즉시 받음)
+        parfor k = 1:n_batch
             
-            % 에러 체크
-            if ~isempty(simOut.ErrorMessage)
-                error_msg{idx} = simOut.ErrorMessage;
-                continue; % 다음 idx로 건너뜀 (NaN 유지)
+            % 워커별 고유 캐시 폴더 설정 (충돌 방지)
+            task = getCurrentTask();
+            if ~isempty(task)
+                worker_id = task.ID;
+            else
+                worker_id = 0;
             end
+            worker_cache = fullfile(tempdir, sprintf('sl_cache_worker_%d', worker_id));
+            if ~exist(worker_cache, 'dir'), mkdir(worker_cache); end
+            Simulink.fileGenControl('set', 'CacheFolder', worker_cache, 'CodeGenFolder', worker_cache);
+
+            % 워커별로 모델 로드 확인
+            if ~bdIsLoaded(modelName)
+                load_system(modelName);
+            end
+
+            simIn = baseIn;
             
-            out_data = simOut;
-            I_L_data = [];
-            t_sim = [];
+            P_curr  = b_P(k);
+            V2_curr = b_V2(k);
+            D1_curr = b_D1(k);
+            D2_curr = b_D2(k);
+            global_idx = batch_indices(k);  %#ok<PFBNS>
             
-            % 1. 인덕터 피크 추출 (getSignalData_local 함수 활용)
-            if isprop(out_data, 'Inductor_Current1')
-                raw_I = out_data.Inductor_Current1;
-                I_L_data = getSignalData_local(raw_I);
-                t_sim = getSignalTime_local(raw_I, out_data);
-            elseif isprop(out_data, 'Inductor_Current')
-                raw_I = out_data.Inductor_Current;
-                I_L_data = getSignalData_local(raw_I);
-                t_sim = getSignalTime_local(raw_I, out_data);
-            elseif isprop(out_data, 'I_L1')
-                raw_I = out_data.I_L1;
-                I_L_data = getSignalData_local(raw_I);
-                t_sim = getSignalTime_local(raw_I, out_data);
-            elseif isprop(out_data, 'I_L')
-                raw_I = out_data.I_L;
-                I_L_data = getSignalData_local(raw_I);
-                t_sim = getSignalTime_local(raw_I, out_data);
-            elseif isprop(out_data, 'yout')
-                try
-                    raw_I = out_data.yout.get('Inductor_Current1');
+            % 가변 변수 주입 (충전 방향 기준 전력)
+            Power_cmd_val = -P_curr;
+            I_ess_cmd_val = Power_cmd_val / V2_curr;
+            
+            ts_P = timeseries(Power_cmd_val * ones(2,1), t_input);
+            ts_I_ess = timeseries(I_ess_cmd_val * ones(2,1), t_input);
+            ts_VL = timeseries(V2_curr * ones(2,1), t_input);
+            ts_D1 = timeseries(D1_curr * ones(2,1), t_input);
+            ts_D2 = timeseries(D2_curr * ones(2,1), t_input);
+            
+            simIn = simIn.setVariable('Ref_Power', ts_P);
+            simIn = simIn.setVariable('Ref_I_ess_cmd', ts_I_ess);
+            simIn = simIn.setVariable('Ref_VL', ts_VL);
+            simIn = simIn.setVariable('D1', ts_D1);
+            simIn = simIn.setVariable('D2', ts_D2);
+            simIn = simIn.setVariable('V_init_LV', V2_curr);
+            simIn = simIn.setVariable('V_batt', V2_curr);
+            
+            % [FALLBACK] 워커 메모리에 직접 변수 밀어넣기 (Mask 에러 방지용)
+            assignin('base', 'V_init_LV', V2_curr);  assignin('base', 'V_batt', V2_curr);
+            assignin('base', 'C_HV', 1000e-6);       assignin('base', 'R_ESR_HV', 0.05);
+            assignin('base', 'R_ESR_LV', 0.01);      assignin('base', 'R_batt_int', 0.15);
+            assignin('base', 'Kp_ext', Kp_val);      assignin('base', 'Ki_ext', Ki_val);
+            assignin('base', 'Kpv', Kpv_val);        assignin('base', 'Kiv', Kiv_val);
+            
+            try
+                simOut = sim(simIn);
+                
+                if ~isempty(simOut.ErrorMessage)
+                    b_error_msg{k} = simOut.ErrorMessage;
+                    continue;
+                end
+                
+                out_data = simOut;
+                I_L_data = [];
+                t_sim = [];
+                
+                % 1. 인덕터 피크 추출
+                if isprop(out_data, 'Inductor_Current1')
+                    raw_I = out_data.Inductor_Current1;
                     I_L_data = getSignalData_local(raw_I);
                     t_sim = getSignalTime_local(raw_I, out_data);
-                catch
+                elseif isprop(out_data, 'Inductor_Current')
+                    raw_I = out_data.Inductor_Current;
+                    I_L_data = getSignalData_local(raw_I);
+                    t_sim = getSignalTime_local(raw_I, out_data);
+                elseif isprop(out_data, 'I_L1')
+                    raw_I = out_data.I_L1;
+                    I_L_data = getSignalData_local(raw_I);
+                    t_sim = getSignalTime_local(raw_I, out_data);
+                elseif isprop(out_data, 'I_L')
+                    raw_I = out_data.I_L;
+                    I_L_data = getSignalData_local(raw_I);
+                    t_sim = getSignalTime_local(raw_I, out_data);
+                elseif isprop(out_data, 'yout')
                     try
-                        raw_I = out_data.yout.get('Inductor_Current');
+                        raw_I = out_data.yout.get('Inductor_Current1');
                         I_L_data = getSignalData_local(raw_I);
                         t_sim = getSignalTime_local(raw_I, out_data);
-                    catch, end
+                    catch
+                        try
+                            raw_I = out_data.yout.get('Inductor_Current');
+                            I_L_data = getSignalData_local(raw_I);
+                            t_sim = getSignalTime_local(raw_I, out_data);
+                        catch, end
+                    end
                 end
+                
+                if isempty(I_L_data) || isempty(t_sim)
+                    b_error_msg{k} = 'Current data (Inductor_Current1) not found.';
+                    continue;
+                end
+                
+                % 정상상태 구간 슬라이싱
+                ss_mask = t_sim >= SS_START;
+                if sum(ss_mask) < 10
+                    b_error_msg{k} = 'Insufficient steady-state data.';
+                    continue;
+                end
+                
+                I_L_ss = I_L_data(ss_mask);
+                T_cycle = 1 / spec.fs;
+                dt_sim = mean(diff(t_sim(ss_mask)));
+                samples_per_cycle = max(2, round(T_cycle / dt_sim));
+                
+                if length(I_L_ss) >= samples_per_cycle
+                    last_cycle = I_L_ss(end-samples_per_cycle+1:end);
+                else
+                    last_cycle = I_L_ss;
+                end
+                
+                i_pk_val = max(abs(last_cycle));
+                
+                % 클렌징 1: 한계치 이상 과전류
+                if i_pk_val > spec.I_pri_max * 1.5 || i_pk_val * spec.n > spec.I_sec_max * 1.5
+                    b_error_msg{k} = sprintf('Overcurrent (i_pk=%.1fA)', i_pk_val);
+                    continue;
+                end
+                
+                % 클렌징 2: 발산/진동 감지
+                mean_I = mean(abs(I_L_ss));
+                std_I = std(I_L_ss);
+                if std_I > 5 * mean_I && mean_I > 0.1
+                    b_error_msg{k} = 'PI divergence.';
+                    continue;
+                end
+                
+                % 2. 외부 위상 추출
+                phi_data = [];
+                if isprop(out_data, 'Phi_ext_out1')
+                    phi_data = getSignalData_local(out_data.Phi_ext_out1);
+                elseif isprop(out_data, 'Phi_ext_out')
+                    phi_data = getSignalData_local(out_data.Phi_ext_out);
+                elseif isprop(out_data, 'phi_ext_out1')
+                    phi_data = getSignalData_local(out_data.phi_ext_out1);
+                elseif isprop(out_data, 'phi_ext_out')
+                    phi_data = getSignalData_local(out_data.phi_ext_out);
+                elseif isprop(out_data, 'Phi_ext1')
+                    phi_data = getSignalData_local(out_data.Phi_ext1);
+                elseif isprop(out_data, 'Phi_ext')
+                    phi_data = getSignalData_local(out_data.Phi_ext);
+                end
+                
+                if ~isempty(phi_data)
+                    b_D0_converged(k) = phi_data(end) / 360;
+                end
+                
+                % 3. 실제 전력 직접 계산 (V_LV * I_LV)
+                p_actual_val = NaN;
+                v_lv_data = []; i_lv_data = [];
+                
+                if isprop(out_data, 'V_LV1'), v_lv_data = getSignalData_local(out_data.V_LV1);
+                elseif isprop(out_data, 'V_LV'), v_lv_data = getSignalData_local(out_data.V_LV); 
+                elseif isprop(out_data, 'yout')
+                    try v_lv_data = getSignalData_local(out_data.yout.get('V_LV1')); catch
+                        try v_lv_data = getSignalData_local(out_data.yout.get('V_LV')); catch, end
+                    end
+                end
+                
+                if isprop(out_data, 'I_LV1'), i_lv_data = getSignalData_local(out_data.I_LV1);
+                elseif isprop(out_data, 'I_LV'), i_lv_data = getSignalData_local(out_data.I_LV); 
+                elseif isprop(out_data, 'yout')
+                    try i_lv_data = getSignalData_local(out_data.yout.get('I_LV1')); catch
+                        try i_lv_data = getSignalData_local(out_data.yout.get('I_LV')); catch, end
+                    end
+                end
+                
+                if ~isempty(v_lv_data) && ~isempty(i_lv_data)
+                    p_calc_data = v_lv_data .* i_lv_data;
+                    p_calc_ss = p_calc_data(ss_mask);
+                    p_actual_val = mean(p_calc_ss);
+                else
+                    p_actual_val = P_curr; % Fallback
+                end
+                
+                b_P_actual(k) = p_actual_val;
+                
+                % 안전한 값으로 저장
+                b_i_pk_pri(k) = i_pk_val;
+                b_i_pk_sec(k) = i_pk_val * spec.n;
+                b_valid_flag(k) = true;
+                
+            catch ME_inner
+                b_error_msg{k} = sprintf('Error: %s', ME_inner.message);
             end
             
-            if isempty(I_L_data) || isempty(t_sim)
-                error_msg{idx} = 'Current data (Inductor_Current1) not found.';
-                continue;
-            end
-            
-            % 정상상태 구간 슬라이싱
-            ss_mask = t_sim >= SS_START;
-            if sum(ss_mask) < 10
-                error_msg{idx} = 'Insufficient steady-state data.';
-                continue;
-            end
-            
-            I_L_ss = I_L_data(ss_mask);
-            T_cycle = 1 / spec.fs;
-            dt_sim = mean(diff(t_sim(ss_mask)));
-            samples_per_cycle = max(2, round(T_cycle / dt_sim));
-            
-            if length(I_L_ss) >= samples_per_cycle
-                last_cycle = I_L_ss(end-samples_per_cycle+1:end);
+            % DataQueue를 통한 실시간 로깅
+            if b_valid_flag(k)
+                send(DQueue, sprintf('   [Worker %d : %d / %d] SUCCESS. P_cmd=%.0fW, P_act=%.1fW, V2=%.1fV, D1=%.2f, D2=%.2f -> i_pk_pri=%.2fA, D0_conv=%.3f', ...
+                    worker_id, global_idx, N_total, P_curr, p_actual_val, V2_curr, D1_curr, D2_curr, i_pk_val, b_D0_converged(k)));
             else
-                last_cycle = I_L_ss;
+                send(DQueue, sprintf('   [Worker %d : %d / %d] FAILED. P_cmd=%.0fW, V2=%.1fV, D1=%.2f, D2=%.2f | Error: %s', ...
+                    worker_id, global_idx, N_total, P_curr, V2_curr, D1_curr, D2_curr, b_error_msg{k}));
             end
-            
-            i_pk_val = max(abs(last_cycle));
-            
-            % 클렌징 1: 한계치 이상 과전류
-            if i_pk_val > spec.I_pri_max * 1.5 || i_pk_val * spec.n > spec.I_sec_max * 1.5
-                error_msg{idx} = sprintf('Overcurrent (i_pk=%.1fA)', i_pk_val);
-                continue;
-            end
-            
-            % 클렌징 2: 발산/진동 감지 (Std dev가 너무 큰 경우)
-            mean_I = mean(abs(I_L_ss));
-            std_I = std(I_L_ss);
-            if std_I > 5 * mean_I && mean_I > 0.1
-                error_msg{idx} = 'PI divergence.';
-                continue;
-            end
-            
-            % 2. 외부 위상 추출
-            phi_data = [];
-            if isprop(out_data, 'Phi_ext_out1')
-                phi_data = getSignalData_local(out_data.Phi_ext_out1);
-            elseif isprop(out_data, 'Phi_ext_out')
-                phi_data = getSignalData_local(out_data.Phi_ext_out);
-            elseif isprop(out_data, 'phi_ext_out1')
-                phi_data = getSignalData_local(out_data.phi_ext_out1);
-            elseif isprop(out_data, 'phi_ext_out')
-                phi_data = getSignalData_local(out_data.phi_ext_out);
-            elseif isprop(out_data, 'Phi_ext1')
-                phi_data = getSignalData_local(out_data.Phi_ext1);
-            elseif isprop(out_data, 'Phi_ext')
-                phi_data = getSignalData_local(out_data.Phi_ext);
-            end
-            
-            if ~isempty(phi_data)
-                D0_converged(idx) = phi_data(end) / 360;
-            end
-            
-            % 3. 실제 전력 직접 계산 (V_LV * I_LV)
-            p_actual_val = NaN;
-            v_lv_data = []; i_lv_data = [];
-            
-            if isprop(out_data, 'V_LV1'), v_lv_data = getSignalData_local(out_data.V_LV1);
-            elseif isprop(out_data, 'V_LV'), v_lv_data = getSignalData_local(out_data.V_LV); 
-            elseif isprop(out_data, 'yout')
-                try v_lv_data = getSignalData_local(out_data.yout.get('V_LV1')); catch
-                    try v_lv_data = getSignalData_local(out_data.yout.get('V_LV')); catch, end
-                end
-            end
-            
-            if isprop(out_data, 'I_LV1'), i_lv_data = getSignalData_local(out_data.I_LV1);
-            elseif isprop(out_data, 'I_LV'), i_lv_data = getSignalData_local(out_data.I_LV); 
-            elseif isprop(out_data, 'yout')
-                try i_lv_data = getSignalData_local(out_data.yout.get('I_LV1')); catch
-                    try i_lv_data = getSignalData_local(out_data.yout.get('I_LV')); catch, end
-                end
-            end
-            
-            if ~isempty(v_lv_data) && ~isempty(i_lv_data)
-                p_calc_data = v_lv_data .* i_lv_data;
-                p_calc_ss = p_calc_data(ss_mask);
-                p_actual_val = mean(p_calc_ss);
-            else
-                p_actual_val = P_curr; % Fallback
-            end
-            
-            P_actual_all(idx) = p_actual_val;
-            
-            % 안전한 값으로 저장
-            i_pk_pri(idx) = i_pk_val;
-            i_pk_sec(idx) = i_pk_val * spec.n;
-            valid_flag(idx) = true;
-            
-        catch ME_inner
-            error_msg{idx} = sprintf('Error: %s', ME_inner.message);
+        end  % parfor end
+        
+        % 배치 결과를 전체 결과에 병합
+        for k = 1:n_batch
+            gIdx = batch_indices(k);
+            i_pk_pri(gIdx)     = b_i_pk_pri(k);
+            i_pk_sec(gIdx)     = b_i_pk_sec(k);
+            D0_converged(gIdx) = b_D0_converged(k);
+            P_actual_all(gIdx) = b_P_actual(k);
+            valid_flag(gIdx)   = b_valid_flag(k);
+            error_msg{gIdx}    = b_error_msg{k};
+            completed_mask(gIdx) = true;
         end
         
-        % 각 시뮬레이션 결과 모두 큐에 전송 (DataQueue를 통해 마스터 워커에서 안전하게 로깅)
-        % 병렬 풀 충돌을 방지하면서 실시간 체킹 가능
-        if valid_flag(idx)
-            send(DQueue, sprintf('   [Worker %d : %d / %d] SUCCESS. P_cmd=%.0fW, P_act=%.1fW, V2=%.1fV, D1=%.2f, D2=%.2f -> i_pk_pri=%.2fA, D0_conv=%.3f', ...
-                worker_id, idx, N_total, P_curr, p_actual_val, V2_curr, D1_curr, D2_curr, i_pk_val, D0_converged(idx)));
-        else
-            send(DQueue, sprintf('   [Worker %d : %d / %d] FAILED. P_cmd=%.0fW, V2=%.1fV, D1=%.2f, D2=%.2f | Error: %s', ...
-                worker_id, idx, N_total, P_curr, V2_curr, D1_curr, D2_curr, error_msg{idx}));
-        end
-    end
+        % === 체크포인트 저장 ===
+        N_total_cp    = N_total;  %#ok<NASGU>
+        timestamp_cp  = timestamp;  %#ok<NASGU>
+        save(checkpointFile, 'i_pk_pri', 'i_pk_sec', 'D0_converged', 'P_actual_all', ...
+             'valid_flag', 'error_msg', 'completed_mask', 'N_total_cp', 'timestamp_cp', '-v7.3');
+        
+        n_done_now = sum(completed_mask);
+        fprintf('   [Checkpoint Saved] %d/%d done (%.1f%%) -> %s\n\n', ...
+            n_done_now, N_total, 100*n_done_now/N_total, checkpointFile);
+    end  % batch loop end
     
     parsim_elapsed = toc;
     cd(originalDir);
@@ -584,6 +681,13 @@ function Generate_TPS_Dataset()
     
     writetable(dataset_valid, csvFile);
     fprintf('   CSV: %s\n', csvFile);
+    
+    % 체크포인트 파일 정리 (완료됨으로 이름 변경)
+    if exist(checkpointFile, 'file')
+        doneCheckpoint = fullfile(dataDir, sprintf('TPS_Checkpoint_done_%s.mat', timestamp));
+        movefile(checkpointFile, doneCheckpoint);
+        fprintf('   Checkpoint archived: %s\n', doneCheckpoint);
+    end
     
     %% =====================================================================
     %  8. 시각화
