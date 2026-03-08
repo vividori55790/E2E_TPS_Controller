@@ -62,9 +62,9 @@ function Generate_TPS_Dataset()
     SIM_TIME = 0.06;            % 60ms (과도응답 포함)
     SS_START = 0.04;            % 정상상태 시작 (40ms)
     
-    % 제어기 파라미터
-    Kp_val = 5.0;
-    Ki_val = 5000;
+    % 제어기 파라미터 (Power-based 제어이므로 극단적 포화 방지를 위해 스케일 조정)
+    Kp_val = 0.05;
+    Ki_val = 50.0;
     DeadTime_ns_val = 200;      % ns
     Kpv_val = 5.0;              % 전압 PI (비사용, 상수)
     Kiv_val = 5000;
@@ -146,6 +146,7 @@ function Generate_TPS_Dataset()
     baseIn = baseIn.setVariable('Ref_I_ess_cmd', timeseries(zeros(2,1), t_input));
     baseIn = baseIn.setVariable('load_R', timeseries(1000 * ones(2,1), t_input));
     baseIn = baseIn.setVariable('timestamp', timeseries(12 * ones(2,1), t_input));
+    baseIn = baseIn.setVariable('V_Grid', timeseries(spec.V_in * ones(2,1), t_input)); % [CRITICAL FIX] 계통 전압 추가
     
     % [CRITICAL FIX] 제어 모드 강제 주입 (TPS 생성 전용)
     % Ctrl_Mode_Ext = 3 (TPS), Mode_Select = 2 (Auto Control)
@@ -155,8 +156,7 @@ function Generate_TPS_Dataset()
     baseIn = baseIn.setVariable('Phi_Manual', timeseries(0 * ones(2,1), t_input));
     
     % [CRITICAL FIX] 회로 파라미터 주입 (병렬 워커 빈 메모리 에러 해결)
-    baseIn = baseIn.setVariable('V_init_LV', 96);
-    baseIn = baseIn.setVariable('V_batt', 96);
+    % V_init_LV와 V_batt는 각 시뮬레이션 케이스마다 V2_curr 비율로 동적 할당되므로, 여기서 초기 96 제거 (이후 testIn/simIn에서 주입)
     baseIn = baseIn.setVariable('C_HV', 1000e-6);
     baseIn = baseIn.setVariable('R_ESR_HV', 0.05);
     baseIn = baseIn.setVariable('R_ESR_LV', 0.01);
@@ -186,11 +186,15 @@ function Generate_TPS_Dataset()
         
         testIn = baseIn;
         testIn = testIn.setVariable('Ref_Power', timeseries(-P_curr * ones(2,1), t_input));
+        I_ess_cmd_val = -P_curr / V2_curr;
+        testIn = testIn.setVariable('Ref_I_ess_cmd', timeseries(I_ess_cmd_val * ones(2,1), t_input));
         testIn = testIn.setVariable('D1', timeseries(D1_curr * ones(2,1), t_input));
         testIn = testIn.setVariable('D2', timeseries(D2_curr * ones(2,1), t_input));
+        testIn = testIn.setVariable('V_init_LV', V2_curr);
+        testIn = testIn.setVariable('V_batt', V2_curr);
         
         % [FALLBACK] 마스크 에러 방지용으로 메인 작업공간에 변수 할당
-        assignin('base', 'V_init_LV', 96);       assignin('base', 'V_batt', 96);
+        assignin('base', 'V_init_LV', V2_curr);  assignin('base', 'V_batt', V2_curr);
         assignin('base', 'C_HV', 1000e-6);       assignin('base', 'R_ESR_HV', 0.05);
         assignin('base', 'R_ESR_LV', 0.01);      assignin('base', 'R_batt_int', 0.15);
         assignin('base', 'Kp_ext', Kp_val);      assignin('base', 'Ki_ext', Ki_val);
@@ -295,22 +299,28 @@ function Generate_TPS_Dataset()
         simIn = baseIn; % Worker마다 base 설정 복사
         
         P_curr  = P_all(idx);
+        V2_curr = V2_all(idx);
         D1_curr = D1_all(idx);
         D2_curr = D2_all(idx);
         
         % 가변 변수 주입 (충전 방향 기준 전력)
         Power_cmd_val = -P_curr;
+        I_ess_cmd_val = Power_cmd_val / V2_curr;
         
         ts_P = timeseries(Power_cmd_val * ones(2,1), t_input);
+        ts_I_ess = timeseries(I_ess_cmd_val * ones(2,1), t_input);
         ts_D1 = timeseries(D1_curr * ones(2,1), t_input);
         ts_D2 = timeseries(D2_curr * ones(2,1), t_input);
         
         simIn = simIn.setVariable('Ref_Power', ts_P);
+        simIn = simIn.setVariable('Ref_I_ess_cmd', ts_I_ess);
         simIn = simIn.setVariable('D1', ts_D1);
         simIn = simIn.setVariable('D2', ts_D2);
+        simIn = simIn.setVariable('V_init_LV', V2_curr);
+        simIn = simIn.setVariable('V_batt', V2_curr);
         
         % [FALLBACK] 워커 메모리에 직접 변수 밀어넣기 (Mask 에러 방지용)
-        assignin('base', 'V_init_LV', 96);       assignin('base', 'V_batt', 96);
+        assignin('base', 'V_init_LV', V2_curr);  assignin('base', 'V_batt', V2_curr);
         assignin('base', 'C_HV', 1000e-6);       assignin('base', 'R_ESR_HV', 0.05);
         assignin('base', 'R_ESR_LV', 0.01);      assignin('base', 'R_batt_int', 0.15);
         assignin('base', 'Kp_ext', Kp_val);      assignin('base', 'Ki_ext', Ki_val);
