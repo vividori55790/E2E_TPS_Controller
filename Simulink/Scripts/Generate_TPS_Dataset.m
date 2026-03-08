@@ -350,24 +350,20 @@ function Generate_TPS_Dataset()
     fprintf('\n');
 
     %% =====================================================================
-    %  5. 병렬 시뮬레이션 및 데이터 동시 추출 (배치 parfor + 체크포인트)
+    %  5. 병렬 시뮬레이션 및 데이터 동시 추출 (배치 parsim + 체크포인트)
     % =====================================================================
     
     % 남은 인덱스만 추출
     remaining_indices = find(~completed_mask);
     N_remaining = length(remaining_indices);
     
-    fprintf('>> Running simulations (%d remaining / %d total) via Workers...\n', N_remaining, N_total);
+    fprintf('>> Running simulations (%d remaining / %d total) via parsim...\n', N_remaining, N_total);
     fprintf('   Batch size: %d (checkpoint saved after each batch)\n\n', BATCH_SIZE);
-    
-    % 진행 상태 피드백용 DataQueue (로그 파일에 동시 기록)
-    DQueue = parallel.pool.DataQueue;
-    afterEach(DQueue, @(msg) logStatusMsg(msg, logFile));
     
     cd(modelDir);
     tic;
     
-    % 배치 단위로 parfor 실행 + 각 배치 후 체크포인트 저장
+    % 배치 단위로 parsim 실행 + 각 배치 후 체크포인트 저장
     N_batches = ceil(N_remaining / BATCH_SIZE);
     
     for batchIdx = 1:N_batches
@@ -382,76 +378,60 @@ function Generate_TPS_Dataset()
             batchIdx, N_batches, batch_indices(1), batch_indices(end), n_batch, ...
             n_done_so_far, N_total, 100*n_done_so_far/N_total);
         
-        % 배치 내 임시 결과 벡터 (parfor용 슬라이싱 변수)
-        b_i_pk_pri     = NaN(n_batch, 1);
-        b_i_pk_sec     = NaN(n_batch, 1);
-        b_D0_converged = NaN(n_batch, 1);
-        b_P_actual     = NaN(n_batch, 1);
-        b_valid_flag   = false(n_batch, 1);
-        b_error_msg    = cell(n_batch, 1);
+        % === parsim용 SimulationInput 배열 생성 ===
+        simIn_array(1:n_batch) = Simulink.SimulationInput(modelName);
         
-        % 배치 내 파라미터 슬라이싱 (parfor broadcast 최적화)
-        b_P  = P_all(batch_indices);
-        b_V2 = V2_all(batch_indices);
-        b_D1 = D1_all(batch_indices);
-        b_D2 = D2_all(batch_indices);
-        
-        parfor k = 1:n_batch
+        for k = 1:n_batch
+            P_curr  = P_all(batch_indices(k));
+            V2_curr = V2_all(batch_indices(k));
+            D1_curr = D1_all(batch_indices(k));
+            D2_curr = D2_all(batch_indices(k));
             
-            % 워커별 고유 캐시 폴더 설정 (충돌 방지)
-            task = getCurrentTask();
-            if ~isempty(task)
-                worker_id = task.ID;
-            else
-                worker_id = 0;
-            end
-            worker_cache = fullfile(tempdir, sprintf('sl_cache_worker_%d', worker_id));
-            if ~exist(worker_cache, 'dir'), mkdir(worker_cache); end
-            Simulink.fileGenControl('set', 'CacheFolder', worker_cache, 'CodeGenFolder', worker_cache);
-
-            % 워커별로 모델 로드 확인
-            if ~bdIsLoaded(modelName)
-                load_system(modelName);
-            end
-
-            simIn = baseIn;
-            
-            P_curr  = b_P(k);
-            V2_curr = b_V2(k);
-            D1_curr = b_D1(k);
-            D2_curr = b_D2(k);
-            global_idx = batch_indices(k);  %#ok<PFBNS>
+            % baseIn의 모든 설정을 복사
+            simIn_array(k) = baseIn;
             
             % 가변 변수 주입 (충전 방향 기준 전력)
             Power_cmd_val = -P_curr;
             I_ess_cmd_val = Power_cmd_val / V2_curr;
             
-            ts_P = timeseries(Power_cmd_val * ones(2,1), t_input);
-            ts_I_ess = timeseries(I_ess_cmd_val * ones(2,1), t_input);
-            ts_VL = timeseries(V2_curr * ones(2,1), t_input);
-            ts_D1 = timeseries(D1_curr * ones(2,1), t_input);
-            ts_D2 = timeseries(D2_curr * ones(2,1), t_input);
-            
-            simIn = simIn.setVariable('Ref_Power', ts_P);
-            simIn = simIn.setVariable('Ref_I_ess_cmd', ts_I_ess);
-            simIn = simIn.setVariable('Ref_VL', ts_VL);
-            simIn = simIn.setVariable('D1', ts_D1);
-            simIn = simIn.setVariable('D2', ts_D2);
-            simIn = simIn.setVariable('V_init_LV', V2_curr);
-            simIn = simIn.setVariable('V_batt', V2_curr);
-            
-            % [FALLBACK] 워커 메모리에 직접 변수 밀어넣기 (Mask 에러 방지용)
-            assignin('base', 'V_init_LV', V2_curr);  assignin('base', 'V_batt', V2_curr);
-            assignin('base', 'C_HV', 1000e-6);       assignin('base', 'R_ESR_HV', 0.05);
-            assignin('base', 'R_ESR_LV', 0.01);      assignin('base', 'R_batt_int', 0.15);
-            assignin('base', 'Kp_ext', Kp_val);      assignin('base', 'Ki_ext', Ki_val);
-            assignin('base', 'Kpv', Kpv_val);        assignin('base', 'Kiv', Kiv_val);
+            simIn_array(k) = simIn_array(k).setVariable('Ref_Power', timeseries(Power_cmd_val * ones(2,1), t_input));
+            simIn_array(k) = simIn_array(k).setVariable('Ref_I_ess_cmd', timeseries(I_ess_cmd_val * ones(2,1), t_input));
+            simIn_array(k) = simIn_array(k).setVariable('Ref_VL', timeseries(V2_curr * ones(2,1), t_input));
+            simIn_array(k) = simIn_array(k).setVariable('D1', timeseries(D1_curr * ones(2,1), t_input));
+            simIn_array(k) = simIn_array(k).setVariable('D2', timeseries(D2_curr * ones(2,1), t_input));
+            simIn_array(k) = simIn_array(k).setVariable('V_init_LV', V2_curr);
+            simIn_array(k) = simIn_array(k).setVariable('V_batt', V2_curr);
+        end
+        
+        % === parsim 실행 ===
+        % - UseFastRestart: 모델 컴파일 1회만 수행 (속도 향상)
+        % - ShowProgress: 콘솔 진행률 표시
+        % - TransferBaseWorkspaceVariables: base workspace 변수 자동 전달
+        % - SetupFcn: 워커에 필요한 base 변수 주입 (Mask 에러 방지)
+        simOut_array = parsim(simIn_array, ...
+            'UseFastRestart', 'on', ...
+            'ShowProgress', 'on', ...
+            'TransferBaseWorkspaceVariables', 'on', ...
+            'ShowSimulationManager', 'off', ...
+            'SetupFcn', @()workerSetupFcn(Kp_val, Ki_val, Kpv_val, Kiv_val));
+        
+        % === parsim 결과 후처리 (기존 추출 로직 동일) ===
+        for k = 1:n_batch
+            global_idx = batch_indices(k);
+            P_curr  = P_all(global_idx);
+            V2_curr = V2_all(global_idx);
+            D1_curr = D1_all(global_idx);
+            D2_curr = D2_all(global_idx);
             
             try
-                simOut = sim(simIn);
+                simOut = simOut_array(k);
                 
+                % parsim 에러 확인
                 if ~isempty(simOut.ErrorMessage)
-                    b_error_msg{k} = simOut.ErrorMessage;
+                    error_msg{global_idx} = simOut.ErrorMessage;
+                    completed_mask(global_idx) = true;
+                    logStatusMsg(sprintf('   [%d / %d] FAILED. P_cmd=%.0fW, V2=%.1fV, D1=%.2f, D2=%.2f | Error: %s', ...
+                        global_idx, N_total, P_curr, V2_curr, D1_curr, D2_curr, simOut.ErrorMessage), logFile);
                     continue;
                 end
                 
@@ -491,14 +471,20 @@ function Generate_TPS_Dataset()
                 end
                 
                 if isempty(I_L_data) || isempty(t_sim)
-                    b_error_msg{k} = 'Current data (Inductor_Current1) not found.';
+                    error_msg{global_idx} = 'Current data (Inductor_Current1) not found.';
+                    completed_mask(global_idx) = true;
+                    logStatusMsg(sprintf('   [%d / %d] FAILED. P_cmd=%.0fW, V2=%.1fV, D1=%.2f, D2=%.2f | Error: %s', ...
+                        global_idx, N_total, P_curr, V2_curr, D1_curr, D2_curr, error_msg{global_idx}), logFile);
                     continue;
                 end
                 
                 % 정상상태 구간 슬라이싱
                 ss_mask = t_sim >= SS_START;
                 if sum(ss_mask) < 10
-                    b_error_msg{k} = 'Insufficient steady-state data.';
+                    error_msg{global_idx} = 'Insufficient steady-state data.';
+                    completed_mask(global_idx) = true;
+                    logStatusMsg(sprintf('   [%d / %d] FAILED. P_cmd=%.0fW, V2=%.1fV, D1=%.2f, D2=%.2f | Error: %s', ...
+                        global_idx, N_total, P_curr, V2_curr, D1_curr, D2_curr, error_msg{global_idx}), logFile);
                     continue;
                 end
                 
@@ -517,7 +503,10 @@ function Generate_TPS_Dataset()
                 
                 % 클렌징 1: 한계치 이상 과전류
                 if i_pk_val > spec.I_pri_max * 1.5 || i_pk_val * spec.n > spec.I_sec_max * 1.5
-                    b_error_msg{k} = sprintf('Overcurrent (i_pk=%.1fA)', i_pk_val);
+                    error_msg{global_idx} = sprintf('Overcurrent (i_pk=%.1fA)', i_pk_val);
+                    completed_mask(global_idx) = true;
+                    logStatusMsg(sprintf('   [%d / %d] FAILED. P_cmd=%.0fW, V2=%.1fV, D1=%.2f, D2=%.2f | Error: %s', ...
+                        global_idx, N_total, P_curr, V2_curr, D1_curr, D2_curr, error_msg{global_idx}), logFile);
                     continue;
                 end
                 
@@ -525,7 +514,10 @@ function Generate_TPS_Dataset()
                 mean_I = mean(abs(I_L_ss));
                 std_I = std(I_L_ss);
                 if std_I > 5 * mean_I && mean_I > 0.1
-                    b_error_msg{k} = 'PI divergence.';
+                    error_msg{global_idx} = 'PI divergence.';
+                    completed_mask(global_idx) = true;
+                    logStatusMsg(sprintf('   [%d / %d] FAILED. P_cmd=%.0fW, V2=%.1fV, D1=%.2f, D2=%.2f | Error: %s', ...
+                        global_idx, N_total, P_curr, V2_curr, D1_curr, D2_curr, error_msg{global_idx}), logFile);
                     continue;
                 end
                 
@@ -546,7 +538,7 @@ function Generate_TPS_Dataset()
                 end
                 
                 if ~isempty(phi_data)
-                    b_D0_converged(k) = phi_data(end) / 360;
+                    D0_converged(global_idx) = phi_data(end) / 360;
                 end
                 
                 % 3. 실제 전력 직접 계산 (V_LV * I_LV)
@@ -577,38 +569,27 @@ function Generate_TPS_Dataset()
                     p_actual_val = P_curr; % Fallback
                 end
                 
-                b_P_actual(k) = p_actual_val;
+                P_actual_all(global_idx) = p_actual_val;
                 
                 % 안전한 값으로 저장
-                b_i_pk_pri(k) = i_pk_val;
-                b_i_pk_sec(k) = i_pk_val * spec.n;
-                b_valid_flag(k) = true;
+                i_pk_pri(global_idx) = i_pk_val;
+                i_pk_sec(global_idx) = i_pk_val * spec.n;
+                valid_flag(global_idx) = true;
+                completed_mask(global_idx) = true;
+                
+                logStatusMsg(sprintf('   [%d / %d] SUCCESS. P_cmd=%.0fW, P_act=%.1fW, V2=%.1fV, D1=%.2f, D2=%.2f -> i_pk_pri=%.2fA, D0_conv=%.3f', ...
+                    global_idx, N_total, P_curr, p_actual_val, V2_curr, D1_curr, D2_curr, i_pk_val, D0_converged(global_idx)), logFile);
                 
             catch ME_inner
-                b_error_msg{k} = sprintf('Error: %s', ME_inner.message);
+                error_msg{global_idx} = sprintf('Error: %s', ME_inner.message);
+                completed_mask(global_idx) = true;
+                logStatusMsg(sprintf('   [%d / %d] FAILED. P_cmd=%.0fW, V2=%.1fV, D1=%.2f, D2=%.2f | Error: %s', ...
+                    global_idx, N_total, P_curr, V2_curr, D1_curr, D2_curr, error_msg{global_idx}), logFile);
             end
-            
-            % DataQueue를 통한 실시간 로깅
-            if b_valid_flag(k)
-                send(DQueue, sprintf('   [Worker %d : %d / %d] SUCCESS. P_cmd=%.0fW, P_act=%.1fW, V2=%.1fV, D1=%.2f, D2=%.2f -> i_pk_pri=%.2fA, D0_conv=%.3f', ...
-                    worker_id, global_idx, N_total, P_curr, p_actual_val, V2_curr, D1_curr, D2_curr, i_pk_val, b_D0_converged(k)));
-            else
-                send(DQueue, sprintf('   [Worker %d : %d / %d] FAILED. P_cmd=%.0fW, V2=%.1fV, D1=%.2f, D2=%.2f | Error: %s', ...
-                    worker_id, global_idx, N_total, P_curr, V2_curr, D1_curr, D2_curr, b_error_msg{k}));
-            end
-        end  % parfor end
+        end  % 후처리 for loop end
         
-        % 배치 결과를 전체 결과에 병합
-        for k = 1:n_batch
-            gIdx = batch_indices(k);
-            i_pk_pri(gIdx)     = b_i_pk_pri(k);
-            i_pk_sec(gIdx)     = b_i_pk_sec(k);
-            D0_converged(gIdx) = b_D0_converged(k);
-            P_actual_all(gIdx) = b_P_actual(k);
-            valid_flag(gIdx)   = b_valid_flag(k);
-            error_msg{gIdx}    = b_error_msg{k};
-            completed_mask(gIdx) = true;
-        end
+        % simOut_array 메모리 해제 (배치마다 즉시 정리)
+        clear simIn_array simOut_array;
         
         % === 체크포인트 저장 ===
         N_total_cp    = N_total;  %#ok<NASGU>
@@ -633,7 +614,7 @@ function Generate_TPS_Dataset()
     n_sim_error = sum(~cellfun('isempty', error_msg)) - n_overcurrent - n_diverged;
     
     fprintf('\n>> Simulation & Extraction complete!\n');
-    fprintf('   Parfor Runtime: %.1f sec (%.1f min)\n', parsim_elapsed, parsim_elapsed/60);
+    fprintf('   Parsim Runtime: %.1f sec (%.1f min)\n', parsim_elapsed, parsim_elapsed/60);
     fprintf('   Valid:       %d / %d (%.1f%%)\n', n_valid, N_total, 100*n_valid/N_total);
     fprintf('   Overcurrent: %d\n', n_overcurrent);
     fprintf('   Diverged:    %d\n', n_diverged);
@@ -643,7 +624,7 @@ function Generate_TPS_Dataset()
     fid = fopen(logFile, 'a');
     if fid ~= -1
         fprintf(fid, '\n>> Simulation & Extraction complete!\n');
-        fprintf(fid, '   Parfor Runtime: %.1f sec (%.1f min)\n', parsim_elapsed, parsim_elapsed/60);
+        fprintf(fid, '   Parsim Runtime: %.1f sec (%.1f min)\n', parsim_elapsed, parsim_elapsed/60);
         fprintf(fid, '   Valid:       %d / %d (%.1f%%)\n', n_valid, N_total, 100*n_valid/N_total);
         fprintf(fid, '   Overcurrent: %d\n', n_overcurrent);
         fprintf(fid, '   Diverged:    %d\n', n_diverged);
@@ -778,4 +759,16 @@ function logStatusMsg(msg, logFile)
         fprintf(fid, '[%s] %s\n', datestr(now, 'HH:MM:SS'), msg);
         fclose(fid);
     end
+end
+
+%% Helper: parsim SetupFcn — 워커 초기화 시 base workspace에 회로 파라미터 주입
+function workerSetupFcn(Kp_val, Ki_val, Kpv_val, Kiv_val)
+    assignin('base', 'C_HV', 1000e-6);
+    assignin('base', 'R_ESR_HV', 0.05);
+    assignin('base', 'R_ESR_LV', 0.01);
+    assignin('base', 'R_batt_int', 0.15);
+    assignin('base', 'Kp_ext', Kp_val);
+    assignin('base', 'Ki_ext', Ki_val);
+    assignin('base', 'Kpv', Kpv_val);
+    assignin('base', 'Kiv', Kiv_val);
 end
