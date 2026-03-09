@@ -73,12 +73,14 @@ function Generate_TPS_Dataset()
     t_ts = [0];
     d_ts = [D0_vec(1)];
     for k = 1:N_D0_STEPS
-        t_end = T_STARTUP + k * T_STEP; % k=1일때 0.006
+        % k=1: 0~0.005s에는 D0_vec(1)이 유지되다가 0.005s 시점에 D0_vec(2)로 변경됨
+        % N_D0_STEPS=20이므로 k=20일때 t_end=0.024s가 되며 D0_vec(20)이 0.025s까지 유지됨
+        t_end = T_STARTUP + (k-1) * T_STEP; 
         t_ts(end+1) = t_end;
         if k < N_D0_STEPS
-            d_ts(end+1) = D0_vec(k+1); % 다음 위상 예약
+            d_ts(end+1) = D0_vec(k+1); 
         else
-            d_ts(end+1) = D0_vec(N_D0_STEPS); % 마지막 유지
+            d_ts(end+1) = D0_vec(N_D0_STEPS); 
         end
     end
     ts_D0 = timeseries(d_ts', t_ts');
