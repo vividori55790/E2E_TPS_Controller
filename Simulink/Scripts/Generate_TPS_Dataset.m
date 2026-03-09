@@ -53,7 +53,11 @@ function Generate_TPS_Dataset()
     V2_vec = linspace(84, 109.2, N_V2);
     D1_vec = linspace(0.2, 0.5, N_D1);
     D2_vec = linspace(0.2, 0.5, N_D2);
-    D0_vec = linspace(0, 90, N_D0_STEPS); % 0도부터 90도까지 20등분
+    
+    % 전력 변화가 0도 근처에서 극심하고 90도에서 둔감한 DAB의 특성( P ∝ D0*(1-D0) )을 반영
+    % 전력 결과값이 선형적인 간격으로 찍히도록 위상 배분을 1 - sqrt(1 - x) 형태로 비선형 인가
+    norm_x = linspace(0, 1, N_D0_STEPS);
+    D0_vec = 90 * (1 - sqrt(1 - norm_x));
     
     [V2_grid, D1_grid, D2_grid] = ndgrid(V2_vec, D1_vec, D2_vec);
     V2_all = V2_grid(:);
@@ -68,20 +72,18 @@ function Generate_TPS_Dataset()
     fprintf('   Total Dataset Rows: %d\n\n', N_total);
     
     %% 2.5 D0 Timeseries (Zero-Order Hold 계단형) 생성
-    % 첫 시작(0~0.005)은 D0_vec(1) 인가 후, 
-    % 0.006이 될 때 D0_vec(2)로 갱신되도록 1ms 간격으로 t 설정
+    % 첫 구간(0 ~ 0.006초)은 초기 안정화를 위해 D0_vec(1)을 인가
+    % 이후 매 0.001초 간격으로 다음 위상으로 갱신
+    T_STARTUP = 0.006;          
+    T_STEP    = 0.001;          
+    
     t_ts = [0];
     d_ts = [D0_vec(1)];
-    for k = 1:N_D0_STEPS
-        % k=1: 0~0.005s에는 D0_vec(1)이 유지되다가 0.005s 시점에 D0_vec(2)로 변경됨
-        % N_D0_STEPS=20이므로 k=20일때 t_end=0.024s가 되며 D0_vec(20)이 0.025s까지 유지됨
-        t_end = T_STARTUP + (k-1) * T_STEP; 
-        t_ts(end+1) = t_end;
-        if k < N_D0_STEPS
-            d_ts(end+1) = D0_vec(k+1); 
-        else
-            d_ts(end+1) = D0_vec(N_D0_STEPS); 
-        end
+    for k = 1:(N_D0_STEPS-1)
+        % k=1: 0.006초 시점에 D0_vec(2)로 변경됨
+        t_change = T_STARTUP + (k-1) * T_STEP; 
+        t_ts(end+1) = t_change;
+        d_ts(end+1) = D0_vec(k+1); 
     end
     ts_D0 = timeseries(d_ts', t_ts');
     ts_D0.DataInfo.Interpolation = tsdata.interpolation('zero-order hold');
@@ -232,12 +234,18 @@ function Generate_TPS_Dataset()
                     for d_idx = 1:N_D0_STEPS
                         row_idx = (sim_idx - 1) * N_D0_STEPS + d_idx;
                         
-                        % 각 D0 위상별 끝나는 시점
-                        t_end_step = T_STARTUP + d_idx * T_STEP;
+                        % 각 D0 위상별 끝나는 시점 계산
+                        if d_idx == 1
+                            t_end_step = T_STARTUP; % 0.006
+                        else
+                            t_end_step = T_STARTUP + (d_idx - 1) * T_STEP; % 0.007, 0.008 ...
+                        end
+                        
                         % 안정화(정상상태)를 가정하고, 스텝 종료 직전 0.5ms (절반) 구간의 데이터만 추출
                         t_start_step = t_end_step - 0.0005; 
                         
-                        mask = (t_sim >= t_start_step) & (t_sim <= t_end_step);
+                        % [중요] 위상이 변하는 시점(edge)이 포함되지 않도록, t_end_step보다 아주 살짝 앞까지만 자름
+                        mask = (t_sim >= t_start_step) & (t_sim < t_end_step - 1e-6);
                         if sum(mask) > 5 % 데이터가 충분히 확보된 구간 한정
                             try
                                 i_pk = max(abs(I_L_data(mask)));
