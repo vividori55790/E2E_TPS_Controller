@@ -271,7 +271,10 @@ classdef DAB_Controller_System < matlab.System
                 obj.Integrator_ext = obj.Integrator_ext + err_ext * Ts - (excess * Ts);
                 phi_raw_unbounded = phi_total_raw;
             elseif Mode_Select == 1
-                phi_ext_deg = Phi_Manual; D1_set = 0.5; D2_set = 0.5;
+                % [완전 매뉴얼 모드]: 외부 위상(D0) 및 D1, D2를 PI 제어 없이 직접 인가
+                phi_ext_deg = Phi_Manual; 
+                D1_set = max(0.05, min(0.50, D1_ext_in)); 
+                D2_set = max(0.05, min(0.50, D2_ext_in));
                 P_fb = V_LV_f * I_fb;
             else
                 obj.I_ref_ramped = 0; obj.Prev_Phi_Output = 0;

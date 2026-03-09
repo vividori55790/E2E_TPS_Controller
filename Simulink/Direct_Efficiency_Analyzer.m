@@ -52,6 +52,8 @@ classdef Direct_Efficiency_Analyzer < matlab.System
         Buffer_PL_Cu
         Buffer_Psw_HV
         Buffer_Psw_LV
+        Buffer_P_HV
+        Buffer_P_LV
         
         % Running Sums (O(1) Accumulators)
         Sum_Pin
@@ -60,6 +62,8 @@ classdef Direct_Efficiency_Analyzer < matlab.System
         Sum_PL_Cu
         Sum_Psw_HV
         Sum_Psw_LV
+        Sum_P_HV
+        Sum_P_LV
         
         % State Control
         BufferIdx
@@ -91,6 +95,8 @@ classdef Direct_Efficiency_Analyzer < matlab.System
             obj.Buffer_PL_Cu  = zeros(M, 1);
             obj.Buffer_Psw_HV = zeros(M, 1);
             obj.Buffer_Psw_LV = zeros(M, 1);
+            obj.Buffer_P_HV   = zeros(M, 1);
+            obj.Buffer_P_LV   = zeros(M, 1);
             
             % Initialize Running Sums
             obj.Sum_Pin    = 0;
@@ -99,13 +105,15 @@ classdef Direct_Efficiency_Analyzer < matlab.System
             obj.Sum_PL_Cu  = 0;
             obj.Sum_Psw_HV = 0;
             obj.Sum_Psw_LV = 0;
+            obj.Sum_P_HV   = 0;
+            obj.Sum_P_LV   = 0;
             
             % Initialize Indices
             obj.BufferIdx   = 1;
             obj.SampleCount = 0;
         end
 
-        function [Eff, P_Loss_Total, P_Copper_L, P_Semi_HV, P_Semi_LV] = stepImpl(obj, V_HV, I_HV, V_LV, I_LV, I_L, V_sw_HV, I_sw_HV, V_sw_LV, I_sw_LV)
+        function [Eff, P_Loss_Total, P_Copper_L, P_Semi_HV, P_Semi_LV, P_HV, P_LV] = stepImpl(obj, V_HV, I_HV, V_LV, I_LV, I_L, V_sw_HV, I_sw_HV, V_sw_LV, I_sw_LV)
             
             % --- 1. Instantaneous Physics Calculation ---
             
@@ -144,6 +152,8 @@ classdef Direct_Efficiency_Analyzer < matlab.System
             old_PL_Cu  = obj.Buffer_PL_Cu(idx);
             old_Psw_HV = obj.Buffer_Psw_HV(idx);
             old_Psw_LV = obj.Buffer_Psw_LV(idx);
+            old_P_HV   = obj.Buffer_P_HV(idx);
+            old_P_LV   = obj.Buffer_P_LV(idx);
             
             % Update Running Sums (Sum = Sum - Old + New)
             obj.Sum_Pin    = obj.Sum_Pin    - old_Pin    + P_In_inst;
@@ -152,6 +162,8 @@ classdef Direct_Efficiency_Analyzer < matlab.System
             obj.Sum_PL_Cu  = obj.Sum_PL_Cu  - old_PL_Cu  + P_L_inst;
             obj.Sum_Psw_HV = obj.Sum_Psw_HV - old_Psw_HV + P_sw_HV_inst;
             obj.Sum_Psw_LV = obj.Sum_Psw_LV - old_Psw_LV + P_sw_LV_inst;
+            obj.Sum_P_HV   = obj.Sum_P_HV   - old_P_HV   + P_HV_raw;
+            obj.Sum_P_LV   = obj.Sum_P_LV   - old_P_LV   + P_LV_raw;
             
             % Update Buffers (Overwrite oldest slot with new value)
             obj.Buffer_Pin(idx)    = P_In_inst;
@@ -160,6 +172,8 @@ classdef Direct_Efficiency_Analyzer < matlab.System
             obj.Buffer_PL_Cu(idx)  = P_L_inst;
             obj.Buffer_Psw_HV(idx) = P_sw_HV_inst;
             obj.Buffer_Psw_LV(idx) = P_sw_LV_inst;
+            obj.Buffer_P_HV(idx)   = P_HV_raw;
+            obj.Buffer_P_LV(idx)   = P_LV_raw;
             
             % Advance Index (Circular within WindowSize, NOT MAX_BUFFER_SIZE)
             obj.BufferIdx = obj.BufferIdx + 1;
@@ -178,6 +192,9 @@ classdef Direct_Efficiency_Analyzer < matlab.System
             P_Copper_L   = obj.Sum_PL_Cu  / N;
             P_Semi_HV    = obj.Sum_Psw_HV / N;
             P_Semi_LV    = obj.Sum_Psw_LV / N;
+            
+            P_HV         = obj.Sum_P_HV / N;
+            P_LV         = obj.Sum_P_LV / N;
             
             P_in_avg  = obj.Sum_Pin  / N;
             P_out_avg = obj.Sum_Pout / N;
@@ -214,6 +231,8 @@ classdef Direct_Efficiency_Analyzer < matlab.System
             obj.Buffer_PL_Cu  = zeros(M, 1);
             obj.Buffer_Psw_HV = zeros(M, 1);
             obj.Buffer_Psw_LV = zeros(M, 1);
+            obj.Buffer_P_HV   = zeros(M, 1);
+            obj.Buffer_P_LV   = zeros(M, 1);
             
             obj.Sum_Pin    = 0;
             obj.Sum_Pout   = 0;
@@ -221,6 +240,8 @@ classdef Direct_Efficiency_Analyzer < matlab.System
             obj.Sum_PL_Cu  = 0;
             obj.Sum_Psw_HV = 0;
             obj.Sum_Psw_LV = 0;
+            obj.Sum_P_HV   = 0;
+            obj.Sum_P_LV   = 0;
             
             obj.BufferIdx   = 1;
             obj.SampleCount = 0;
@@ -245,7 +266,7 @@ classdef Direct_Efficiency_Analyzer < matlab.System
                     sz = [1 1]; dt = 'double'; cp = false;
                 case 'WindowSize'
                     sz = [1 1]; dt = 'double'; cp = false;
-                case {'Sum_Pin', 'Sum_Pout', 'Sum_Ploss', 'Sum_PL_Cu', 'Sum_Psw_HV', 'Sum_Psw_LV'}
+                case {'Sum_Pin', 'Sum_Pout', 'Sum_Ploss', 'Sum_PL_Cu', 'Sum_Psw_HV', 'Sum_Psw_LV', 'Sum_P_HV', 'Sum_P_LV'}
                     sz = [1 1]; dt = 'double'; cp = false;
                 otherwise
                     % All buffer states (Buffer_Pin, Buffer_Pout, etc.)
@@ -255,17 +276,17 @@ classdef Direct_Efficiency_Analyzer < matlab.System
             end
         end
 
-        function [out1, out2, out3, out4, out5] = getOutputSizeImpl(~)
-            out1=[1 1]; out2=[1 1]; out3=[1 1]; out4=[1 1]; out5=[1 1];
+        function [out1, out2, out3, out4, out5, out6, out7] = getOutputSizeImpl(~)
+            out1=[1 1]; out2=[1 1]; out3=[1 1]; out4=[1 1]; out5=[1 1]; out6=[1 1]; out7=[1 1];
         end
-        function [out1, out2, out3, out4, out5] = getOutputDataTypeImpl(~)
-            out1='double'; out2='double'; out3='double'; out4='double'; out5='double';
+        function [out1, out2, out3, out4, out5, out6, out7] = getOutputDataTypeImpl(~)
+            out1='double'; out2='double'; out3='double'; out4='double'; out5='double'; out6='double'; out7='double';
         end
-        function [out1, out2, out3, out4, out5] = isOutputComplexImpl(~)
-            out1=false; out2=false; out3=false; out4=false; out5=false;
+        function [out1, out2, out3, out4, out5, out6, out7] = isOutputComplexImpl(~)
+            out1=false; out2=false; out3=false; out4=false; out5=false; out6=false; out7=false;
         end
-        function [out1, out2, out3, out4, out5] = isOutputFixedSizeImpl(~)
-            out1=true; out2=true; out3=true; out4=true; out5=true;
+        function [out1, out2, out3, out4, out5, out6, out7] = isOutputFixedSizeImpl(~)
+            out1=true; out2=true; out3=true; out4=true; out5=true; out6=true; out7=true;
         end
         
     end
