@@ -19,7 +19,7 @@ function Generate_TPS_Dataset()
     if ~exist(dataDir, 'dir'), mkdir(dataDir); end
     
     checkpointFile = fullfile(dataDir, 'TPS_Checkpoint_Stairs.mat');
-    BATCH_SIZE = 50;  % 배치 사이즈 (파라미터 조합 묶음)
+    BATCH_SIZE = 12;  % 배치 사이즈 (파라미터 조합 묶음)
     
     timestamp = datestr(now, 'yyyymmdd_HHMMss');
     resultFile = fullfile(dataDir, sprintf('TPS_Dataset_%s.mat', timestamp));
@@ -252,6 +252,10 @@ function Generate_TPS_Dataset()
                                 dataset_I_pk(row_idx) = i_pk;
                                 dataset_P_act(row_idx) = p_act;
                                 dataset_valid(row_idx) = true;
+                                
+                                % 명령창 및 로그 파일에 성공 상태 출력
+                                logStatusMsg(sprintf('   [Sim %d / %d] SUCCESS. V2=%.1fV, D1=%.2f, D2=%.2f, D0=%.1fdeg -> i_pk_pri=%.2fA, P_act=%.1fW', ...
+                                    sim_idx, N_sims, V2_all(sim_idx), D1_all(sim_idx), D2_all(sim_idx), D0_vec(d_idx), i_pk, p_act), logFile);
                             catch
                             end
                         end
