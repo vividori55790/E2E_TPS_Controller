@@ -283,6 +283,14 @@ function Generate_TPS_Dataset()
         save('TPS_temp.mat', 'dataset_V2','dataset_D1','dataset_D2','dataset_D0','dataset_I_pk','dataset_P_act','dataset_valid','completed_sims','error_msg','N_sims_cp', '-v7.3');
         movefile('TPS_temp.mat', checkpointFile, 'f');
         fprintf('   [Batch %d/%d] Saved %d/%d sims.\n', batchIdx, N_batches, sum(completed_sims), N_sims);
+        
+        % [메모리 누수 방지] 일정 배치(예: 50배치 = 600개) 주기로 parpool 강제 재시작 (메모리 완전 반환)
+        if mod(batchIdx, 50) == 0 && batchIdx < N_batches
+            fprintf('   [Memory Flush] Restarting parallel pool to free memory...\n');
+            logStatusMsg(sprintf('[Memory Flush] Restarting parpool at Batch %d', batchIdx), logFile);
+            delete(gcp('nocreate'));
+            parpool;
+        end
     end
     
     cd(originalDir);
