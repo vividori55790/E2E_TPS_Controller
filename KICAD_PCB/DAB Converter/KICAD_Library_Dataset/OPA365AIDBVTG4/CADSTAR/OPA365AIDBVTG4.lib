@@ -1,0 +1,18 @@
+.OPA365AIDBVTG4 :1 ;OPERATIONAL AMPLIFIER
+SOT95P280X145-5N
+*STM IC
+*NGS
+*PLB 1="VOUT" 2="V-" 3="+IN" 4="-IN" 5="V+"
+*MXP 5
+*DFN OPA365AIDBVTG4
+~!Manufacturer_Name (Texas Instruments)
+~!Manufacturer_Part_Number (OPA365AIDBVTG4)
+~!Mouser Part Number (595-OPA365AIDBVTG4)
+~!Link Mouser Price/Stock (https://www.mouser.co.uk/ProductDetail/Texas-Instruments/OPA365AIDBVTG4?qs=pJP364FAHqQWllaZFOaiyA%3D%3D)
+~!Arrow Part Number (OPA365AIDBVTG4)
+~!Link Arrow Price/Stock (https://www.arrow.com/en/products/opa365aidbvtg4/texas-instruments?region=nac)
+~!Link Datasheet (https://www.ti.com/lit/ds/symlink/opa365.pdf?HQS=TI-null-null-digikeymode-df-pf-null-wwe&ts=1599741864898)
+~!Height (1.45mm)
+~!3D_Model (OPA365AIDBVTG4)
+OPA365AIDBVTG4
+1.1!U 2.1!U 3.1!U 4.1!U 5.1!U 

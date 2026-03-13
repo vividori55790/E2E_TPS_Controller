@@ -1,0 +1,18 @@
+.ACS37030LLZATR-040B3 :1 ;High Accuracy Current Sensor IC
+ACS37030LLZATR020B3
+*STM IC
+*NGS
+*PLB 1="IP+" 2="IP-" 3="GND" 4="VREF/FAULT" 5="VOUT" 6="VDD"
+*MXP 6
+*DFN ACS37030LLZATR-040B3
+~!Manufacturer_Name (Allegro Microsystems)
+~!Manufacturer_Part_Number (ACS37030LLZATR-040B3)
+~!Mouser Part Number (250-ACS37030-040B3)
+~!Link Mouser Price/Stock (https://www.mouser.co.uk/ProductDetail/Allegro-MicroSystems/ACS37030LLZATR-040B3?qs=mELouGlnn3frD4RmzALMLQ%3D%3D)
+~!Arrow Part Number (ACS37030LLZATR-040B3)
+~!Link Arrow Price/Stock (https://www.arrow.com/en/products/acs37030llzatr-040b3/allegro-microsystems?region=nac)
+~!Link Datasheet (https://www.allegromicro.com/~/media/Files/Datasheets/ACS37030-32-Datasheet)
+~!Height (1.82mm)
+~!3D_Model (ACS37030LLZATR-040B3)
+ACS37030LLZATR-040B3
+1.1!U 2.1!U 3.1!U 4.1!U 5.1!U 6.1!U 

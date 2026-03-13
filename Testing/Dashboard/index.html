@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>⚡ DAB Converter Control System</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#04080f;--s1:#0b1120;--s2:#111d32;--s3:#162240;
+  --bd:#1e3054;--bd2:#2a4270;
+  --t1:#f0f4fc;--t2:#94a8c8;--t3:#5a7099;
+  --el:#00b4ff;--el2:#0090cc;--el3:#006a99;
+  --glow:0 0 20px rgba(0,180,255,.15);
+  --grn:#00e68a;--grn2:#00b36b;--red:#ff4d6a;--org:#ffaa2e;--pur:#b07aff;--ylw:#ffe14d;--cyn:#00e5ff;
+}
+html{scrollbar-width:thin;scrollbar-color:var(--bd) var(--bg)}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;
+  background-image:radial-gradient(ellipse at 50% 0%,rgba(0,120,200,.06) 0%,transparent 60%)}
+
+/* ═══ Top Bar ═══ */
+.topbar{display:flex;align-items:center;gap:12px;padding:10px 20px;
+  background:linear-gradient(180deg,var(--s1),var(--bg));border-bottom:1px solid var(--bd);flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:800;letter-spacing:-.3px}
+.logo svg{width:28px;height:28px}
+.logo-text{background:linear-gradient(135deg,var(--el),var(--cyn));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.top-group{display:flex;align-items:center;gap:8px}
+.top-group label{font-size:11px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+select{background:var(--s2);color:var(--t1);border:1px solid var(--bd);border-radius:8px;padding:6px 12px;font-size:13px;font-family:'JetBrains Mono',monospace;outline:none;cursor:pointer;transition:.2s}
+select:hover{border-color:var(--el)}select:focus{border-color:var(--el);box-shadow:0 0 0 2px rgba(0,180,255,.15)}
+input[type=number]{background:var(--s2);color:var(--t1);border:1px solid var(--bd);border-radius:8px;padding:7px 12px;font-size:13px;font-family:'JetBrains Mono',monospace;outline:none;width:100%;transition:.2s}
+input[type=number]:hover{border-color:var(--bd2)}
+input[type=number]:focus{border-color:var(--el);box-shadow:0 0 0 2px rgba(0,180,255,.12)}
+.btn{padding:8px 18px;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;transition:all .2s;font-family:'Outfit',sans-serif;letter-spacing:.2px}
+.btn:active{transform:scale(.97)}
+.b-conn{background:var(--el);color:#000;box-shadow:0 0 12px rgba(0,180,255,.3)}
+.b-conn:hover{background:var(--cyn);box-shadow:0 0 20px rgba(0,229,255,.4)}
+.b-conn.on{background:var(--red);color:#fff;box-shadow:0 0 12px rgba(255,77,106,.3)}
+.conn-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}
+.conn-dot.on{background:var(--grn);box-shadow:0 0 8px var(--grn)}.conn-dot.off{background:var(--red);box-shadow:0 0 8px var(--red)}
+.conn-txt{font-size:12px;font-weight:600}
+.stat{margin-left:auto;font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace}
+
+/* ═══ Tabs ═══ */
+.tabs{display:flex;gap:2px;padding:0 20px;background:var(--s1);border-bottom:1px solid var(--bd)}
+.tab{padding:11px 22px;font-weight:700;font-size:13px;color:var(--t3);cursor:pointer;border-bottom:2px solid transparent;transition:.2s;position:relative}
+.tab.a{color:var(--el);border-bottom-color:var(--el)}
+.tab.a::after{content:'';position:absolute;bottom:-1px;left:20%;right:20%;height:2px;background:var(--el);filter:blur(4px)}
+.tab:hover:not(.a){color:var(--t2)}
+.tc{display:none;padding:16px 20px;overflow-y:auto;max-height:calc(100vh - 94px)}.tc.a{display:block}
+
+/* ═══ State Banner ═══ */
+.banner{text-align:center;padding:14px 20px;border-radius:12px;font-size:16px;font-weight:800;margin-bottom:14px;
+  border:1px solid var(--bd);background:var(--s2);color:var(--t3);letter-spacing:.3px;transition:all .5s}
+
+/* ═══ Sensor Cards ═══ */
+.cg{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+.cd{background:linear-gradient(135deg,var(--s2),var(--s3));border:1px solid var(--bd);border-radius:12px;padding:14px;transition:all .3s;position:relative;overflow:hidden}
+.cd::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--el);opacity:.3;transition:.3s}
+.cd:hover{border-color:var(--bd2);transform:translateY(-1px);box-shadow:var(--glow)}
+.cd:hover::before{opacity:.8}
+.cd .lb{font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px}
+.cd .vl{font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;line-height:1.1}
+.cd .un{font-size:10px;color:var(--t3);font-weight:600;margin-top:2px}
+
+/* ═══ SOC Bar ═══ */
+.soc-row{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding:12px 16px;background:var(--s2);border:1px solid var(--bd);border-radius:12px}
+.soc-row label{font-weight:700;font-size:13px;white-space:nowrap;color:var(--t2)}
+.sbar{flex:1;height:26px;background:var(--s1);border-radius:13px;overflow:hidden;position:relative}
+.sfill{height:100%;border-radius:13px;background:linear-gradient(90deg,var(--el2),var(--cyn));transition:width .6s ease;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#000;min-width:40px;position:relative}
+.sfill::after{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.15) 50%,transparent 100%);animation:shimmer 2s infinite}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+
+/* ═══ Charts ═══ */
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.chbox{background:var(--s2);border:1px solid var(--bd);border-radius:12px;padding:14px;height:240px;position:relative}
+.chbox canvas{width:100%!important;height:100%!important}
+.chtitle{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px}
+
+/* ═══ Sections ═══ */
+.sec{background:var(--s2);border:1px solid var(--bd);border-radius:12px;padding:18px;margin-bottom:12px;position:relative}
+.sec::before{content:'';position:absolute;top:0;left:16px;right:16px;height:1px;background:linear-gradient(90deg,transparent,var(--el),transparent);opacity:.3}
+.sec h3{font-size:13px;font-weight:700;color:var(--el);margin-bottom:14px;display:flex;align-items:center;gap:8px;letter-spacing:.3px}
+.sec h3 .ico{width:20px;height:20px;display:flex;align-items:center;justify-content:center;background:rgba(0,180,255,.12);border-radius:6px;font-size:12px}
+.fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.ff{display:flex;flex-direction:column;gap:4px}
+.ff label{font-size:11px;font-weight:600;color:var(--t3);letter-spacing:.3px}
+.ff select{font-family:'JetBrains Mono',monospace}
+
+/* ═══ Control Buttons ═══ */
+.ctrl-btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:0}
+.b-go{background:linear-gradient(135deg,#00a854,var(--grn));color:#000;padding:14px;font-size:16px;font-weight:800;border-radius:12px;box-shadow:0 4px 20px rgba(0,230,138,.2)}
+.b-go:hover{box-shadow:0 4px 28px rgba(0,230,138,.35)}
+.b-st{background:linear-gradient(135deg,#cc2244,var(--red));color:#fff;padding:14px;font-size:16px;font-weight:800;border-radius:12px;box-shadow:0 4px 20px rgba(255,77,106,.2)}
+.b-st:hover{box-shadow:0 4px 28px rgba(255,77,106,.35)}
+.b-tx{background:linear-gradient(135deg,var(--el3),var(--el));color:#000;padding:14px;font-size:15px;font-weight:800;border-radius:12px;box-shadow:0 4px 20px rgba(0,180,255,.2)}
+.b-tx:hover{box-shadow:0 4px 28px rgba(0,180,255,.35)}
+.b-send{background:var(--el);color:#000;padding:8px 16px;font-size:12px;font-weight:700;border-radius:8px;box-shadow:0 2px 10px rgba(0,180,255,.2)}
+
+/* ═══ Log ═══ */
+.logbox{background:var(--s1);color:var(--t3);border:1px solid var(--bd);border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:11px;padding:12px;height:calc(100vh - 180px);overflow-y:auto;white-space:pre-wrap;line-height:1.6}
+.log-toolbar{display:flex;gap:8px;margin-bottom:8px;align-items:center}
+
+/* ═══ Toast ═══ */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);padding:10px 28px;border-radius:10px;color:#fff;font-weight:800;font-size:13px;z-index:99;opacity:0;transition:all .3s;pointer-events:none;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+.toast.v{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ═══ Param Group Divider ═══ */
+.pdiv{grid-column:1/-1;font-size:11px;font-weight:700;color:var(--el);padding:6px 0 2px;border-bottom:1px solid var(--bd);letter-spacing:.5px;text-transform:uppercase;margin-top:4px}
+.pdiv:first-child{margin-top:0}
+
+@media(max-width:900px){.charts{grid-template-columns:1fr}.ctrl-btns{grid-template-columns:1fr}.cg{grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="topbar">
+  <div class="logo">
+    <svg viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="13" stroke="var(--el)" stroke-width="2" opacity=".4"/>
+    <path d="M9 18V10l5 4 5-4v8" stroke="var(--el)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="14" cy="14" r="3" fill="var(--el)" opacity=".3"/></svg>
+    <span class="logo-text">DAB Converter</span>
+  </div>
+  <div class="top-group">
+    <label>Baud</label>
+    <select id="baud"><option>115200</option><option>230400</option><option>460800</option></select>
+  </div>
+  <button class="btn b-conn" id="bConn" onclick="togConn()">🔌 Connect</button>
+  <span style="display:flex;align-items:center"><span class="conn-dot off" id="cDot"></span><span class="conn-txt" id="cTxt" style="color:var(--t3)">Disconnected</span></span>
+  <span class="stat" id="sStat">TX 0 B/s │ RX 0 B/s</span>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <div class="tab a" onclick="stab(0)">📊 Monitor</div>
+  <div class="tab" onclick="stab(1)">🎮 Runtime</div>
+  <div class="tab" onclick="stab(2)">⚡ DAB Config</div>
+  <div class="tab" onclick="stab(3)">🔋 EMS Config</div>
+  <div class="tab" onclick="stab(4)">📡 Log</div>
+</div>
+
+<!-- Tab 0: Monitor -->
+<div class="tc a" id="t0">
+  <div class="banner" id="ban">⏸ STANDBY</div>
+  <div class="cg" id="monCards"></div>
+  <div class="soc-row"><label>🔋 Battery SOC</label><div class="sbar"><div class="sfill" id="socF" style="width:0%">0%</div></div></div>
+  <div class="charts">
+    <div class="chbox"><div class="chtitle">Power Flow</div><canvas id="ch1"></canvas></div>
+    <div class="chbox"><div class="chtitle">DAB Phase / Battery SOC</div><canvas id="ch2"></canvas></div>
+  </div>
+</div>
+
+<!-- Tab 1: Runtime -->
+<div class="tc" id="t1">
+  <div class="sec">
+    <h3><span class="ico">⚡</span>Operation Control</h3>
+    <div class="ctrl-btns">
+      <button class="btn b-go" onclick="sendRun(1)">▶ START</button>
+      <button class="btn b-st" onclick="sendRun(0)">⏹ STOP</button>
+      <button class="btn b-tx" onclick="sendRuntime()">📤 Send Runtime</button>
+    </div>
+  </div>
+  <div class="sec"><h3><span class="ico">🔧</span>DAB Controller Inputs</h3><div class="fg" id="rtDAB"></div></div>
+  <div class="sec"><h3><span class="ico">📊</span>Energy Manager Inputs</h3><div class="fg" id="rtEMS"></div></div>
+</div>
+
+<!-- Tab 2: DAB Config -->
+<div class="tc" id="t2">
+  <div class="sec">
+    <h3><span class="ico">⚡</span>DAB Block Parameters
+      <button class="btn b-send" style="margin-left:auto" onclick="sendDAB()">📤 Send to STM32</button></h3>
+    <div class="fg" id="dpF"></div>
+  </div>
+</div>
+
+<!-- Tab 3: EMS Config -->
+<div class="tc" id="t3">
+  <div class="sec">
+    <h3><span class="ico">🔋</span>EMS Block Parameters
+      <button class="btn b-send" style="margin-left:auto" onclick="sendEMS()">📤 Send to STM32</button></h3>
+    <div class="fg" id="epF"></div>
+  </div>
+</div>
+
+<!-- Tab 4: Log -->
+<div class="tc" id="t4">
+  <div class="log-toolbar">
+    <button class="btn" style="background:var(--s3);color:var(--t2);border:1px solid var(--bd);font-size:12px" onclick="document.getElementById('log').textContent=''">🗑 Clear</button>
+    <span style="font-size:11px;color:var(--t3);margin-left:8px">Communication log with STM32</span>
+  </div>
+  <div class="logbox" id="log"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+/* ═══════════════════════ Field Definitions ═══════════════════════ */
+const MON=[
+  {id:'mVhv',lb:'V_HV',u:'V',c:'#ff7a8a'},{id:'mIhv',lb:'I_HV',u:'A',c:'#c49bff'},
+  {id:'mVlv',lb:'V_LV',u:'V',c:'#5aedc2'},{id:'mIlv',lb:'I_LV',u:'A',c:'#6bb8ff'},
+  {id:'mIlp',lb:'I_L_pri',u:'A',c:'#b0a0e0'},{id:'mTmp',lb:'Temp',u:'°C',c:'#ffaa2e'},
+  {id:'mVgr',lb:'V_Grid',u:'V',c:'#ffe14d'},
+  {id:'mEpc',lb:'EMS P_cmd',u:'W',c:'#00e68a'},{id:'mSoc',lb:'SOC',u:'%',c:'#00b4ff'},
+  {id:'mEmd',lb:'EMS Mode',u:'',c:'#ff7ac6'},{id:'mGsw',lb:'Grid SW',u:'',c:'#ffe14d'},
+  {id:'mPhi',lb:'φ_ext',u:'°',c:'#ff7ac6'},{id:'mD1',lb:'D1',u:'',c:'#b07aff'},
+  {id:'mD2',lb:'D2',u:'',c:'#00b4ff'},{id:'mPfb',lb:'P_fb',u:'W',c:'#ffaa2e'},
+  {id:'mErr',lb:'Error',u:'',c:'#ff4d6a'},{id:'mInt',lb:'Integrator',u:'',c:'#5a7099'},
+];
+const RT_DAB=[
+  {id:'Kp_ext',lb:'Kp (Proportional)',v:5,s:.1,t:'f'},
+  {id:'Ki_ext',lb:'Ki (Integral)',v:50,s:1,t:'f'},
+  {id:'Mode_Select',lb:'Control Mode',v:0,t:'s',o:['Auto','Manual']},
+  {id:'Phi_Manual',lb:'Manual Phase (°)',v:0,s:.1,t:'f'},
+  {id:'Ctrl_Mode_Ext',lb:'Modulation',v:0,t:'s',o:['SPS','EPS','DPS','TPS']},
+  {id:'DeadTime_ns',lb:'Dead Time (ns)',v:200,s:10,t:'f'},
+  {id:'D1_ext_in',lb:'D1 External',v:.5,s:.01,t:'f'},
+  {id:'D2_ext_in',lb:'D2 External',v:.5,s:.01,t:'f'},
+];
+const RT_EMS=[
+  {id:'I_ess_cmd',lb:'ESS Current Cmd (A)',v:0,s:.1,t:'f'},
+  {id:'Kpv',lb:'Kpv (Voltage PI)',v:2,s:.1,t:'f'},
+  {id:'Kiv',lb:'Kiv (Voltage PI)',v:10,s:1,t:'f'},
+  {id:'EMS_Mode_Select',lb:'EMS Mode',v:0,t:'s',o:['Auto','Manual']},
+  {id:'Time_Hour',lb:'Time (Hour)',v:12,s:.5,t:'f'},
+  {id:'V_Grid_sim',lb:'Grid Voltage Sim (V)',v:380,s:1,t:'f'},
+];
+const DP=[
+  {g:'Hardware Specification'},
+  {id:'dp_Fs',lb:'Switching Freq (Hz)',v:80000,s:1000},
+  {id:'dp_Llk',lb:'Leakage Inductance (H)',v:0.00009,s:0.000001},
+  {id:'dp_nT',lb:'Turns Ratio (n)',v:4,s:.1},
+  {g:'Control Strategy'},
+  {id:'dp_FF',lb:'Feedforward',v:1,t:'s',o:['OFF','ON']},
+  {id:'dp_MSR',lb:'Max Slew Rate (W/s)',v:50000,s:1000},
+  {id:'dp_DZ',lb:'Dead Zone (A)',v:0,s:.1},
+  {id:'dp_GST',lb:'Gain Schedule Thr',v:2,s:.1},
+  {id:'dp_GSF',lb:'Gain Schedule Factor',v:1,s:.1},
+  {id:'dp_SST',lb:'Soft Start Time (s)',v:.2,s:.01},
+  {id:'dp_MPR',lb:'Max Phase Rate (°/s)',v:30000,s:1000},
+  {g:'Flux Balancing'},
+  {id:'dp_EFB',lb:'Enable',v:1,t:'s',o:['OFF','ON']},
+  {id:'dp_FKp',lb:'Flux Kp',v:.005,s:.001},
+  {id:'dp_FKi',lb:'Flux Ki',v:.05,s:.01},
+  {id:'dp_FL',lb:'Flux Limit',v:.02,s:.005},
+];
+const EP=[
+  {g:'UPS Voltage Control'},
+  {id:'ep_VHR',lb:'V_HV Reference (V)',v:380,s:1},
+  {id:'ep_VHB',lb:'V_HV Band (V)',v:30,s:1},
+  {id:'ep_VRR',lb:'Ramp Rate (V/s)',v:500,s:10},
+  {g:'Battery Protection (BMS)'},
+  {id:'ep_VPM',lb:'V_Pack Max (V)',v:109.2,s:.1},
+  {id:'ep_VCS',lb:'V_CV Start (V)',v:108,s:.1},
+  {id:'ep_VEL',lb:'V_ESS Limit (V)',v:93,s:1},
+  {id:'ep_VUL',lb:'V_UPS Limit (V)',v:87,s:1},
+  {id:'ep_VML',lb:'V_Min Limit (V)',v:84,s:1},
+  {id:'ep_ICL',lb:'I_Charge Limit (A)',v:30,s:1},
+  {id:'ep_IDL',lb:'I_Discharge Limit (A)',v:50,s:1},
+  {id:'ep_KCV',lb:'K_CV (A/V)',v:5,s:.1},
+  {id:'ep_ID',lb:'Init Delay (s)',v:.001,s:.001},
+  {g:'TOU Schedule'},
+  {id:'ep_ECR',lb:'Charge Rate (A)',v:10,s:1},
+  {id:'ep_EDR',lb:'Discharge Rate (A)',v:10,s:1},
+  {id:'ep_OPS',lb:'Off-Peak Start (h)',v:23,s:1},
+  {id:'ep_OPE',lb:'Off-Peak End (h)',v:8,s:1},
+  {id:'ep_P1S',lb:'Peak 1 Start (h)',v:11,s:1},
+  {id:'ep_P1E',lb:'Peak 1 End (h)',v:12,s:1},
+  {id:'ep_P2S',lb:'Peak 2 Start (h)',v:13,s:1},
+  {id:'ep_P2E',lb:'Peak 2 End (h)',v:17,s:1},
+  {g:'SOC & Power Limits'},
+  {id:'ep_SMX',lb:'SOC Max (%)',v:95,s:1},
+  {id:'ep_SMN',lb:'SOC Min (%)',v:20,s:1},
+  {id:'ep_PLT',lb:'Load Threshold (W)',v:500,s:10},
+  {id:'ep_PDM',lb:'P_DAB Max (W)',v:1000,s:50},
+  {id:'ep_nT',lb:'Turns Ratio (n)',v:4,s:.1},
+  {id:'ep_ILM',lb:'I_LV Min Limit (A)',v:-15,s:1},
+  {id:'ep_IEM',lb:'I_ESS Max (A)',v:10,s:1},
+  {id:'ep_IUM',lb:'I_UPS Max (A)',v:30,s:1},
+];
+
+/* ═══════════════════════ Render Functions ═══════════════════════ */
+function rF(fs,cid){
+  const c=document.getElementById(cid);let h='';
+  fs.forEach(f=>{
+    if(f.g){h+=`<div class="pdiv">${f.g}</div>`;return}
+    if(f.t==='s'){
+      h+=`<div class="ff"><label>${f.lb}</label><select id="${f.id}">`;
+      f.o.forEach((o,i)=>h+=`<option value="${i}">${o}</option>`);h+=`</select></div>`;
+    } else h+=`<div class="ff"><label>${f.lb}</label><input type="number" id="${f.id}" value="${f.v}" step="${f.s||1}"></div>`;
+  });c.innerHTML=h;
+}
+function rMon(){
+  document.getElementById('monCards').innerHTML=MON.map(m=>`<div class="cd"><div class="lb">${m.lb}</div><div class="vl" id="${m.id}" style="color:${m.c}">—</div><div class="un">${m.u}</div></div>`).join('');
+}
+
+/* ═══════════════════════ UI Helpers ═══════════════════════ */
+function stab(i){document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('a',j===i));document.querySelectorAll('.tc').forEach((t,j)=>t.classList.toggle('a',j===i))}
+let tT;
+function toast(m,bg='#00a854'){const t=document.getElementById('toast');t.textContent=m;t.style.background=bg;t.classList.add('v');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('v'),2500)}
+function addLog(m){const l=document.getElementById('log'),ts=new Date().toLocaleTimeString('ko',{hour12:0,fractionalSecondDigits:3});l.textContent+=`[${ts}] ${m}\n`;l.scrollTop=l.scrollHeight}
+
+/* ═══════════════════════ Serial ═══════════════════════ */
+let port=null,reader=null,writer=null,conn=false,rxBuf=new Uint8Array(0),rxB=0,txB=0,rxP=0;
+const TELEM_SZ=67;
+
+async function togConn(){
+  if(conn){await disc();return}
+  if(!('serial'in navigator)){toast('❌ Use Chrome/Edge for Web Serial','#cc2244');return}
+  try{
+    port=await navigator.serial.requestPort();
+    await port.open({baudRate:+document.getElementById('baud').value});
+    writer=port.writable.getWriter();conn=true;
+    document.getElementById('bConn').textContent='🔌 Disconnect';document.getElementById('bConn').classList.add('on');
+    document.getElementById('cDot').className='conn-dot on';
+    document.getElementById('cTxt').textContent='Connected';document.getElementById('cTxt').style.color='var(--grn)';
+    addLog('✅ Serial port connected');toast('✅ Connected');readLoop();
+  }catch(e){toast('❌ '+e.message,'#cc2244')}
+}
+async function disc(){
+  conn=false;try{if(reader){await reader.cancel();reader.releaseLock()}}catch(e){}
+  try{if(writer)writer.releaseLock()}catch(e){}try{if(port)await port.close()}catch(e){}
+  port=reader=writer=null;
+  document.getElementById('bConn').textContent='🔌 Connect';document.getElementById('bConn').classList.remove('on');
+  document.getElementById('cDot').className='conn-dot off';
+  document.getElementById('cTxt').textContent='Disconnected';document.getElementById('cTxt').style.color='var(--t3)';
+}
+async function readLoop(){
+  const r=port.readable.getReader();reader=r;
+  try{while(conn){const{value,done}=await r.read();if(done)break;rxB+=value.length;const t=new Uint8Array(rxBuf.length+value.length);t.set(rxBuf);t.set(value,rxBuf.length);rxBuf=t;parse()}}catch(e){}finally{r.releaseLock()}
+}
+
+/* ═══════════════════════ Parse Telemetry ═══════════════════════ */
+let sc=0,t0=null;
+const H={time:[],pfb:[],pcmd:[],phi:[],soc:[]};const MX=500;
+function parse(){
+  while(rxBuf.length>=TELEM_SZ){
+    if(rxBuf[0]!==0xBB){rxBuf=rxBuf.slice(1);continue}
+    if(rxBuf[TELEM_SZ-1]!==0x55){rxBuf=rxBuf.slice(1);continue}
+    const p=rxBuf.slice(0,TELEM_SZ);rxBuf=rxBuf.slice(TELEM_SZ);rxP++;
+    const dv=new DataView(p.buffer,p.byteOffset,p.byteLength);
+    let o=1;const g=()=>{const v=dv.getFloat32(o,true);o+=4;return v};
+    const d={vhv:g(),ihv:g(),vlv:g(),ilv:g(),ilp:g(),tmp:g(),vgr:g(),
+             epc:g(),soc:g(),epw:dv.getUint8(o++),emd:dv.getUint8(o++),egs:dv.getUint8(o++),
+             phi:g(),d1:g(),d2:g(),pfb:g(),err:g(),intg:g(),st:dv.getUint8(o)};
+    onTelem(d);
+  }
+}
+const MODES=['IDLE','UPS','DISCHARGE','CHARGE','MANUAL'];
+function onTelem(d){
+  if(!t0)t0=performance.now()/1000;
+  const t=((performance.now()/1000)-t0).toFixed(1);sc++;
+  const el=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};
+  el('mVhv',d.vhv.toFixed(1));el('mIhv',d.ihv.toFixed(2));
+  el('mVlv',d.vlv.toFixed(1));el('mIlv',d.ilv.toFixed(2));
+  el('mIlp',d.ilp.toFixed(3));el('mTmp',d.tmp.toFixed(1));el('mVgr',d.vgr.toFixed(1));
+  el('mEpc',d.epc.toFixed(0));el('mSoc',d.soc.toFixed(1));
+  el('mEmd',MODES[d.emd]||d.emd);el('mGsw',d.egs?'ON':'OFF');
+  el('mPhi',d.phi.toFixed(1));el('mD1',d.d1.toFixed(3));el('mD2',d.d2.toFixed(3));
+  el('mPfb',d.pfb.toFixed(0));el('mErr',d.err.toFixed(4));el('mInt',d.intg.toFixed(4));
+  const sp=Math.max(0,Math.min(100,d.soc)),sf=document.getElementById('socF');
+  sf.style.width=sp.toFixed(0)+'%';sf.textContent=sp.toFixed(0)+'%';
+  const b=document.getElementById('ban');
+  if(!(d.st&1)){b.textContent='⏸ STANDBY';b.style.background='var(--s2)';b.style.color='var(--t3)';b.style.borderColor='var(--bd)'}
+  else if(d.emd===1){b.textContent='🔴 UPS BACKUP — Battery Standalone';b.style.background='linear-gradient(135deg,#1a0015,#2a0020)';b.style.color='var(--red)';b.style.borderColor='#4a1030'}
+  else if(d.emd===2){b.textContent='🟡 PEAK SHAVING — ESS Discharging';b.style.background='linear-gradient(135deg,#1a1500,#2a2000)';b.style.color='var(--org)';b.style.borderColor='#4a3010'}
+  else if(d.emd===3){b.textContent='🟢 CHARGING — Grid → Battery';b.style.background='linear-gradient(135deg,#001a10,#002a18)';b.style.color='var(--grn)';b.style.borderColor='#10503a'}
+  else{b.textContent='⚡ RUNNING';b.style.background='linear-gradient(135deg,#001020,#002040)';b.style.color='var(--el)';b.style.borderColor='var(--bd2)'}
+  H.time.push(t);H.pfb.push(d.pfb);H.pcmd.push(d.epc);H.phi.push(d.phi);H.soc.push(d.soc);
+  if(H.time.length>MX)for(const k in H)H[k].shift();
+  if(sc%8===0){
+    c1.data.labels=H.time;c1.data.datasets[0].data=H.pfb;c1.data.datasets[1].data=H.pcmd;c1.update('none');
+    c2.data.labels=H.time;c2.data.datasets[0].data=H.phi;c2.data.datasets[1].data=H.soc;c2.update('none');
+  }
+}
+
+/* ═══════════════════════ Send Commands ═══════════════════════ */
+async function sendBuf(buf,name){
+  if(!conn||!writer){toast('❌ Not connected','#cc2244');return}
+  try{await writer.write(buf);txB+=buf.length;addLog(`▶ TX [${name}] ${buf.length}B`);toast(`✅ ${name} sent`)}
+  catch(e){toast('❌ '+e.message,'#cc2244')}
+}
+function gv(id){return parseFloat(document.getElementById(id).value)||0}
+function gi(id){return parseInt(document.getElementById(id).value)||0}
+
+function sendRun(r){
+  const b=new ArrayBuffer(4),d=new DataView(b);
+  d.setUint8(0,0xAA);d.setUint8(1,0x10);d.setUint8(2,r);d.setUint8(3,0x55);
+  sendBuf(new Uint8Array(b),r?'START':'STOP');
+}
+function sendRuntime(){
+  const sz=52,b=new ArrayBuffer(sz),d=new DataView(b);let o=0;
+  const wu=(v)=>{d.setUint8(o,v);o++};const wf=(v)=>{d.setFloat32(o,v,true);o+=4};
+  wu(0xAA);wu(0x01);
+  wf(gv('Kp_ext'));wf(gv('Ki_ext'));wu(gi('Mode_Select'));wf(gv('Phi_Manual'));
+  wu(gi('Ctrl_Mode_Ext'));wf(gv('DeadTime_ns'));wf(gv('D1_ext_in'));wf(gv('D2_ext_in'));
+  wf(gv('I_ess_cmd'));wf(gv('Kpv'));wf(gv('Kiv'));wu(gi('EMS_Mode_Select'));
+  wf(gv('Time_Hour'));wf(gv('V_Grid_sim'));wu(0x55);
+  sendBuf(new Uint8Array(b),'RUNTIME');
+}
+function sendDAB(){
+  const ids=['dp_Fs','dp_Llk','dp_nT','dp_FF','dp_MSR','dp_DZ','dp_GST','dp_GSF','dp_SST','dp_MPR','dp_EFB','dp_FKp','dp_FKi','dp_FL'];
+  const ty='fffbffffffbfff';
+  const sz=53,b=new ArrayBuffer(sz),d=new DataView(b);let o=0;
+  d.setUint8(o++,0xAA);d.setUint8(o++,0x02);
+  ids.forEach((id,i)=>{if(ty[i]==='b'){d.setUint8(o,gi(id));o++}else{d.setFloat32(o,gv(id),true);o+=4}});
+  d.setUint8(o,0x55);sendBuf(new Uint8Array(b),'DAB_PARAMS');
+}
+function sendEMS(){
+  const ids=['ep_VHR','ep_VHB','ep_VRR','ep_VPM','ep_VCS','ep_VEL','ep_VUL','ep_VML',
+    'ep_ICL','ep_IDL','ep_KCV','ep_ID','ep_ECR','ep_EDR','ep_OPS','ep_OPE',
+    'ep_P1S','ep_P1E','ep_P2S','ep_P2E','ep_SMX','ep_SMN','ep_PLT','ep_PDM',
+    'ep_nT','ep_ILM','ep_IEM','ep_IUM'];
+  const sz=115,b=new ArrayBuffer(sz),d=new DataView(b);let o=0;
+  d.setUint8(o++,0xAA);d.setUint8(o++,0x03);
+  ids.forEach(id=>{d.setFloat32(o,gv(id),true);o+=4});
+  d.setUint8(o,0x55);sendBuf(new Uint8Array(b),'EMS_PARAMS');
+}
+
+/* ═══════════════════════ Stats ═══════════════════════ */
+let pRx=0,pTx=0;
+setInterval(()=>{const r=rxB-pRx,t=txB-pTx;pRx=rxB;pTx=txB;
+  document.getElementById('sStat').textContent=`TX ${t} B/s │ RX ${r} B/s (${rxP} pkt)`;rxP=0},1000);
+
+/* ═══════════════════════ Charts ═══════════════════════ */
+let c1,c2;
+function initCharts(){
+  const opt={responsive:true,maintainAspectRatio:false,animation:{duration:0},
+    scales:{x:{ticks:{color:'#3a5080',maxTicksLimit:5,font:{size:9,family:'JetBrains Mono'}},grid:{color:'#152035'}},
+            y:{ticks:{color:'#3a5080',font:{size:9,family:'JetBrains Mono'}},grid:{color:'#152035'}}},
+    plugins:{legend:{labels:{color:'#6688aa',font:{size:10,family:'Outfit'},usePointStyle:true,pointStyle:'circle',padding:14}}}};
+  c1=new Chart(document.getElementById('ch1'),{type:'line',data:{labels:[],datasets:[
+    {label:'P_fb',data:[],borderColor:'#ffaa2e',borderWidth:1.8,pointRadius:0,tension:.3,fill:false},
+    {label:'EMS P_cmd',data:[],borderColor:'#00e68a',borderWidth:1.8,pointRadius:0,tension:.3,fill:false}
+  ]},options:{...opt}});
+  c2=new Chart(document.getElementById('ch2'),{type:'line',data:{labels:[],datasets:[
+    {label:'Phase (°)',data:[],borderColor:'#ff7ac6',borderWidth:1.8,pointRadius:0,tension:.3},
+    {label:'SOC (%)',data:[],borderColor:'#00b4ff',borderWidth:1.8,pointRadius:0,tension:.3}
+  ]},options:{...opt}});
+}
+
+/* ═══════════════════════ Init ═══════════════════════ */
+window.addEventListener('DOMContentLoaded',()=>{rMon();rF(RT_DAB,'rtDAB');rF(RT_EMS,'rtEMS');rF(DP,'dpF');rF(EP,'epF');initCharts()});
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP OPA365AIDBVTG4
+D OPERATIONAL AMPLIFIER
+K
+F https://www.ti.com/lit/ds/symlink/opa365.pdf?HQS=TI-null-null-digikeymode-df-pf-null-wwe&ts=1599741864898
+$ENDCMP
+#
+#End Doc Library

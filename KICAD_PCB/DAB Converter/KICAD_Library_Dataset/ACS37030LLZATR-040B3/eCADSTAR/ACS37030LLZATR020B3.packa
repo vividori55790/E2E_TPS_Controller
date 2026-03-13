@@ -1,0 +1,13 @@
+(unit MM)
+
+(package "ACS37030LLZATR-040B3"
+    (type UNDEF)
+    (uver 2)
+    (cuser "SamacSys")
+    (uuser "SamacSys")
+    (utime 2023-12-04-18:51:08)
+    (mountForm default
+        (footprintRef "ACS37030LLZATR020B3")
+        (spec "System")
+    )
+)

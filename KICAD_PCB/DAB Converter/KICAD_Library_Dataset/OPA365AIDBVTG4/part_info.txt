@@ -1,0 +1,9 @@
+Manufacturer=Texas Instruments
+PartNumber=OPA365AIDBVTG4
+PartCategory=Integrated Circuit
+PackageCategory=SOT23 (5-Pin)
+PinCount=5
+Version=2.1
+Released=2017-01-12 12:59:53
+Downloaded=2026-03-09 04:49:52
+3D=Y

@@ -1,0 +1,9 @@
+Manufacturer=Allegro Microsystems
+PartNumber=ACS37030LLZATR-040B3
+PartCategory=Integrated Circuit
+PackageCategory=Other
+PinCount=6
+Version=3.1
+Released=2023-12-04 18:48:58
+Downloaded=2026-02-11 05:41:02
+3D=Y
