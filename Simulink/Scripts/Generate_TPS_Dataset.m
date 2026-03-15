@@ -191,11 +191,14 @@ function Generate_TPS_Dataset()
             simIn_array(k) = simIn_array(k).setVariable('D2', timeseries(D2_all(idx)*ones(2,1), t_input));
             simIn_array(k) = simIn_array(k).setVariable('D1_ext_in', timeseries(D1_all(idx)*ones(2,1), t_input));
             simIn_array(k) = simIn_array(k).setVariable('D2_ext_in', timeseries(D2_all(idx)*ones(2,1), t_input));
+            
+            % [메모리 개선] 워커(Worker) 단에서 데이터를 바로 처리하고 무거운 파형을 버리도록 PostSimFcn 등록
+            simIn_array(k) = simIn_array(k).setPostSimFcn(@(out) processSimResult(out, T_STARTUP, T_STEP, N_D0_STEPS));
         end
         
         parsim_success = false;
         try
-            simOut_array = parsim(simIn_array, 'UseFastRestart', 'off', 'ShowProgress', 'on', ...
+            simOut_array = parsim(simIn_array, 'UseFastRestart', 'on', 'ShowProgress', 'on', ...
                  'TransferBaseWorkspaceVariables', 'on', 'ShowSimulationManager', 'off', ...
                  'SetupFcn', @()workerSetupFcn(Kp_val, Ki_val, Kpv_val, Kiv_val));
             parsim_success = true;
@@ -209,91 +212,41 @@ function Generate_TPS_Dataset()
                 sim_idx = batch_indices(k);
                 simOut = simOut_array(k);
                 
-                if ~isempty(simOut.ErrorMessage)
-                    error_msg{sim_idx} = simOut.ErrorMessage;
+                % 워커에서 처리되어 반환된 요약 데이터 호출
+                res = simOut.getUserData();
+                
+                if ~isempty(simOut.ErrorMessage) || (~isempty(res) && ~isempty(res.error_msg))
+                    if ~isempty(simOut.ErrorMessage)
+                        error_msg{sim_idx} = simOut.ErrorMessage;
+                    else
+                        error_msg{sim_idx} = res.error_msg;
+                    end
                     completed_sims(sim_idx) = true;
                     continue;
                 end
                 
-                % 신호 추출
-                try
-                    [I_L_data, t_sim] = extract_signal(simOut, {'Inductor_Current1','Inductor_Current','I_L1','I_L'});
-                    [P_lv_data, t_plv] = extract_signal(simOut, {'Power_LV'});
-                    [P_hv_data, t_phv] = extract_signal(simOut, {'Power_HV'}); % Power_HV 추출 추가
-                    
-                    % Power_LV To Workspace 블록이 없을 시 차선책 (V * I)
-                    if isempty(P_lv_data)
-                        [v_lv,  t_v] = extract_signal(simOut, {'V_LV1', 'V_LV'});
-                        [i_lv,  ~]   = extract_signal(simOut, {'I_LV1', 'I_LV'});
-                        if ~isempty(v_lv) && ~isempty(i_lv)
-                            P_lv_data = v_lv .* i_lv;
-                            t_plv = t_v; 
-                        end
-                    end
-                    
-                    % Power_HV To Workspace 블록이 없을 시 차선책 (V * I)
-                    if isempty(P_hv_data)
-                        [v_hv,  t_v_hv] = extract_signal(simOut, {'V_HV1', 'V_HV'});
-                        [i_hv,  ~]   = extract_signal(simOut, {'I_HV1', 'I_HV'});
-                        if ~isempty(v_hv) && ~isempty(i_hv)
-                            P_hv_data = v_hv .* i_hv;
-                            t_phv = t_v_hv; 
-                        end
-                    end
-                    
-                    if isempty(I_L_data) || isempty(P_lv_data) || isempty(P_hv_data)
-                        error_msg{sim_idx} = 'Required signals not found.';
-                        completed_sims(sim_idx) = true; continue;
-                    end
-                    
-                    % ========== 다중 결과 추출 (39스텝 커팅) ==========
+                % 요약 데이터가 성공적으로 있는 경우 병합
+                if ~isempty(res)
                     for d_idx = 1:N_D0_STEPS
-                        row_idx = (sim_idx - 1) * N_D0_STEPS + d_idx;
-                        
-                        % 각 D0 위상별 끝나는 시점 계산
-                        if d_idx == 1
-                            t_end_step = T_STARTUP; % 0.006
-                        else
-                            t_end_step = T_STARTUP + (d_idx - 1) * T_STEP; % 0.007, 0.008 ...
-                        end
-                        
-                        % 안정화(정상상태)를 가정하고, 스텝 종료 직전 0.5ms (절반) 구간의 데이터만 추출
-                        t_start_step = t_end_step - 0.0005; 
-                        
-                        % [중요] 위상이 변하는 시점(edge)이 포함되지 않도록, t_end_step보다 아주 살짝 앞까지만 자름
-                        mask = (t_sim >= t_start_step) & (t_sim < t_end_step - 1e-6);
-                        if sum(mask) > 5 % 데이터가 충분히 확보된 구간 한정
-                            try
-                                i_pk = max(abs(I_L_data(mask)));
-                                
-                                mask_p = (t_plv >= t_start_step) & (t_plv <= t_end_step);
-                                p_act = mean(P_lv_data(mask_p));
-                                
-                                mask_p_hv = (t_phv >= t_start_step) & (t_phv <= t_end_step);
-                                p_act_hv = mean(P_hv_data(mask_p_hv));
-                                
-                                dataset_V2(row_idx) = V2_all(sim_idx);
-                                dataset_D1(row_idx) = D1_all(sim_idx);
-                                dataset_D2(row_idx) = D2_all(sim_idx);
-                                dataset_D0(row_idx) = D0_vec(d_idx);
-                                dataset_I_pk(row_idx) = i_pk;
-                                dataset_P_act(row_idx) = p_act;
-                                dataset_P_act_HV(row_idx) = p_act_hv; % Power_HV 저장
-                                dataset_valid(row_idx) = true;
-                                
-                                % 명령창 및 로그 파일에 성공 상태 출력
-                                logStatusMsg(sprintf('   [Sim %d / %d] SUCCESS. V2=%.1fV, D1=%.2f, D2=%.2f, D0=%.1fdeg -> i_pk_pri=%.2fA, P_act_LV=%.1fW, P_act_HV=%.1fW', ...
-                                    sim_idx, N_sims, V2_all(sim_idx), D1_all(sim_idx), D2_all(sim_idx), D0_vec(d_idx), i_pk, p_act, p_act_hv), logFile);
-                            catch
-                            end
+                        if res.valid(d_idx)
+                            row_idx = (sim_idx - 1) * N_D0_STEPS + d_idx;
+                            
+                            dataset_V2(row_idx) = V2_all(sim_idx);
+                            dataset_D1(row_idx) = D1_all(sim_idx);
+                            dataset_D2(row_idx) = D2_all(sim_idx);
+                            dataset_D0(row_idx) = D0_vec(d_idx);
+                            dataset_I_pk(row_idx) = res.i_pk(d_idx);
+                            dataset_P_act(row_idx) = res.p_act(d_idx);
+                            dataset_P_act_HV(row_idx) = res.p_act_hv(d_idx);
+                            dataset_valid(row_idx) = true;
+                            
+                            % 명령창 및 로그 파일에 성공 상태 출력
+                            logStatusMsg(sprintf('   [Sim %d / %d] SUCCESS. V2=%.1fV, D1=%.2f, D2=%.2f, D0=%.1fdeg -> i_pk_pri=%.2fA, P_act_LV=%.1fW, P_act_HV=%.1fW', ...
+                                sim_idx, N_sims, V2_all(sim_idx), D1_all(sim_idx), D2_all(sim_idx), D0_vec(d_idx), res.i_pk(d_idx), res.p_act(d_idx), res.p_act_hv(d_idx)), logFile);
                         end
                     end
-                    completed_sims(sim_idx) = true;
-                    
-                catch extME
-                    error_msg{sim_idx} = extME.message;
-                    completed_sims(sim_idx) = true;
                 end
+                completed_sims(sim_idx) = true;
             end
         end
         
@@ -377,4 +330,71 @@ function workerSetupFcn(Kp, Ki, Kpv, Kiv)
     assignin('base', 'R_ESR_LV', 0.01); assignin('base', 'R_batt_int', 0.15);
     assignin('base', 'Kp_ext', Kp); assignin('base', 'Ki_ext', Ki);
     assignin('base', 'Kpv', Kpv); assignin('base', 'Kiv', Kiv);
+end
+
+% === 메모리 절약을 위한 워커 노드 후처리 함수 ===
+function newSimOut = processSimResult(simOut, T_STARTUP, T_STEP, N_D0_STEPS)
+    % 워커에서 시뮬레이션 직후 실행. 무거운 파형 데이터를 메모리에서 버리고 필요한 결과만 추출
+    res = struct();
+    res.error_msg = '';
+    res.p_act = NaN(N_D0_STEPS, 1);
+    res.p_act_hv = NaN(N_D0_STEPS, 1);
+    res.i_pk = NaN(N_D0_STEPS, 1);
+    res.valid = false(N_D0_STEPS, 1);
+    
+    if ~isempty(simOut.ErrorMessage)
+        res.error_msg = simOut.ErrorMessage;
+        newSimOut = Simulink.SimulationOutput;
+        newSimOut = newSimOut.setUserData(res);
+        return;
+    end
+    
+    try
+        [I_L_data, t_sim] = extract_signal(simOut, {'Inductor_Current1','Inductor_Current','I_L1','I_L'});
+        [P_lv_data, t_plv] = extract_signal(simOut, {'Power_LV'});
+        [P_hv_data, t_phv] = extract_signal(simOut, {'Power_HV'}); 
+        
+        if isempty(P_lv_data)
+            [v_lv,  t_v] = extract_signal(simOut, {'V_LV1', 'V_LV'});
+            [i_lv,  ~]   = extract_signal(simOut, {'I_LV1', 'I_LV'});
+            if ~isempty(v_lv) && ~isempty(i_lv), P_lv_data = v_lv .* i_lv; t_plv = t_v; end
+        end
+        if isempty(P_hv_data)
+            [v_hv,  t_v_hv] = extract_signal(simOut, {'V_HV1', 'V_HV'});
+            [i_hv,  ~]   = extract_signal(simOut, {'I_HV1', 'I_HV'});
+            if ~isempty(v_hv) && ~isempty(i_hv), P_hv_data = v_hv .* i_hv; t_phv = t_v_hv; end
+        end
+        
+        if isempty(I_L_data) || isempty(P_lv_data) || isempty(P_hv_data)
+            res.error_msg = 'Required signals not found.';
+        else
+            for d_idx = 1:N_D0_STEPS
+                if d_idx == 1
+                    t_end_step = T_STARTUP;
+                else
+                    t_end_step = T_STARTUP + (d_idx - 1) * T_STEP;
+                end
+                
+                % [요청 반영] 인덕터 피크, 전력 평균 모두 "스텝 직전 0.1ms"로 통일
+                t_start_step = t_end_step - 0.0001; 
+                
+                mask_i = (t_sim >= t_start_step) & (t_sim < t_end_step - 1e-6);
+                mask_p_lv = (t_plv >= t_start_step) & (t_plv < t_end_step - 1e-6);
+                mask_p_hv = (t_phv >= t_start_step) & (t_phv < t_end_step - 1e-6);
+                
+                if sum(mask_i) > 5
+                    res.i_pk(d_idx) = max(abs(I_L_data(mask_i)));
+                    res.p_act(d_idx) = mean(P_lv_data(mask_p_lv));
+                    res.p_act_hv(d_idx) = mean(P_hv_data(mask_p_hv));
+                    res.valid(d_idx) = true;
+                end
+            end
+        end
+    catch ME
+        res.error_msg = ME.message;
+    end
+    
+    % 가벼운 객체 생성 후 메인 스레드로 반환 (이전 무거운 파형 데이터들은 메모리 해제됨)
+    newSimOut = Simulink.SimulationOutput;
+    newSimOut = newSimOut.setUserData(res);
 end
