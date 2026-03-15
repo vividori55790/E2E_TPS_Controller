@@ -1,23 +1,13 @@
 classdef Direct_Efficiency_Analyzer < matlab.System
-    % Direct_Efficiency_Analyzer (v3.1 - Exact 1-Cycle Moving Average)
+    % Direct_Efficiency_Analyzer (v3.4 - Exact 1-Cycle Moving Average & True ZVS)
     %
     % [Description]
     % Calculates the efficiency of the DAB converter using a precise
-    % 1-cycle moving average filter. The window size is computed from
-    % the switching frequency and sample time to guarantee exact
-    % 1-cycle averaging, eliminating residual ripple.
+    % 1-cycle moving average filter. 
     %
-    % [Key Features]
-    % - Exact 1-cycle window: N = round(1 / (fs * Ts))
-    % - O(1) circular buffer based moving average.
-    % - fs and Ts are configurable Nontunable properties.
-    % - Buffer is pre-allocated to MAX_BUFFER_SIZE for Code Generation.
-    % - Code Generation Ready.
-    %
-    % [v3.1 Changes]
-    % - fs, Ts as Nontunable properties (user-configurable).
-    % - Exact window size calculation in setupImpl.
-    % - Explicit getSampleTimeImpl for deterministic sample time.
+    % [v3.4 Changes for 380V/96V 1kW DAB]
+    % - HV측(380V)과 LV측(96V)의 전압/전류 스케일이 다르므로 ZVS 임계값을 분리함
+    % - 기본값을 380V, 96V, 1kW, 80kHz 사양에 맞게 최적화
     
     properties(Nontunable)
         % Inductor AC Resistance [Ohm]
@@ -34,18 +24,26 @@ classdef Direct_Efficiency_Analyzer < matlab.System
         
         % Sample Time [sec] (must match Simulink block sample time)
         Ts = 1e-7;
+        
+        % [HV Side (380V) ZVS Thresholds]
+        % 380V의 약 10% 미만일 때 켜져야 ZVS로 인정
+        ZVS_V_Threshold_HV = 30;
+        % HV측 정격 평균 전류(약 2.6A) 대비 노이즈 마진
+        ZVS_I_Threshold_HV = 0.5;
+        
+        % [LV Side (96V) ZVS Thresholds]
+        % 96V의 약 10% 미만일 때 켜져야 ZVS로 인정
+        ZVS_V_Threshold_LV = 10;
+        % LV측 정격 평균 전류(약 10.4A) 대비 큰 리플/노이즈 마진
+        ZVS_I_Threshold_LV = 2.0;
     end
 
     properties(Constant)
-        % Maximum buffer size for Code Generation (pre-allocation)
-        % Must be >= max possible window size (1/(fs*Ts))
-        % For 80kHz / 1e-7s = 125, but allow up to 500 for other configs
         MAX_BUFFER_SIZE = 500;
     end
 
-    % Define states that change during execution
     properties(DiscreteState)
-        % Circular Buffers (Data Storage) - Fixed Size MAX_BUFFER_SIZE
+        % Power Buffers
         Buffer_Pin
         Buffer_Pout
         Buffer_Ploss
@@ -55,7 +53,11 @@ classdef Direct_Efficiency_Analyzer < matlab.System
         Buffer_P_HV
         Buffer_P_LV
         
-        % Running Sums (O(1) Accumulators)
+        % Hard Switching Flag Buffers (1 means Hard Switching occurred)
+        Buffer_HardSw_HV
+        Buffer_HardSw_LV
+        
+        % Running Sums
         Sum_Pin
         Sum_Pout
         Sum_Ploss
@@ -65,30 +67,25 @@ classdef Direct_Efficiency_Analyzer < matlab.System
         Sum_P_HV
         Sum_P_LV
         
+        % Hard Switching Running Sums
+        Sum_HardSw_HV
+        Sum_HardSw_LV
+        
         % State Control
         BufferIdx
-        SampleCount     % Counts samples until buffer is full
-        WindowSize      % Actual window size (computed in setup)
+        SampleCount
+        WindowSize
     end
 
     methods(Access = protected)
         
         function setupImpl(obj)
-            % Initialize Discrete States
             M = obj.MAX_BUFFER_SIZE;
-            
-            % Compute exact window size: samples per 1 switching cycle
             obj.WindowSize = round(1 / (obj.Fs * obj.Ts));
             
-            % Safety clamp
-            if obj.WindowSize < 1
-                obj.WindowSize = 1;
-            end
-            if obj.WindowSize > M
-                obj.WindowSize = M;
-            end
+            if obj.WindowSize < 1, obj.WindowSize = 1; end
+            if obj.WindowSize > M, obj.WindowSize = M; end
             
-            % Initialize Buffers with MAX size (Code Gen requires fixed size)
             obj.Buffer_Pin    = zeros(M, 1);
             obj.Buffer_Pout   = zeros(M, 1);
             obj.Buffer_Ploss  = zeros(M, 1);
@@ -98,7 +95,9 @@ classdef Direct_Efficiency_Analyzer < matlab.System
             obj.Buffer_P_HV   = zeros(M, 1);
             obj.Buffer_P_LV   = zeros(M, 1);
             
-            % Initialize Running Sums
+            obj.Buffer_HardSw_HV = zeros(M, 1);
+            obj.Buffer_HardSw_LV = zeros(M, 1);
+            
             obj.Sum_Pin    = 0;
             obj.Sum_Pout   = 0;
             obj.Sum_Ploss  = 0;
@@ -108,64 +107,55 @@ classdef Direct_Efficiency_Analyzer < matlab.System
             obj.Sum_P_HV   = 0;
             obj.Sum_P_LV   = 0;
             
-            % Initialize Indices
+            obj.Sum_HardSw_HV = 0;
+            obj.Sum_HardSw_LV = 0;
+            
             obj.BufferIdx   = 1;
             obj.SampleCount = 0;
         end
 
-        function [Eff, P_Loss_Total, P_Copper_L, P_Semi_HV, P_Semi_LV, P_HV, P_LV] = stepImpl(obj, V_HV, I_HV, V_LV, I_LV, I_L, V_sw_HV, I_sw_HV, V_sw_LV, I_sw_LV)
+        function [Eff, P_Loss_Total, P_Copper_L, P_Semi_HV, P_Semi_LV, P_HV, P_LV, Is_ZVS] = stepImpl(obj, V_HV, I_HV, V_LV, I_LV, I_L, V_sw_HV, I_sw_HV, V_sw_LV, I_sw_LV)
             
             % --- 1. Instantaneous Physics Calculation ---
-            
-            % Inductor Copper Loss (I^2 * R)
             P_L_inst = (I_L ^ 2) * obj.R_L_ac;
-            
-            % Switching/Conduction Loss
             P_sw_HV_inst = (V_sw_HV * I_sw_HV) * obj.NumSwitchesHV;
             P_sw_LV_inst = (V_sw_LV * I_sw_LV) * obj.NumSwitchesLV;
-            
             P_Loss_inst = P_L_inst + P_sw_HV_inst + P_sw_LV_inst;
             
-            % Power Flow Direction & Input/Output Power
             P_HV_raw = V_HV * I_HV;
             P_LV_raw = V_LV * I_LV;
             
             if P_HV_raw >= 0 
-                % Charge Mode (HV -> LV)
                 P_In_inst  = P_HV_raw;
                 P_Out_inst = abs(P_LV_raw);
             else
-                % Discharge Mode (LV -> HV)
                 P_In_inst  = abs(P_LV_raw);
                 P_Out_inst = abs(P_HV_raw);
             end
             
-            % --- 2. Update Moving Average (O(1) Circular Buffer) ---
+            % --- True ZVS Overlap Detection (HV/LV Separated) ---
+            % 전압이 V_Threshold 이상인데 전류도 I_Threshold 이상 흐르면 하드스위칭(1)
+            is_Hard_HV = (abs(V_sw_HV) > obj.ZVS_V_Threshold_HV) && (abs(I_sw_HV) > obj.ZVS_I_Threshold_HV);
+            is_Hard_LV = (abs(V_sw_LV) > obj.ZVS_V_Threshold_LV) && (abs(I_sw_LV) > obj.ZVS_I_Threshold_LV);
             
+            % --- 2. Update Moving Average ---
             idx = obj.BufferIdx;
-            N   = obj.WindowSize;  % Exact 1-cycle window
+            N   = obj.WindowSize;
             
-            % Retrieve Oldest Values (to be removed from Sum)
-            old_Pin    = obj.Buffer_Pin(idx);
-            old_Pout   = obj.Buffer_Pout(idx);
-            old_Ploss  = obj.Buffer_Ploss(idx);
-            old_PL_Cu  = obj.Buffer_PL_Cu(idx);
-            old_Psw_HV = obj.Buffer_Psw_HV(idx);
-            old_Psw_LV = obj.Buffer_Psw_LV(idx);
-            old_P_HV   = obj.Buffer_P_HV(idx);
-            old_P_LV   = obj.Buffer_P_LV(idx);
+            % Remove Oldest
+            obj.Sum_Pin    = obj.Sum_Pin    - obj.Buffer_Pin(idx)    + P_In_inst;
+            obj.Sum_Pout   = obj.Sum_Pout   - obj.Buffer_Pout(idx)   + P_Out_inst;
+            obj.Sum_Ploss  = obj.Sum_Ploss  - obj.Buffer_Ploss(idx)  + P_Loss_inst;
+            obj.Sum_PL_Cu  = obj.Sum_PL_Cu  - obj.Buffer_PL_Cu(idx)  + P_L_inst;
+            obj.Sum_Psw_HV = obj.Sum_Psw_HV - obj.Buffer_Psw_HV(idx) + P_sw_HV_inst;
+            obj.Sum_Psw_LV = obj.Sum_Psw_LV - obj.Buffer_Psw_LV(idx) + P_sw_LV_inst;
+            obj.Sum_P_HV   = obj.Sum_P_HV   - obj.Buffer_P_HV(idx)   + P_HV_raw;
+            obj.Sum_P_LV   = obj.Sum_P_LV   - obj.Buffer_P_LV(idx)   + P_LV_raw;
             
-            % Update Running Sums (Sum = Sum - Old + New)
-            obj.Sum_Pin    = obj.Sum_Pin    - old_Pin    + P_In_inst;
-            obj.Sum_Pout   = obj.Sum_Pout   - old_Pout   + P_Out_inst;
-            obj.Sum_Ploss  = obj.Sum_Ploss  - old_Ploss  + P_Loss_inst;
-            obj.Sum_PL_Cu  = obj.Sum_PL_Cu  - old_PL_Cu  + P_L_inst;
-            obj.Sum_Psw_HV = obj.Sum_Psw_HV - old_Psw_HV + P_sw_HV_inst;
-            obj.Sum_Psw_LV = obj.Sum_Psw_LV - old_Psw_LV + P_sw_LV_inst;
-            obj.Sum_P_HV   = obj.Sum_P_HV   - old_P_HV   + P_HV_raw;
-            obj.Sum_P_LV   = obj.Sum_P_LV   - old_P_LV   + P_LV_raw;
+            obj.Sum_HardSw_HV = obj.Sum_HardSw_HV - obj.Buffer_HardSw_HV(idx) + is_Hard_HV;
+            obj.Sum_HardSw_LV = obj.Sum_HardSw_LV - obj.Buffer_HardSw_LV(idx) + is_Hard_LV;
             
-            % Update Buffers (Overwrite oldest slot with new value)
+            % Update Buffers
             obj.Buffer_Pin(idx)    = P_In_inst;
             obj.Buffer_Pout(idx)   = P_Out_inst;
             obj.Buffer_Ploss(idx)  = P_Loss_inst;
@@ -175,31 +165,25 @@ classdef Direct_Efficiency_Analyzer < matlab.System
             obj.Buffer_P_HV(idx)   = P_HV_raw;
             obj.Buffer_P_LV(idx)   = P_LV_raw;
             
-            % Advance Index (Circular within WindowSize, NOT MAX_BUFFER_SIZE)
-            obj.BufferIdx = obj.BufferIdx + 1;
-            if obj.BufferIdx > N
-                obj.BufferIdx = 1;
-            end
+            obj.Buffer_HardSw_HV(idx) = is_Hard_HV;
+            obj.Buffer_HardSw_LV(idx) = is_Hard_LV;
             
-            % Track sample count for buffer-full detection
-            if obj.SampleCount < N
-                obj.SampleCount = obj.SampleCount + 1;
-            end
+            % Advance Index
+            obj.BufferIdx = obj.BufferIdx + 1;
+            if obj.BufferIdx > N, obj.BufferIdx = 1; end
+            if obj.SampleCount < N, obj.SampleCount = obj.SampleCount + 1; end
             
             % --- 3. Compute Averages & Efficiency ---
-            
-            P_Loss_Total = obj.Sum_Ploss  / N;
-            P_Copper_L   = obj.Sum_PL_Cu  / N;
+            P_Loss_Total = obj.Sum_Ploss / N;
+            P_Copper_L   = obj.Sum_PL_Cu / N;
             P_Semi_HV    = obj.Sum_Psw_HV / N;
             P_Semi_LV    = obj.Sum_Psw_LV / N;
-            
             P_HV         = obj.Sum_P_HV / N;
             P_LV         = obj.Sum_P_LV / N;
             
-            P_in_avg  = obj.Sum_Pin  / N;
+            P_in_avg  = obj.Sum_Pin / N;
             P_out_avg = obj.Sum_Pout / N;
             
-            % Efficiency Logic
             isBufferFull = (obj.SampleCount >= N);
             
             if (~isBufferFull) || (abs(P_in_avg) < 1e-3)
@@ -207,24 +191,26 @@ classdef Direct_Efficiency_Analyzer < matlab.System
             else
                 Eff_IO   = (P_out_avg / P_in_avg) * 100;
                 Eff_Loss = ((P_in_avg - P_Loss_Total) / P_in_avg) * 100;
-                
-                % Select realistic efficiency
-                if Eff_IO > 100.0
-                    Eff = Eff_Loss;
-                else
-                    Eff = Eff_IO;
-                end
-                
-                % Clamp
+                if Eff_IO > 100.0, Eff = Eff_Loss; else, Eff = Eff_IO; end
                 if Eff > 100.0, Eff = 99.9; end
                 if Eff < 0.0,   Eff = 0.0;  end
+            end
+            
+            % --- 4. ZVS Decision ---
+            % 1주기 내에 HV, LV 양쪽 모두 하드스위칭이 없어야 ZVS 성공
+            if (~isBufferFull)
+                Is_ZVS = 0;
+            else
+                if (obj.Sum_HardSw_HV == 0) && (obj.Sum_HardSw_LV == 0)
+                    Is_ZVS = 1; % ZVS 달성
+                else
+                    Is_ZVS = 0; % 하드 스위칭 발생
+                end
             end
         end
         
         function resetImpl(obj)
-            % Reset all states
             M = obj.MAX_BUFFER_SIZE;
-            
             obj.Buffer_Pin    = zeros(M, 1);
             obj.Buffer_Pout   = zeros(M, 1);
             obj.Buffer_Ploss  = zeros(M, 1);
@@ -233,87 +219,64 @@ classdef Direct_Efficiency_Analyzer < matlab.System
             obj.Buffer_Psw_LV = zeros(M, 1);
             obj.Buffer_P_HV   = zeros(M, 1);
             obj.Buffer_P_LV   = zeros(M, 1);
+            obj.Buffer_HardSw_HV = zeros(M, 1);
+            obj.Buffer_HardSw_LV = zeros(M, 1);
             
-            obj.Sum_Pin    = 0;
-            obj.Sum_Pout   = 0;
-            obj.Sum_Ploss  = 0;
-            obj.Sum_PL_Cu  = 0;
-            obj.Sum_Psw_HV = 0;
-            obj.Sum_Psw_LV = 0;
-            obj.Sum_P_HV   = 0;
-            obj.Sum_P_LV   = 0;
+            obj.Sum_Pin = 0; obj.Sum_Pout = 0; obj.Sum_Ploss = 0; obj.Sum_PL_Cu = 0;
+            obj.Sum_Psw_HV = 0; obj.Sum_Psw_LV = 0; obj.Sum_P_HV = 0; obj.Sum_P_LV = 0;
+            obj.Sum_HardSw_HV = 0; obj.Sum_HardSw_LV = 0;
             
-            obj.BufferIdx   = 1;
+            obj.BufferIdx = 1;
             obj.SampleCount = 0;
-            % WindowSize is preserved (set in setupImpl, Nontunable)
         end
         
-        % --- Sample Time Specification (Deterministic) ---
         function sts = getSampleTimeImpl(obj)
-            sts = createSampleTime(obj, 'Type', 'Discrete', ...
-                                   'SampleTime', obj.Ts, ...
-                                   'OffsetTime', 0);
+            sts = createSampleTime(obj, 'Type', 'Discrete', 'SampleTime', obj.Ts, 'OffsetTime', 0);
         end
         
-        % Required for DiscreteState in Code Generation
         function [sz, dt, cp] = getDiscreteStateSpecificationImpl(~, name)
-            M = 500;  % Must match MAX_BUFFER_SIZE
-            
+            M = 500;
             switch name
-                case 'BufferIdx'
-                    sz = [1 1]; dt = 'double'; cp = false;
-                case 'SampleCount'
-                    sz = [1 1]; dt = 'double'; cp = false;
-                case 'WindowSize'
-                    sz = [1 1]; dt = 'double'; cp = false;
-                case {'Sum_Pin', 'Sum_Pout', 'Sum_Ploss', 'Sum_PL_Cu', 'Sum_Psw_HV', 'Sum_Psw_LV', 'Sum_P_HV', 'Sum_P_LV'}
+                case {'BufferIdx', 'SampleCount', 'WindowSize', ...
+                      'Sum_Pin', 'Sum_Pout', 'Sum_Ploss', 'Sum_PL_Cu', ...
+                      'Sum_Psw_HV', 'Sum_Psw_LV', 'Sum_P_HV', 'Sum_P_LV', ...
+                      'Sum_HardSw_HV', 'Sum_HardSw_LV'}
                     sz = [1 1]; dt = 'double'; cp = false;
                 otherwise
-                    % All buffer states (Buffer_Pin, Buffer_Pout, etc.)
-                    sz = [M 1];
-                    dt = 'double';
-                    cp = false;
+                    sz = [M 1]; dt = 'double'; cp = false;
             end
         end
 
-        function [out1, out2, out3, out4, out5, out6, out7] = getOutputSizeImpl(~)
-            out1=[1 1]; out2=[1 1]; out3=[1 1]; out4=[1 1]; out5=[1 1]; out6=[1 1]; out7=[1 1];
+        function [out1, out2, out3, out4, out5, out6, out7, out8] = getOutputSizeImpl(~)
+            out1=[1 1]; out2=[1 1]; out3=[1 1]; out4=[1 1]; out5=[1 1]; out6=[1 1]; out7=[1 1]; out8=[1 1];
         end
-        function [out1, out2, out3, out4, out5, out6, out7] = getOutputDataTypeImpl(~)
-            out1='double'; out2='double'; out3='double'; out4='double'; out5='double'; out6='double'; out7='double';
+        function [out1, out2, out3, out4, out5, out6, out7, out8] = getOutputDataTypeImpl(~)
+            out1='double'; out2='double'; out3='double'; out4='double'; out5='double'; out6='double'; out7='double'; out8='double';
         end
-        function [out1, out2, out3, out4, out5, out6, out7] = isOutputComplexImpl(~)
-            out1=false; out2=false; out3=false; out4=false; out5=false; out6=false; out7=false;
+        function [out1, out2, out3, out4, out5, out6, out7, out8] = isOutputComplexImpl(~)
+            out1=false; out2=false; out3=false; out4=false; out5=false; out6=false; out7=false; out8=false;
         end
-        function [out1, out2, out3, out4, out5, out6, out7] = isOutputFixedSizeImpl(~)
-            out1=true; out2=true; out3=true; out4=true; out5=true; out6=true; out7=true;
+        function [out1, out2, out3, out4, out5, out6, out7, out8] = isOutputFixedSizeImpl(~)
+            out1=true; out2=true; out3=true; out4=true; out5=true; out6=true; out7=true; out8=true;
         end
-        
     end
     
     methods (Static, Access = protected)
-        % --- Parameter Grouping & Display Labels ---
         function groups = getPropertyGroupsImpl()
-            % Group: Component Parameters
-            groupComp = matlab.system.display.Section(...
-                'Title', 'Component Parameters (Loss Calculation)', ...
-                'PropertyList', {'R_L_ac', 'NumSwitchesHV', 'NumSwitchesLV'});
-            
-            % Group: Timing Parameters
-            groupTime = matlab.system.display.Section(...
-                'Title', 'Timing Parameters (Moving Average Window)', ...
+            groupComp = matlab.system.display.Section('Title', 'System & Thresholds', ...
+                'PropertyList', {'R_L_ac', 'NumSwitchesHV', 'NumSwitchesLV', ...
+                                 'ZVS_V_Threshold_HV', 'ZVS_I_Threshold_HV', ...
+                                 'ZVS_V_Threshold_LV', 'ZVS_I_Threshold_LV'});
+            groupTime = matlab.system.display.Section('Title', 'Timing Parameters', ...
                 'PropertyList', {'Fs', 'Ts'});
-                
             groups = [groupComp, groupTime];
         end
         
         function header = getHeaderImpl()
             header = matlab.system.display.Header(mfilename('class'), ...
-                'Title', 'DAB Efficiency Analyzer (1-Cycle Moving Average)', ...
-                'Text', sprintf(['DAB 컨버터의 효율을 직접 측정하는 블록입니다.\n', ...
-                                 '[v3.1] 정확한 1주기 이동평균 필터 모드\n', ...
-                                 '윈도우 크기 = round(1 / (Fs * Ts))\n', ...
-                                 '기본값: 80kHz, 1e-7s → 125 샘플']));
+                'Title', 'DAB Efficiency Analyzer (v3.4 - HV/LV Split ZVS)', ...
+                'Text', sprintf(['DAB 컨버터 효율 및 ZVS 여부 측정 블록\\n', ...
+                                 '[v3.4] 380V/96V 환경에 맞춰 HV/LV 임계값 독립 분리.']));
         end
     end
 end

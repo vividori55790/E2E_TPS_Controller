@@ -10,7 +10,7 @@ function Generate_TPS_Dataset()
     
     fprintf('=========================================================================\n');
     fprintf('  DAB TPS Dataset Generator (Time-Series Staircase Mode)\n');
-    fprintf('  Target: V2, D0, D1, D2 -> i_pk_pri, Power_LV\n');
+    fprintf('  Target: V2, D0, D1, D2 -> i_pk_pri, Power_LV, Power_HV\n');
     fprintf('=========================================================================\n\n');
     
     scriptDir = fileparts(mfilename('fullpath'));
@@ -40,10 +40,10 @@ function Generate_TPS_Dataset()
     spec.I_sec_max = 40;
     
     % 시뮬레이션 설정 (다단 스텝)
-    SIM_TIME = 0.025;           % 25ms
+    SIM_TIME = 0.044;           % 44ms (위상 -90~90도 확장에 따른 시간 증가)
     T_STARTUP = 0.005;          % 5ms 초기 안정화 시간
-    T_STEP    = 0.001;          % 매 스텝간 1ms (총 20 step)
-    N_D0_STEPS = 20;            % 20계단
+    T_STEP    = 0.001;          % 매 스텝간 1ms
+    N_D0_STEPS = 39;            % 39계단 (-90도 ~ 90도)
     
     Kp_val = 0.05; Ki_val = 50.0; Kpv_val = 5.0; Kiv_val = 5000;
     
@@ -54,10 +54,10 @@ function Generate_TPS_Dataset()
     D1_vec = linspace(0.2, 0.5, N_D1);
     D2_vec = linspace(0.2, 0.5, N_D2);
     
-    % 전력 변화가 0도 근처에서 극심하고 90도에서 둔감한 DAB의 특성( P ∝ D0*(1-D0) )을 반영
-    % 전력 결과값이 선형적인 간격으로 찍히도록 위상 배분을 1 - sqrt(1 - x) 형태로 비선형 인가
-    norm_x = linspace(0, 1, N_D0_STEPS);
-    D0_vec = 90 * (1 - sqrt(1 - norm_x));
+    % 전력 변화가 0도 근처에서 극심하고 +/-90도에서 둔감한 DAB의 특성 반영
+    % 전력 결과값이 선형적인 간격으로 찍히도록 위상 배분을 1 - sqrt(1 - |x|) 형태로 비선형 인가
+    norm_x = linspace(-1, 1, N_D0_STEPS);
+    D0_vec = sign(norm_x) .* 90 .* (1 - sqrt(1 - abs(norm_x)));
     
     [V2_grid, D1_grid, D2_grid] = ndgrid(V2_vec, D1_vec, D2_vec);
     V2_all = V2_grid(:);
@@ -94,7 +94,8 @@ function Generate_TPS_Dataset()
     dataset_D1 = NaN(N_total, 1);
     dataset_D2 = NaN(N_total, 1);
     dataset_I_pk = NaN(N_total, 1);
-    dataset_P_act = NaN(N_total, 1);
+    dataset_P_act = NaN(N_total, 1);     % Power_LV
+    dataset_P_act_HV = NaN(N_total, 1);  % Power_HV 추가
     dataset_valid = false(N_total, 1);
     
     completed_sims = false(N_sims, 1);
@@ -107,7 +108,11 @@ function Generate_TPS_Dataset()
             if isfield(cp, 'N_sims_cp') && cp.N_sims_cp == N_sims
                 dataset_V2 = cp.dataset_V2; dataset_D0 = cp.dataset_D0;
                 dataset_D1 = cp.dataset_D1; dataset_D2 = cp.dataset_D2;
-                dataset_I_pk = cp.dataset_I_pk; dataset_P_act = cp.dataset_P_act;
+                dataset_I_pk = cp.dataset_I_pk; 
+                dataset_P_act = cp.dataset_P_act;
+                if isfield(cp, 'dataset_P_act_HV')
+                    dataset_P_act_HV = cp.dataset_P_act_HV;
+                end
                 dataset_valid = cp.dataset_valid; completed_sims = cp.completed_sims;
                 error_msg = cp.error_msg;
                 n_done = sum(completed_sims);
@@ -214,6 +219,7 @@ function Generate_TPS_Dataset()
                 try
                     [I_L_data, t_sim] = extract_signal(simOut, {'Inductor_Current1','Inductor_Current','I_L1','I_L'});
                     [P_lv_data, t_plv] = extract_signal(simOut, {'Power_LV'});
+                    [P_hv_data, t_phv] = extract_signal(simOut, {'Power_HV'}); % Power_HV 추출 추가
                     
                     % Power_LV To Workspace 블록이 없을 시 차선책 (V * I)
                     if isempty(P_lv_data)
@@ -225,12 +231,22 @@ function Generate_TPS_Dataset()
                         end
                     end
                     
-                    if isempty(I_L_data) || isempty(P_lv_data)
+                    % Power_HV To Workspace 블록이 없을 시 차선책 (V * I)
+                    if isempty(P_hv_data)
+                        [v_hv,  t_v_hv] = extract_signal(simOut, {'V_HV1', 'V_HV'});
+                        [i_hv,  ~]   = extract_signal(simOut, {'I_HV1', 'I_HV'});
+                        if ~isempty(v_hv) && ~isempty(i_hv)
+                            P_hv_data = v_hv .* i_hv;
+                            t_phv = t_v_hv; 
+                        end
+                    end
+                    
+                    if isempty(I_L_data) || isempty(P_lv_data) || isempty(P_hv_data)
                         error_msg{sim_idx} = 'Required signals not found.';
                         completed_sims(sim_idx) = true; continue;
                     end
                     
-                    % ========== 다중 결과 추출 (20스텝 커팅) ==========
+                    % ========== 다중 결과 추출 (39스텝 커팅) ==========
                     for d_idx = 1:N_D0_STEPS
                         row_idx = (sim_idx - 1) * N_D0_STEPS + d_idx;
                         
@@ -253,17 +269,21 @@ function Generate_TPS_Dataset()
                                 mask_p = (t_plv >= t_start_step) & (t_plv <= t_end_step);
                                 p_act = mean(P_lv_data(mask_p));
                                 
+                                mask_p_hv = (t_phv >= t_start_step) & (t_phv <= t_end_step);
+                                p_act_hv = mean(P_hv_data(mask_p_hv));
+                                
                                 dataset_V2(row_idx) = V2_all(sim_idx);
                                 dataset_D1(row_idx) = D1_all(sim_idx);
                                 dataset_D2(row_idx) = D2_all(sim_idx);
                                 dataset_D0(row_idx) = D0_vec(d_idx);
                                 dataset_I_pk(row_idx) = i_pk;
                                 dataset_P_act(row_idx) = p_act;
+                                dataset_P_act_HV(row_idx) = p_act_hv; % Power_HV 저장
                                 dataset_valid(row_idx) = true;
                                 
                                 % 명령창 및 로그 파일에 성공 상태 출력
-                                logStatusMsg(sprintf('   [Sim %d / %d] SUCCESS. V2=%.1fV, D1=%.2f, D2=%.2f, D0=%.1fdeg -> i_pk_pri=%.2fA, P_act=%.1fW', ...
-                                    sim_idx, N_sims, V2_all(sim_idx), D1_all(sim_idx), D2_all(sim_idx), D0_vec(d_idx), i_pk, p_act), logFile);
+                                logStatusMsg(sprintf('   [Sim %d / %d] SUCCESS. V2=%.1fV, D1=%.2f, D2=%.2f, D0=%.1fdeg -> i_pk_pri=%.2fA, P_act_LV=%.1fW, P_act_HV=%.1fW', ...
+                                    sim_idx, N_sims, V2_all(sim_idx), D1_all(sim_idx), D2_all(sim_idx), D0_vec(d_idx), i_pk, p_act, p_act_hv), logFile);
                             catch
                             end
                         end
@@ -280,7 +300,7 @@ function Generate_TPS_Dataset()
         % 체크포인트 단기 저장 (디스크 오버로딩 방지)
         clear simIn_array simOut_array;
         N_sims_cp = N_sims;
-        save('TPS_temp.mat', 'dataset_V2','dataset_D1','dataset_D2','dataset_D0','dataset_I_pk','dataset_P_act','dataset_valid','completed_sims','error_msg','N_sims_cp', '-v7.3');
+        save('TPS_temp.mat', 'dataset_V2','dataset_D1','dataset_D2','dataset_D0','dataset_I_pk','dataset_P_act','dataset_P_act_HV','dataset_valid','completed_sims','error_msg','N_sims_cp', '-v7.3');
         movefile('TPS_temp.mat', checkpointFile, 'f');
         fprintf('   [Batch %d/%d] Saved %d/%d sims.\n', batchIdx, N_batches, sum(completed_sims), N_sims);
         
@@ -299,10 +319,11 @@ function Generate_TPS_Dataset()
     valid_mask = dataset_valid;
     n_valid = sum(valid_mask);
     
-    dataset = table(dataset_P_act(valid_mask), dataset_V2(valid_mask), ...
+    % 데이터 셋 테이블 구성 시 Power_HV 추가
+    dataset = table(dataset_P_act(valid_mask), dataset_P_act_HV(valid_mask), dataset_V2(valid_mask), ...
                     dataset_D0(valid_mask), dataset_D1(valid_mask), dataset_D2(valid_mask), ...
                     dataset_I_pk(valid_mask), dataset_I_pk(valid_mask)*spec.n, ...
-                    'VariableNames', {'P_act_W', 'V2_V', 'D0_deg', 'D1', 'D2', 'i_pk_pri_A', 'i_pk_sec_A'});
+                    'VariableNames', {'P_act_W', 'P_act_HV_W', 'V2_V', 'D0_deg', 'D1', 'D2', 'i_pk_pri_A', 'i_pk_sec_A'});
     
     save(resultFile, 'dataset', 'error_msg', '-v7.3');
     writetable(dataset, csvFile);
