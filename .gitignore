@@ -28,7 +28,8 @@ Desktop.ini
 !HDC_Model.mat
 !Simulink/HDC/*.mat
 !DAB_Parameters.sldd
-!Data/
+!Data/*.mat
+
 # Simulation Results & Artifacts
 Results/
 *.original
