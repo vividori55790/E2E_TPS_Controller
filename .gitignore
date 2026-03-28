@@ -28,7 +28,7 @@ Desktop.ini
 !HDC_Model.mat
 !Simulink/HDC/*.mat
 !DAB_Parameters.sldd
-!Simulink/Data/*.mat
+
 
 # Simulation Results & Artifacts
 Results/
@@ -36,7 +36,7 @@ Results/
 *.backup*
 Comparison_Results.mat
 SimAfter.mat
-
+Simulink/Data/*.csv
 
 # 혹은 특정 폴더 내의 백업 파일만 제외하고 싶을 때
 KICAD_PCB/**/DAB Converter-backups/
