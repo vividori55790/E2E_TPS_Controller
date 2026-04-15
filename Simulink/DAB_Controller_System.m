@@ -1,26 +1,16 @@
 classdef DAB_Controller_System < matlab.System
-    % DAB_Controller_System  (v9.0 — Power Tracking + PWM Generation)
+    % DAB_Controller_System  (v9.3 — Direct File Load HDC + PWM + RC Compensation)
     % DAB 컨버터 전력 추종 제어기 + PWM 신호 생성기 통합
     %
-    % 아키텍처 (v9.0):
+    % 아키텍처 (v9.3):
     %   1. Sensing & Filtering
-    %   2. Control Strategy Selection (SPS/EPS/TPS)
-    %      Ctrl_Mode_Ext: 0=SPS, 1=EPS, 2=DPS(Reserved), 3=TPS
-    %   3. PI Feedback + Signal Synthesis (Power-Based)
+    %   2. Control Strategy Selection (SPS/EPS/HDC)
+    %   3. PI Feedback + Periodic Error Compensation(RC) + FF
+    %      * 불감대(DeadZone)를 전력(전류) 지령치의 % 비율로 적용
+    %      * 스위칭 주기에 따른 주기적 정상상태 오차 보정 알고리즘 선택적 적용
     %   4. Flux Balancing
-    %   5. Phase Assignment (D1, D2, Phi → phi1~phi7)
-    %   6. PWM Generation (Phase → Gate Signals, 데드타임 적용)
-    %
-    % 입력(15): V_HV, I_HV, V_LV, I_LV, I_L_pri, Power_cmd_in, PWM_Enable_in,
-    %           Kp_ext, Ki_ext, Mode_Select, Phi_Manual, Ctrl_Mode_Ext, DeadTime_ns,
-    %           D1_ext_in, D2_ext_in
-    % 출력(18): G1~G8(8), Power_cmd_out, phi_ext_out, D1_out, D2_out,
-    %           integrator_out, PWM_Enable, err_out, phi_raw_out, excess_out, P_fb_out
-    %
-    % [부호 규약]
-    %   - 전력(P): (+)=방전(LV->HV), (-)=충전(HV->LV)
-    %   - 위상(Phi): (+)=충전, (-)=방전
-    %   - 전력 피드백: 받는 쪽 기준 (충전→배터리측, 방전→HV부하측)
+    %   5. Phase Assignment
+    %   6. PWM Generation
     %
     % =========================================================================
     % 1. Properties
@@ -29,14 +19,16 @@ classdef DAB_Controller_System < matlab.System
         Fs = 80e3;              % 스위칭 주파수 (Hz)
         Ts_ctrl = 1e-7;         % 제어 샘플링 시간 (Ts) [sec]
         SPS_Inner_Phase = 180;  % [SPS] 내부 위상 고정값 (180도)
-        HDC_Data = struct('D',0);
         L_leakage = 90e-6;      % 변압기 누설 인덕턴스 (H)
         n_transformer = 4;      % 변압기 턴비 (V_HV_nom / V_LV_nom = 380/95)
         EnableFF = true;        % 피드포워드(FF) 제어 활성화
-        MaxSlewRate = 50000;    % 최종 목표 전력 지령 변화율 제한 (Soft-start 등 충격 방지용) [W/s]
+        MaxSlewRate = 50000;    % 최종 목표 전력 지령 변화율 제한 [W/s]
         HDC_Update_V_Th = 2.0;  % HDC 재실행 전압 변화 임계값 (V)
         HDC_Update_P_Th = 50.0; % HDC 재실행 전력 변화 임계값 (W)
-        DeadZone = 0;           % 제어 불감대 [A]
+        
+        % [추가] 주기적 정상상태 오차 보정 (Repetitive Control) 설정
+        EnablePeriodicComp = false; % 주기적 오차 보정 알고리즘 활성화 여부
+        
         GainSched_Threshold = 2.0;
         GainSched_Factor = 1.0;
         SoftStartTime = 0.2;    % 초기 기동 Soft Start 시간 (sec)
@@ -48,6 +40,11 @@ classdef DAB_Controller_System < matlab.System
         % [PWM] 게이트 드라이버 출력 전압 레벨
         V_Gate_ON = 18;         % ON 상태 전압 (V)
         V_Gate_OFF = -4;        % OFF 상태 전압 (V)
+    end
+    
+    properties % Tunable properties
+        DeadZone_Percent = 1.0;     % 전력 지령치 기준 제어 불감대 비율 [%] (ex: 1 = 1%)
+        PeriodicComp_Gain = 0.05;   % 주기적 오차 보정 게인 (K_rc)
     end
 
     properties(Access = private)
@@ -66,9 +63,19 @@ classdef DAB_Controller_System < matlab.System
         I_Buffer;            BufferIdx;           I_Sum;
         I_L_pri_Buffer;      I_L_pri_Sum;         Flux_Integrator;
         TickCount;
-        % (데이터셋 생성용 버전에서는 HDC/로그용 상태 생략하여 경고 방지)
-        % [PWM] Phase Counter
         PhaseCounter;
+        
+        % [추가] 주기적 오차 보정(Repetitive Control)용 버퍼
+        RC_Buffer;
+        RC_Idx;
+        
+        % HDC 추론 캐시 데이터
+        Last_Vin_HDC;
+        Last_Vout_HDC;
+        Last_Pref_HDC;
+        Cached_D1;
+        Cached_D2;
+        Cached_Phi;
     end
 
     % =========================================================================
@@ -86,15 +93,32 @@ classdef DAB_Controller_System < matlab.System
             obj.V_LV_Buffer = zeros(125,1); obj.V_LV_Sum = 0;
             obj.TickCount = 0;
             obj.PhaseCounter = 0;
-            obj.HDC_Model_Data = obj.HDC_Data;
+            
+            % 주기적 오차 보정 버퍼 (80kHz, 10MHz 샘플링 -> 1주기 125샘플)
+            obj.RC_Buffer = zeros(125,1);
+            obj.RC_Idx = 1;
+            
+            % HDC 상태 초기화
+            obj.Last_Vin_HDC = 0;
+            obj.Last_Vout_HDC = 0;
+            obj.Last_Pref_HDC = 0;
+            obj.Cached_D1 = 0.5;
+            obj.Cached_D2 = 0.5;
+            obj.Cached_Phi = 0;
+
+            % ===============================================================
+            % [핵심 변경점] Workspace를 거치지 않고 .mat 파일에서 직접 로드
+            % ===============================================================
+            model_file = 'Data/trained_smoothed_hdc_model_v4.mat';
+            loaded_data = coder.load(model_file);
+            obj.HDC_Model_Data = loaded_data.hdc_model;
+            
             if coder.target('MATLAB')
                 if isfield(obj.HDC_Model_Data, 'D') && obj.HDC_Model_Data.D > 0
-                    fprintf('>> [HDC] Model Loaded: Dim=%d, Bins=%d\n', obj.HDC_Model_Data.D, obj.HDC_Model_Data.N_bins);
-                elseif isfield(obj.HDC_Model_Data, 'D1_table')
-                    fprintf('>> [HDC] LUT Loaded: Size=[%d x %d x %d]\n', ...
-                        length(obj.HDC_Model_Data.Vin_bp), length(obj.HDC_Model_Data.Vout_bp), length(obj.HDC_Model_Data.P_bp));
+                    fprintf('>> [HDC] Model Loaded Directly from File: Dim=%d, Bins=%d\n', ...
+                        obj.HDC_Model_Data.D, obj.HDC_Model_Data.N_bins);
                 else
-                    fprintf('>> [HDC] Empty Model. TPS inactive.\n');
+                    fprintf('>> [HDC] Empty Model or Invalid Format. HDC Mode inactive.\n');
                 end
             end
         end
@@ -113,15 +137,15 @@ classdef DAB_Controller_System < matlab.System
             % =================================================================
             % [STAGE 1] Sensing & Filtering (125-sample Moving Average)
             % =================================================================
-            % (Check log removed)
-
             idx = obj.BufferIdx;
             obj.V_HV_Sum = obj.V_HV_Sum - obj.V_HV_Buffer(idx) + V_HV;
             obj.V_HV_Buffer(idx) = V_HV;
             obj.V_HV_Filtered = obj.V_HV_Sum / 125;
+            
             obj.V_LV_Sum = obj.V_LV_Sum - obj.V_LV_Buffer(idx) + V_LV;
             obj.V_LV_Buffer(idx) = V_LV;
             obj.V_LV_Filtered = obj.V_LV_Sum / 125;
+            
             V_HV_f = obj.V_HV_Filtered;
             V_LV_f = obj.V_LV_Filtered;
 
@@ -138,25 +162,20 @@ classdef DAB_Controller_System < matlab.System
             % [STAGE 2] Control Strategy Selection
             % =================================================================
             D1_set = 0.5; D2_set = 0.5; Phi_FF = 0;
-            is_hdc_active = false; %#ok<NASGU>
             is_hdc_active = false;
             PWM_Enable = double(PWM_Enable_in > 0.5);
 
             switch Ctrl_Mode_Ext
                 case 1  % ===== EPS: Extended Phase Shift =====
-                    % 전압비 기반 내부 위상 계산 → 순환전류 저감
                     V_LV_safe = max(V_LV_f, 1);
                     k_eps = V_HV_f / (obj.n_transformer * V_LV_safe);
                     if k_eps > 1
-                        % V_HV 과다 → Primary duty 축소
                         D1_set = max(0.05, min(0.50, 1 / (2 * k_eps)));
                         D2_set = 0.5;
                     else
-                        % V_LV 과다 → Secondary duty 축소
                         D1_set = 0.5;
                         D2_set = max(0.05, min(0.50, k_eps / 2));
                     end
-                    % Feedforward (전력→위상 변환)
                     if obj.EnableFF && abs(V_HV_f) > 10
                         V_LV_safe_ff = max(V_LV_f, 1);
                         I_equiv = obj.I_ref_ramped / V_LV_safe_ff;
@@ -164,48 +183,51 @@ classdef DAB_Controller_System < matlab.System
                     end
 
                 case 3
-                    % ============================================================
-                    % [TPS Mode — External D1/D2 Direct Injection]
-                    % HDC/LUT 추론 비활성화: 데이터셋 수집 전용
-                    % 외부에서 주입된 D1_ext_in, D2_ext_in을 직접 사용
-                    % 외부 위상(Phi)만 PI 제어기가 조절
-                    % ============================================================
-                    D1_set = max(0.05, min(0.50, D1_ext_in));
-                    D2_set = max(0.05, min(0.50, D2_ext_in));
-                    % Feedforward: 전력→위상 변환 (외부 위상 PI만 사용)
-                    if obj.EnableFF && abs(V_HV_f) > 10
-                        V_LV_safe_ff = max(V_LV_f, 1);
-                        I_equiv = obj.I_ref_ramped / V_LV_safe_ff;
-                        Phi_FF = -1 * I_equiv * (2*obj.L_leakage*obj.Fs*180)/V_HV_f;
+                    % ===== HDC Mode =====
+                    has_hdc = isfield(obj.HDC_Model_Data, 'D') && obj.HDC_Model_Data.D > 0;
+                    has_lut = isfield(obj.HDC_Model_Data, 'D1_table');
+                    
+                    if has_hdc
+                        Vin_curr = V_HV_f; Vout_curr = V_LV_f;
+                        Pref_curr = obj.I_ref_ramped;
+                        
+                        if abs(Vin_curr-obj.Last_Vin_HDC) > obj.HDC_Update_V_Th || ...
+                           abs(Vout_curr-obj.Last_Vout_HDC) > obj.HDC_Update_V_Th || ...
+                           abs(Pref_curr-obj.Last_Pref_HDC) > obj.HDC_Update_P_Th
+                            
+                            [d1_n, d2_n, phi_n] = hdc_inference_inline(obj.HDC_Model_Data, Vin_curr, Vout_curr, Pref_curr);
+                            obj.Cached_D1 = d1_n; 
+                            obj.Cached_D2 = d2_n; 
+                            obj.Cached_Phi = phi_n;
+                            obj.Last_Vin_HDC = Vin_curr; 
+                            obj.Last_Vout_HDC = Vout_curr; 
+                            obj.Last_Pref_HDC = Pref_curr;
+                        end
+                        
+                        D1_set = max(0.05, min(0.50, obj.Cached_D1));
+                        D2_set = max(0.05, min(0.50, obj.Cached_D2));
+                        Phi_FF = max(-0.48, min(0.48, obj.Cached_Phi)) * 360;
+                        is_hdc_active = true;
+                        
+                    elseif has_lut
+                        Vin_in = max(min(V_HV_f, max(obj.HDC_Model_Data.Vin_bp)), min(obj.HDC_Model_Data.Vin_bp));
+                        Vout_in = max(min(V_LV_f, max(obj.HDC_Model_Data.Vout_bp)), min(obj.HDC_Model_Data.Vout_bp));
+                        P_in = max(min(obj.I_ref_ramped, max(obj.HDC_Model_Data.P_bp)), min(obj.HDC_Model_Data.P_bp));
+                        
+                        [d1_l, d2_l, phi_l] = lut_inference_inline(obj.HDC_Model_Data, Vin_in, Vout_in, P_in);
+                        D1_set = d1_l; D2_set = d2_l; Phi_FF = phi_l * 360; 
+                        is_hdc_active = true;
+                    else
+                        D1_set = 0.5; D2_set = 0.5;
+                        if obj.EnableFF && abs(V_HV_f) > 10
+                            V_LV_safe_ff = max(V_LV_f, 1);
+                            I_equiv = obj.I_ref_ramped / V_LV_safe_ff;
+                            Phi_FF = -1 * I_equiv * (2*obj.L_leakage*obj.Fs*180)/V_HV_f;
+                        end
                     end
-                    % --- [COMMENTED OUT] HDC/LUT Inference ---
-                    % has_hdc = isfield(obj.HDC_Model_Data, 'D') && obj.HDC_Model_Data.D > 0;
-                    % has_lut = isfield(obj.HDC_Model_Data, 'D1_table');
-                    % if ~has_hdc && ~has_lut
-                    %     error('>> [CTRL FAULT] TPS Mode(=3) but HDC/LUT EMPTY!');
-                    % end
-                    % if has_hdc
-                    %     Vin_curr = V_HV_f; Vout_curr = V_LV_f;
-                    %     Pref_curr = obj.I_ref_ramped * V_LV_f;
-                    %     if abs(Vin_curr-obj.Last_Vin_HDC) > obj.HDC_Update_V_Th || ...
-                    %        abs(Vout_curr-obj.Last_Vout_HDC) > obj.HDC_Update_V_Th || ...
-                    %        abs(Pref_curr-obj.Last_Pref_HDC) > obj.HDC_Update_P_Th
-                    %         [d1_n,d2_n,phi_n] = hdc_inference_inline(obj.HDC_Model_Data, Vin_curr, Vout_curr, Pref_curr);
-                    %         obj.Cached_D1=d1_n; obj.Cached_D2=d2_n; obj.Cached_Phi=phi_n;
-                    %         obj.Last_Vin_HDC=Vin_curr; obj.Last_Vout_HDC=Vout_curr; obj.Last_Pref_HDC=Pref_curr;
-                    %     end
-                    %     D1_set = max(0.05, min(0.50, obj.Cached_D1));
-                    %     D2_set = max(0.05, min(0.50, obj.Cached_D2));
-                    %     Phi_FF = max(-0.48, min(0.48, obj.Cached_Phi)) * 360;
-                    %     is_hdc_active = true;
-                    % elseif has_lut
-                    %     Vin_in = max(min(V_HV_f, max(obj.HDC_Model_Data.Vin_bp)), min(obj.HDC_Model_Data.Vin_bp));
-                    %     Vout_in = max(min(V_LV_f, max(obj.HDC_Model_Data.Vout_bp)), min(obj.HDC_Model_Data.Vout_bp));
-                    %     P_in = max(min(obj.I_ref_ramped*V_LV_f, max(obj.HDC_Model_Data.P_bp)), min(obj.HDC_Model_Data.P_bp));
-                    %     [d1_l,d2_l,phi_l] = lut_inference_inline(obj.HDC_Model_Data, Vin_in, Vout_in, P_in);
-                    %     D1_set=d1_l; D2_set=d2_l; Phi_FF=phi_l*360; is_hdc_active=true;
-                    % end
+
                 otherwise
+                    % ===== 기본 SPS 모드 =====
                     if obj.EnableFF && abs(V_HV_f) > 10
                         V_LV_safe_ff = max(V_LV_f, 1);
                         I_equiv = obj.I_ref_ramped / V_LV_safe_ff;
@@ -218,7 +240,7 @@ classdef DAB_Controller_System < matlab.System
             end
 
             % =================================================================
-            % [STAGE 3~4] PI Feedback + Signal Synthesis
+            % [STAGE 3~4] PI Feedback + RC Comp + Signal Synthesis
             % =================================================================
             err_ext = 0; phi_raw_unbounded = 0; excess = 0; phi_ext_deg = 0;
 
@@ -235,30 +257,69 @@ classdef DAB_Controller_System < matlab.System
                         obj.I_ref_ramped = P_target;
                     end
                 end
+                
                 % [전류 피드백 기반 제어: 외부 전력 지령을 내부 전류 지령으로 변환]
-                %   충전(P<0): 배터리측 전류 = I_LV_f (여기선 I_fb)
-                %   방전(P>0): HV부하측 전류 = I_HV
                 if obj.I_ref_ramped <= 0
-                    % 충전: 배터리가 받는 쪽
                     V_safe = max(abs(V_LV_f), 1);
                     I_cmd = obj.I_ref_ramped / V_safe;
                     I_fb_use = I_fb;
                     P_fb = V_LV_f * I_fb;
                 else
-                    % 방전(UPS): HV 부하가 받는 쪽
                     V_safe = max(abs(V_HV_f), 1);
                     I_cmd = obj.I_ref_ramped / V_safe;
                     I_fb_use = I_HV;
                     P_fb = V_HV_f * I_HV;
                 end
+                
+                % -------------------------------------------------------------
+                % [수정] 전력(전류) 지령치에 비례한 백분율 불감대(DeadZone_Percent) 적용
+                % -------------------------------------------------------------
                 raw_err = I_cmd - I_fb_use;
-                if abs(raw_err) < obj.DeadZone, err_ext = 0;
-                else, err_ext = raw_err - sign(raw_err) * obj.DeadZone; end
+                deadzone_limit = abs(I_cmd) * (obj.DeadZone_Percent / 100);
+                
+                if abs(raw_err) < deadzone_limit
+                    err_ext = 0;
+                else
+                    err_ext = raw_err - sign(raw_err) * deadzone_limit;
+                end
+                
                 Kp_curr = Kp_ext;
-                if abs(err_ext) < obj.GainSched_Threshold, Kp_curr = Kp_ext * obj.GainSched_Factor; end
+                if abs(err_ext) < obj.GainSched_Threshold
+                    Kp_curr = Kp_ext * obj.GainSched_Factor; 
+                end
+                
+                % -------------------------------------------------------------
+                % [추가] 주기적 정상상태 오차 보정 (Repetitive Control)
+                % -------------------------------------------------------------
+                Phi_RC = 0;
+                if obj.EnablePeriodicComp
+                    rc_idx = obj.RC_Idx;
+                    % 1주기(125 샘플) 전의 보상값 호출
+                    past_rc_val = obj.RC_Buffer(rc_idx);
+                    
+                    % RC 업데이트 수식: U_rc(k) = Q * U_rc(k-N) + K_rc * e(k)
+                    % 안정성을 위해 망각 계수(Q=0.99) 적용
+                    new_rc_val = 0.99 * past_rc_val + obj.PeriodicComp_Gain * err_ext;
+                    
+                    % 발산 방지 Limit 설정 (전체 위상의 10도 이내로 보상 제한)
+                    new_rc_val = max(-10, min(10, new_rc_val));
+                    
+                    obj.RC_Buffer(rc_idx) = new_rc_val;
+                    Phi_RC = past_rc_val; % 현재 지령에는 과거 보상치 사용
+                    
+                    obj.RC_Idx = obj.RC_Idx + 1;
+                    if obj.RC_Idx > 125, obj.RC_Idx = 1; end
+                else
+                    % 비활성화 시 버퍼 초기화
+                    obj.RC_Buffer(:) = 0;
+                end
+                
+                % PI 제어 + 주기적 보상(RC) + 피드포워드(FF) 결합
+                % (오차가 양수면 Phi를 감소시켜야 하므로 부호 주의)
                 Phi_PI = -1 * (Kp_curr * err_ext + Ki_ext * obj.Integrator_ext);
-                phi_total_raw = Phi_PI + Phi_FF;
+                phi_total_raw = Phi_PI - Phi_RC + Phi_FF;
                 phi_saturated = max(-90, min(90, phi_total_raw));
+                
                 delta_phi = phi_saturated - obj.Prev_Phi_Output;
                 max_phi_step = obj.MaxPhaseRate * Ts;
                 if abs(delta_phi) > max_phi_step
@@ -266,12 +327,14 @@ classdef DAB_Controller_System < matlab.System
                 else
                     phi_ext_deg = phi_saturated;
                 end
+                
                 obj.Prev_Phi_Output = phi_ext_deg;
                 excess = phi_ext_deg - phi_total_raw;
                 obj.Integrator_ext = obj.Integrator_ext + err_ext * Ts - (excess * Ts);
                 phi_raw_unbounded = phi_total_raw;
+                
             elseif Mode_Select == 1
-                % [완전 매뉴얼 모드]: 외부 위상(D0) 및 D1, D2를 PI 제어 없이 직접 인가
+                % ===== 완전 매뉴얼 모드 =====
                 phi_ext_deg = Phi_Manual; 
                 D1_set = max(0.05, min(0.50, D1_ext_in)); 
                 D2_set = max(0.05, min(0.50, D2_ext_in));
@@ -285,9 +348,7 @@ classdef DAB_Controller_System < matlab.System
             % [STAGE 5] Flux Balancing
             % =================================================================
             D_offset = 0;
-            % Ctrl_Mode_Ext == 3 (TPS/Dataset Gen) 에서는 두 내부 위상(D1, D2)이 
-            % 지령치를 기계적으로 따르도록 Flux Balancing을 비활성화합니다.
-            if PWM_Enable && obj.EnableFluxBalancing && (Ctrl_Mode_Ext ~= 3)
+            if PWM_Enable && obj.EnableFluxBalancing && (Mode_Select ~= 1)
                 err_flux = -I_L_pri_DC;
                 obj.Flux_Integrator = obj.Flux_Integrator + err_flux * Ts;
                 max_integ = obj.Flux_Limit / obj.Flux_Ki;
@@ -312,7 +373,7 @@ classdef DAB_Controller_System < matlab.System
             end
 
             % =================================================================
-            % [STAGE 7] PWM Generation (from DAB_PWM_Generator)
+            % [STAGE 7] PWM Generation
             % =================================================================
             Ts_sw = 1 / obj.Fs;
             phase_increment = (obj.Ts_ctrl / Ts_sw) * 360;
@@ -327,19 +388,16 @@ classdef DAB_Controller_System < matlab.System
                 DT = (DeadTime_ns * 1e-9 / Ts_sw) * 360;
                 cp = obj.PhaseCounter;
 
-                % Normalize phases to 0~360
                 p1 = mod(phi1_deg, 360); if p1<0, p1=p1+360; end
                 p3 = mod(phi3_deg, 360); if p3<0, p3=p3+360; end
                 p5 = mod(phi5_deg, 360); if p5<0, p5=p5+360; end
                 p7 = mod(phi7_deg, 360); if p7<0, p7=p7+360; end
 
-                % Relative phases
                 rS1 = mod(cp - p1 + 360, 360);
                 rS3 = mod(cp - p3 + 360, 360);
                 rS5 = mod(cp - p5 + 360, 360);
                 rS7 = mod(cp - p7 + 360, 360);
 
-                % Gate signals with deadtime
                 if (rS1>=DT)&&(rS1<(180-DT)), G1=V_ON; else, G1=V_OFF; end
                 if (rS1>=(180+DT))&&(rS1<(360-DT)), G2=V_ON; else, G2=V_OFF; end
                 if (rS3>=DT)&&(rS3<(180-DT)), G3=V_ON; else, G3=V_OFF; end
@@ -370,6 +428,11 @@ classdef DAB_Controller_System < matlab.System
             obj.V_HV_Buffer=zeros(125,1); obj.V_HV_Sum=0;
             obj.V_LV_Buffer=zeros(125,1); obj.V_LV_Sum=0;
             obj.TickCount=0; obj.PhaseCounter=0;
+            
+            obj.RC_Buffer=zeros(125,1); obj.RC_Idx=1;
+            
+            obj.Last_Vin_HDC = 0; obj.Last_Vout_HDC = 0; obj.Last_Pref_HDC = 0;
+            obj.Cached_D1 = 0.5; obj.Cached_D2 = 0.5; obj.Cached_Phi = 0;
         end
 
         function num = getNumInputsImpl(~), num = 15; end
@@ -395,11 +458,12 @@ classdef DAB_Controller_System < matlab.System
         function [sz, dt, cp] = getDiscreteStateSpecificationImpl(~, name)
             switch name
                 case {'Integrator_ext','I_ref_ramped','V_HV_Filtered','V_LV_Filtered', ...
-                      'Prev_Phi_Output','BufferIdx','I_Sum', ...
+                      'Prev_Phi_Output','BufferIdx','I_Sum','RC_Idx', ...
                       'I_L_pri_Sum','Flux_Integrator','TickCount','V_HV_Sum','V_LV_Sum', ...
-                      'PhaseCounter'}
+                      'PhaseCounter', 'Last_Vin_HDC', 'Last_Vout_HDC', 'Last_Pref_HDC', ...
+                      'Cached_D1', 'Cached_D2', 'Cached_Phi'}
                     sz = [1 1]; dt = 'double'; cp = false;
-                case {'I_Buffer','I_L_pri_Buffer','V_HV_Buffer','V_LV_Buffer'}
+                case {'I_Buffer','I_L_pri_Buffer','V_HV_Buffer','V_LV_Buffer', 'RC_Buffer'}
                     sz = [125 1]; dt = 'double'; cp = false;
                 otherwise
                     error(['Unknown state: ', name]);
@@ -427,19 +491,20 @@ classdef DAB_Controller_System < matlab.System
     methods (Static, Access = protected)
         function header = getHeaderImpl
             header = matlab.system.display.Header(mfilename('class'), ...
-                'Title', 'DAB Converter Controller + PWM (Unified)', ...
+                'Title', 'DAB Controller + PWM (HDC & RC Comp)', ...
                 'Text', sprintf(['전류 추종 제어 + PWM 게이트 신호 생성 통합 블록입니다.\n', ...
-                                 '상위 EMS로부터 I_cmd/PWM_Enable을 수신하여 최종 G1~G8을 출력합니다.']));
+                                 'HDC 모델 로드, 전력비례 불감대(%), 주기적 정상오차 보정(RC)을 지원합니다.']));
         end
         function groups = getPropertyGroupsImpl
             g1 = matlab.system.display.Section('Title','1. Hardware Spec', ...
                 'PropertyList',{'Fs','Ts_ctrl','L_leakage','n_transformer','SPS_Inner_Phase'});
-            g2 = matlab.system.display.Section('Title','2. Advanced Control', ...
-                'PropertyList',{'EnableFF','SoftStartTime','MaxSlewRate','MaxPhaseRate','DeadZone','GainSched_Threshold','GainSched_Factor'});
+            g2 = matlab.system.display.Section('Title','2. Advanced Control & Error Comp', ...
+                'PropertyList',{'DeadZone_Percent', 'EnablePeriodicComp', 'PeriodicComp_Gain', ...
+                                'EnableFF','SoftStartTime','MaxSlewRate','MaxPhaseRate','GainSched_Threshold','GainSched_Factor'});
             g3 = matlab.system.display.Section('Title','3. Flux Balancing', ...
                 'PropertyList',{'EnableFluxBalancing','Flux_Kp','Flux_Ki','Flux_Limit'});
-            g4 = matlab.system.display.Section('Title','4. HDC/TPS Control', ...
-                'PropertyList',{'HDC_Data','HDC_Update_V_Th','HDC_Update_P_Th'});
+            g4 = matlab.system.display.Section('Title','4. HDC Control Params', ...
+                'PropertyList',{'HDC_Update_V_Th','HDC_Update_P_Th'});
             g5 = matlab.system.display.Section('Title','5. PWM Gate Driver', ...
                 'PropertyList',{'V_Gate_ON','V_Gate_OFF'});
             groups = [g1, g2, g3, g4, g5];
@@ -448,96 +513,37 @@ classdef DAB_Controller_System < matlab.System
 end
 
 % =====================================================================
-% HDC Model Auto-Loader
-% =====================================================================
-function HDC = load_hdc_model(model_path)
-    HDC = struct();
-    if ~exist(model_path, 'file')
-        error('>> [HDC] Model file NOT FOUND: %s (pwd: %s)', model_path, pwd);
-    end
-    try
-        loaded = load(model_path);
-        if isfield(loaded,'results') && isfield(loaded.results,'hdc_model')
-            src = loaded.results.hdc_model;
-        elseif isfield(loaded,'lut_data'), HDC=loaded.lut_data; return;
-        elseif isfield(loaded,'HDC'), HDC=loaded.HDC; return;
-        else, error('>> [HDC] Invalid format!'); end
-        HDC.D=double(src.D); HDC.N_levels=double(src.N_levels);
-        HDC.N_inputs=double(src.N_inputs); HDC.N_bins=double(src.N_output_bins);
-        HDC.BaseHVs=double(src.base_hvs);
-        HDC.LevelHVs=zeros(HDC.N_inputs,HDC.N_levels,HDC.D);
-        for i=1:HDC.N_inputs, HDC.LevelHVs(i,:,:)=double(src.level_hvs{i}); end
-        HDC.Prototypes=zeros(3,HDC.N_bins,HDC.D);
-        for k=1:3, HDC.Prototypes(k,:,:)=double(src.output_prototypes{k}); end
-        HDC.PermIdx1=double(src.perm_idx); HDC.PermIdx2=double(src.perm_idx2);
-        HDC.Param_n=double(src.encode_params.n);
-        HDC.Param_Prated=double(src.encode_params.P_rated);
-        HDC.Param_VinNom=double(src.encode_params.Vin_nom);
-        HDC.Param_VoutNom=double(src.encode_params.Vout_nom);
-        HDC.Param_Lnom=double(src.encode_params.L_nom);
-        HDC.Param_fs=double(src.encode_params.fs);
-        if isfield(src,'temperatures'), HDC.Temps=double(src.temperatures);
-        else, HDC.Temps=[src.temperature,src.temperature,src.temperature]; end
-        HDC.OutputRanges=double(src.output_ranges);
-        HDC.BinValues=zeros(3,HDC.N_bins);
-        for k=1:3, HDC.BinValues(k,:)=linspace(HDC.OutputRanges(k,1),HDC.OutputRanges(k,2),HDC.N_bins); end
-    catch ME, error('>> [HDC] Load error: %s', ME.message); end
-end
-
-% =====================================================================
 % HDC Inference Function
 % =====================================================================
 function [D1, D2, Phi] = hdc_inference_inline(HDC, Vin, Vout, Pref)
-    if ~isfield(HDC,'D')||HDC.D==0, D1=0.5;D2=0.5;Phi=0; return; end
-    D_dim=HDC.D; N_levels=HDC.N_levels;
-    n_tr=HDC.Param_n; P_rated=HDC.Param_Prated; Vin_nom=HDC.Param_VinNom;
-    L_nom=HDC.Param_Lnom; fs=HDC.Param_fs;
-    M=(n_tr*Vout)/max(Vin,1); P_norm=Pref/P_rated; V_ratio=Vin/Vin_nom;
-    P_abs_norm=abs(Pref)/P_rated; P_sign=(sign(Pref)+1)/2;
-    Z_L=2*pi*fs*L_nom;
-    if abs(Pref)>5
-        Z_load=Vin^2/abs(Pref); Z_norm=Z_L/Z_load;
-        R_load=Vout^2/abs(Pref); Load_Z=R_load/100;
-    else, Z_norm=0; Load_Z=1.0; end
-    Z_norm=max(0,min(1,Z_norm/2.0)); Load_Z=max(0,min(1,Load_Z));
-    VP_cross=max(0,min(1,((M-1.0)*P_norm+2)/4));
-    B_est=max(0,min(1,Vin/(4*20*3e-4*fs)/0.35));
-    f=zeros(12,1);
-    f(1)=max(0,min(1,(Vin-180)/(460-180))); f(2)=max(0,min(1,(Vout-65)/(115-65)));
-    f(3)=max(0,min(1,(Pref+1100)/2200)); f(4)=max(0,min(1,(M-0.3)/2.5));
-    f(5)=max(0,min(1,(P_norm+1)/2)); f(6)=max(0,min(1,V_ratio/1.5));
-    f(7)=max(0,min(1,P_abs_norm)); f(8)=P_sign;
-    f(9)=Z_norm; f(10)=VP_cross; f(11)=Load_Z; f(12)=B_est;
-    lvl=zeros(12,1);
-    for i=1:12
-        ir=floor(f(i)*(N_levels-1))+1;
-        if ir<1,ir=1; end; if ir>N_levels,ir=N_levels; end; lvl(i)=ir;
+    if ~isfield(HDC, 'M_int'), D1=0.5; D2=0.5; Phi=0; return; end
+    
+    X = [Pref; Vout]; 
+    X_q = max(1, min(HDC.Q, round((X - HDC.min_X) ./ (HDC.max_X - HDC.min_X + 1e-9) * (HDC.Q - 1)) + 1));
+    
+    hv_sum = HDC.ID_vecs(1, :) .* HDC.L_vecs(X_q(1), :) + ...
+             HDC.ID_vecs(2, :) .* HDC.L_vecs(X_q(2), :);
+    
+    if strcmp(HDC.mode, 'Multi_Interact')
+        hv_sum = hv_sum + (HDC.ID_vecs(1, :) .* HDC.L_vecs(X_q(1), :)) .* (HDC.ID_vecs(2, :) .* HDC.L_vecs(X_q(2), :)) ...
+                        + circshift(HDC.L_vecs(X_q(1), :), 1) .* circshift(HDC.L_vecs(X_q(2), :), -1);
     end
-    hv=zeros(1,D_dim);
-    for i=1:12
-        hv=hv+(HDC.BaseHVs(i,:).*reshape(HDC.LevelHVs(i,lvl(i),:),1,D_dim));
+    
+    S_curr_bin = sign(hv_sum)'; S_curr_bin(S_curr_bin == 0) = 1;
+    
+    sim = (HDC.C_bin * S_curr_bin) / HDC.D;
+    max_sim_val = max(sim * HDC.gamma);
+    delta_prime = exp(sim * HDC.gamma - max_sim_val) / sum(exp(sim * HDC.gamma - max_sim_val));
+    
+    K = size(HDC.M_int, 1);
+    Y_hat_norm = zeros(2, 1);
+    for k = 1:K
+        Mk = reshape(HDC.M_int(k, :, :), 2, HDC.D);
+        Y_hat_norm = Y_hat_norm + delta_prime(k) * (Mk * S_curr_bin / HDC.D);
     end
-    h1=HDC.BaseHVs(1,:).*reshape(HDC.LevelHVs(1,lvl(1),:),1,D_dim);
-    h2=HDC.BaseHVs(2,:).*reshape(HDC.LevelHVs(2,lvl(2),:),1,D_dim);
-    hv=hv+0.5*(h1.*h2(HDC.PermIdx1));
-    h3=HDC.BaseHVs(3,:).*reshape(HDC.LevelHVs(3,lvl(3),:),1,D_dim);
-    h4=HDC.BaseHVs(4,:).*reshape(HDC.LevelHVs(4,lvl(4),:),1,D_dim);
-    hv=hv+0.5*(h3.*h4(HDC.PermIdx1));
-    h9=HDC.BaseHVs(9,:).*reshape(HDC.LevelHVs(9,lvl(9),:),1,D_dim);
-    h11=HDC.BaseHVs(11,:).*reshape(HDC.LevelHVs(11,lvl(11),:),1,D_dim);
-    hv=hv+0.3*(h9.*h11(HDC.PermIdx2));
-    hv=sign(hv); hv(hv==0)=1;
-    D1=readout_hdc_var(hv,1,HDC); D2=readout_hdc_var(hv,2,HDC); Phi=readout_hdc_var(hv,3,HDC);
-end
-
-function val = readout_hdc_var(hv, k, HDC)
-    D_dim=HDC.D; N_bins=HDC.N_bins;
-    protos=reshape(HDC.Prototypes(k,:,:),N_bins,D_dim);
-    sims=protos*hv';
-    norms=sqrt(sum(protos.^2,2)); norms(norms<1e-10)=1; sims=sims./norms;
-    T=HDC.Temps(k); scaled=sims/T; max_s=max(scaled);
-    exps=exp(scaled-max_s); weights=exps/(sum(exps)+1e-10);
-    val=sum(weights.*HDC.BinValues(k,:)');
+    
+    Y_pred = HDC.min_Y + (Y_hat_norm + 1) .* (HDC.max_Y - HDC.min_Y) / 2;
+    D1 = Y_pred(1); D2 = Y_pred(2); Phi = 0; 
 end
 
 % =====================================================================
