@@ -230,6 +230,24 @@ class SmoothRegHDC:
     def ops(self):
         return 2 * self.Dh + self.Dh + 2 * self.Dh     # projection, cos, read-out
 
+    def to_json(self, path, **meta):
+        import json
+        d = dict(kind="SmoothRegHDC", name=self.name, D=self.Dh, sigma=self.sigma, tau=self.tau,
+                 P_MAX=P_MAX, V2_LO=V2_LO, V2_HI=V2_HI, D_MIN=D_MIN,
+                 W=self.W.tolist(), b=self.b.tolist(), M=self.M.tolist(), c=self.c.tolist(), meta=meta)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(d, f)
+
+    @classmethod
+    def from_json(cls, path):
+        import json
+        with open(path, encoding="utf-8") as f:
+            d = json.load(f)
+        m = cls(D=d["D"], sigma=d["sigma"], tau=d["tau"], name=d["name"])
+        m.W, m.b, m.M, m.c = (np.asarray(d[k], float) for k in ("W", "b", "M", "c"))
+        m.meta = d.get("meta", {})
+        return m
+
 
 class SmoothRegHDCQ(SmoothRegHDC):
     """Fixed-point deployment view of a trained SmoothRegHDC: int16 W/b/M, the cosine from a table with

@@ -5,6 +5,7 @@ automation/job.py -- background compute jobs that run WITHOUT Claude (the loop o
   python automation/job.py status
   python automation/job.py tail NAME [-n 40]
   python automation/job.py kill NAME
+  python automation/job.py wait NAME [NAME ...]     (one line per job as it ends; returns when all have)
 
 Each job gets automation/state/jobs/NAME.{json,cmd,log,done}. NAME.done holds the exit code when it ends.
 
@@ -62,11 +63,11 @@ def submit(name, cmd, cwd, interactive):
             f'echo %ERRORLEVEL% > "{_p(name, "done")}"',
             f'echo ==== job {name} exit %ERRORLEVEL% %DATE% %TIME% >> "{_p(name, "log")}"']
     task = f"DABJob-{name}"
+    meta = dict(name=name, cmd=line, argv=list(cmd), cwd=cwd, interactive=interactive, status="running",
+                start=dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), start_ts=time.time())
     if interactive:
         body.append(f'schtasks /Delete /TN "{task}" /F >nul 2>&1')
-    io.open(_p(name, "cmd"), "w", encoding="ascii", errors="replace").write("\r\n".join(body) + "\r\n")
-    meta = dict(name=name, cmd=line, cwd=cwd, interactive=interactive, status="running",
-                start=dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), start_ts=time.time())
+        io.open(_p(name, "cmd"), "w", encoding="ascii", errors="replace").write("\r\n".join(body) + "\r\n")
     if interactive:
         ps = (
             "$me=[Security.Principal.WindowsIdentity]::GetCurrent().Name;"
@@ -88,14 +89,39 @@ def submit(name, cmd, cwd, interactive):
         meta["task"] = task
         meta["pid"] = None
     else:
+        # A detached supervisor (job.py _run NAME) starts the command with CREATE_NO_WINDOW and the log as its
+        # stdout/stderr, waits, and writes NAME.done. The earlier "cmd.exe /c NAME.cmd" with ">> log" lost all
+        # output of external programs (found 2026-10-21): a console program started by a console-less cmd.exe
+        # gets a fresh hidden console and writes there, so only cmd's own echo lines reached the log.
+        _save(name, meta)
         flags = 0x00000008 | 0x00000200 | 0x08000000   # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | NO_WINDOW
-        pr = subprocess.Popen(["cmd.exe", "/c", _p(name, "cmd")], cwd=cwd, creationflags=flags,
+        pr = subprocess.Popen([sys.executable, os.path.abspath(__file__), "_run", name], cwd=cwd, creationflags=flags,
                               stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                               close_fds=True)
         meta["pid"] = pr.pid
     _save(name, meta)
     print(f"submitted {name} ({'interactive session' if interactive else 'detached'}): {line}")
     print(f"  log: {_p(name, 'log')}")
+    return 0
+
+
+def _run(name):
+    """Supervisor of a detached job (see submit)."""
+    import shutil
+    d = _load(name)
+    argv = list(d["argv"])
+    argv[0] = shutil.which(argv[0]) or argv[0]
+    stamp = lambda: dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-4]   # noqa: E731
+    with open(_p(name, "log"), "ab", buffering=0) as logf:
+        logf.write(f"==== job {name} start {stamp()}\n".encode())
+        try:
+            rc = subprocess.call(argv, cwd=d["cwd"], stdin=subprocess.DEVNULL, stdout=logf, stderr=subprocess.STDOUT,
+                                 creationflags=0x08000000)                     # CREATE_NO_WINDOW
+        except OSError as e:
+            logf.write(f"cannot start {argv[0]}: {e}\n".encode())
+            rc = 9009
+        logf.write(f"==== job {name} exit {rc} {stamp()}\n".encode())
+    io.open(_p(name, "done"), "w", encoding="ascii").write(f"{rc}\n")
     return 0
 
 
@@ -158,6 +184,20 @@ def kill(name):
     return 0
 
 
+def wait(names, poll=15.0):
+    """Print one line per job as it ends (in completion order); return when all have ended."""
+    left = list(names)
+    while left:
+        for n in list(left):
+            d = _refresh(n)
+            if d.get("status") != "running":
+                print(f"{n} {d.get('status', '?')} {d.get('end', '')}", flush=True)
+                left.remove(n)
+        if left:
+            time.sleep(poll)
+    return 0
+
+
 def diag(name):
     """Scheduled-task state of an --interactive job, logged-on sessions, and MATLAB processes."""
     d = _load(name)
@@ -195,7 +235,15 @@ def main():
     k.add_argument("name")
     g = sub.add_parser("diag")
     g.add_argument("name")
+    r = sub.add_parser("_run")
+    r.add_argument("name")
+    wt = sub.add_parser("wait")
+    wt.add_argument("names", nargs="+")
     a = ap.parse_args()
+    if a.cmd == "wait":
+        return wait(a.names)
+    if a.cmd == "_run":
+        return _run(a.name)
     if a.cmd == "diag":
         return diag(a.name)
     if a.cmd == "submit":
