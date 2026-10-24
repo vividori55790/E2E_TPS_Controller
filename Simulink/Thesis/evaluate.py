@@ -90,7 +90,9 @@ def legacy(name, P, V2, D1, D2, cache):
     return m
 
 
-def build(b_tags=None):
+def build(b_tags=None, final=None):
+    """final: b tag of the proposed model (T7: chosen on the non-ideal plant, plant_verdict.py); None = the
+    ideal-model validation score below (picks b3)."""
     ctrls = [ct.SPS()]
     d, tabs = icros_tables()
     for sgn, lab in ((+1, "P>0"), (-1, "P<0")):
@@ -136,6 +138,8 @@ def build(b_tags=None):
             mt = m.meta
             return mt["mean_dI"] - 20.0 * mt["hinge"] - 1e-3 * mt["jac2"] - mt["infeasible"]
         best = max(bs, key=vscore)
+        if final:
+            best = [m for m in bs if m.name == f"Smooth RegHDC (b{final})"][0]
         ctrls += bs
     from export_mcu import SmoothRegHDCFixed
     ctrls.append(SmoothRegHDCFixed(best if best is not None else a, name=(best or a).name + " int16 (C)"))
@@ -290,9 +294,10 @@ def fig_slices(path, series, opt):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--b-tags", default=None, help="comma list of b tags to include (default all)")
+    ap.add_argument("--final", default=None, help="b tag of the proposed model (default: ideal validation score)")
     a = ap.parse_args()
     t0 = time.time()
-    ctrls, best = build(a.b_tags.split(",") if a.b_tags else None)
+    ctrls, best = build(a.b_tags.split(",") if a.b_tags else None, a.final)
     print(f"{len(ctrls)} controllers; b* = {best.name if best else None} ({time.time() - t0:.0f} s)", flush=True)
     refs = {}
     for name in ("test", "dense"):

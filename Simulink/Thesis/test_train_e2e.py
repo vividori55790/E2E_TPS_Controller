@@ -46,21 +46,25 @@ def main():
                     f"median |g| {np.median(np.abs(g[sel, j])):.3f} A/unit, median err {np.median(err):.2e}, "
                     f"{bad.sum()} of {sel.sum()} off (kinks), {(~good).sum()} tangential skipped")
     sps = ps.sps_reference(P, V)["Ipk"]
-    for gam, tol in ((0.0, 0.02), (1e-3, 0.1)):
-        L, gM, gc, parts = te.loss_grad(m, P, V, sps, 4.0, gam, 10.0)
+    # 3rd case: T7 SPS-departure cost (margin 25 mA, d0 0.005), gamma = 0 -> exact
+    for gam, mar, tol in ((0.0, 0.0, 0.02), (1e-3, 0.0, 0.1), (0.0, 0.025, 0.02)):
+        L, gM, gc, parts = te.loss_grad(m, P, V, sps, 4.0, gam, 10.0, mar)
         rel = []
         for i, o in ((3, 0), (17, 1), (60, 0), (100, 1), (127, 0)):
             hh = 1e-5
             M0 = m.M.copy()
             m.M[i, o] += hh
-            Lp = te.loss_grad(m, P, V, sps, 4.0, gam, 10.0)[0]
+            Lp = te.loss_grad(m, P, V, sps, 4.0, gam, 10.0, mar)[0]
             m.M[i, o] -= 2 * hh
-            Lm = te.loss_grad(m, P, V, sps, 4.0, gam, 10.0)[0]
+            Lm = te.loss_grad(m, P, V, sps, 4.0, gam, 10.0, mar)[0]
             m.M = M0
             fd = (Lp - Lm) / (2 * hh)
             rel.append(abs(fd - gM[i, o]) / max(abs(fd), 1e-3 * np.abs(gM).max()))
-        ok &= check(f"loss_grad dL/dM = FD (gamma={gam:g})", max(rel) < tol,
+        ok &= check(f"loss_grad dL/dM = FD (gamma={gam:g}, margin={mar:g})", max(rel) < tol,
                     f"max rel err {max(rel):.3g} over 5 entries; parts {parts}")
+    c, gd = te.departure(np.array([[0.0, 0.0], [0.01, 0.003], [0.2, 0.1]]), 0.025, 0.005)
+    ok &= check("departure cost", abs(c[0]) < 1e-15 and abs(c[2] - 0.025) < 1e-12 and abs(gd[0, 0] - 5.0) < 1e-12,
+                f"cost {c}, grad at 0 {gd[0]}")
     print("ALL PASS" if ok else "SOME FAILED")
 
 

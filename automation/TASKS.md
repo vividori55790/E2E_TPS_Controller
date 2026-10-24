@@ -42,7 +42,12 @@
   지표: SPS 대비 ΔIpk(전체 평균, TPS 이득 구간 평균, 최대), 열화 점 비율(ΔI < −0.005 A), 점별 최적 대비 손실,
   불가능 점 수, 매끄러움(인접 최대 변화, 총변동, |∂D/∂P| 최대), 메모리, 연산량, Irms 변화(부가).
   결과 표 `out/eval_table.csv`, 그림: D1/D2 곡면 비교(기존 vs 제안), ΔIpk 지도, 열화 지도. 논문 Fig. 2/3 스타일.
-- [!] T6 Simulink 정상상태 검증(0단계, 판정용). **원인 확정(2026-10-24)**: MATLAB R2025b가 **온라인 라이선싱**
+- [~] T6 Simulink 정상상태 검증. **대체 경로 판정 완료(2026-10-24 18:00, RESULTS 8절)**: validate90(8000 정상 행) 플랜트
+  Ron40 무droop bias +0.008 / RMSE 0.177 A(이상 −0.133/0.250); replay2000 선형보간 RMSE 0.525 A vs ZOH 1.40 → 라벨 오류 확정;
+  verdictA: k≈1(93.6–96.4 V) 플랜트 TPS 이득 0–16 mA = 사실상 없음; verdictB: b3 플랜트 평균 0.0793 A, 그러나 1.25 % 점이
+  SPS보다 5 mA 넘게 나쁨(최악 −23.8 mA, V2 90–100 V, |P| < 430 W), LUT −135 mA. 원인 = 데드타임(t7_probe: td0이면 1 mA 이내,
+  부호가 Ron/droop에 따라 바뀜) → T7. **남은 것: Simulink 자체 실행(사용자 로그온 시 t6_verify 자동)**.
+  (이전 기록) **원인 확정(2026-10-24)**: MATLAB R2025b가 **온라인 라이선싱**
   (`C:\Program Files\MATLAB\R2025b\licenses\license_info.xml`: `<licmode>onlinelicensing</licmode>`, .lic 없음) →
   비대화형 Session 0에서는 MathWorks 계정 로그인/ServiceHost에 닿지 못해 로그 한 줄 없이 멈춤(matlab_probe2: -logfile
   비어 있음, 2.5분 후 종료). 해결은 사용자만 가능: (1) 데스크톱 로그온(대화형 잡 자동 실행), (2) MathWorks batch licensing
@@ -69,7 +74,13 @@
   P_LV, P_HV, V_LV, V_HV 측정. 점: SPS(V2 84/95/109.2 × D0 ±8, ±20, ±35) + TPS 대표점(제안 곡면의 몇 점, 기존 데이터에서
   k≈1 이득이 컸던 점 포함). 해석 모델(측정된 V_LV, V_HV 사용)과 비교 → 표·그림. parsim 사용 가능하면 병렬.
   판정: (a) k≈1 TPS 이득 실재 여부, (b) 해석–Simulink 잔차 크기·구조.
-- [ ] T7 (T6 결과에 따라) 잔차가 의미 있으면 회색상자: 해석 모델 + 잔차 보정(소형 회귀)으로 T1–T5 재실행. 무시할 만하면
+- [~] T7 (2026-10-24 18:20) 잔차 보정 대신 **데드타임 견고 학습**: 플랜트 잔차의 문제 부분(k≈1 경부하 ±20 mA)은 부호조차
+  플랜트 세부에 따라 바뀌어 보정 대상이 아님 → E2E에 SPS 이탈 비용 m(1−exp(−ΣΔ/δ0)) 추가(`train_e2e.departure`, --margin;
+  LUT도 지원, test ALL PASS). 학습: b8(25 mA) 0.0791 / b9(40 mA) 0.0755 / b10(δ0 0.01) 0.0799 / L49m 0.0841(LUT 거의 불변),
+  b3 0.0857(검증). 잡: pv_{A,B,C}_{all,k1}(플랜트 변형 3 × 영역 2, 모델 SPS,b3,b8,b9,b10,L49s3,L49m), e2e_b11(b8 이어 2000 step).
+  다음: 결과로 최종 모델 선택(플랜트 3변형 모두에서 5 mA 초과 열화 0 + 평균 최대) → evaluate.py 최종 b* 지정(현재 vscore가 이상
+  점수로 b3를 고름 → T7 모델을 명시적으로 선택하도록 수정), export_mcu/export_matlab 재생성, RESULTS 9절 확정.
+  원 명세: (T6 결과에 따라) 잔차가 의미 있으면 회색상자: 해석 모델 + 잔차 보정(소형 회귀)으로 T1–T5 재실행. 무시할 만하면
   그 근거를 RESULTS.md에 기록.
 - [~] T8 최종 폐루프 검증: 제안 제어기를 Simulink에 넣은 버전(복사본 모델 또는 MATLAB Function, D0는 기존 PI)으로
   대표 운전점 정상상태 Ipk를 SPS와 비교, 전력 계단 응답 1–2개. MATLAB 추론 함수 `Simulink/Thesis/smooth_reghdc_infer.m`.
@@ -82,8 +93,11 @@
   선택지: (1) 사용자가 컴파일러 설치, (2) `pip install ziglang`(zig cc)로 PC 시험 — 시스템 Python에 패키지를 설치하는 일이라 사용자 확인 후.
   원 명세: MCU 배포물: `Simulink/Thesis/export_mcu.py` → `out/SmoothRegHDC_STM32.h` + `smooth_reghdc.c`(int16/float 둘 다,
   cos는 테이블 또는 CORDIC 주석), PC에서 C 참조 구현과 Python 출력 일치 테스트(gcc 있으면). 메모리/연산량 표.
-- [ ] T10 `Simulink/Thesis/RESULTS.md`(한국어): 방법, 표, 그림, 한계(이상 모델 가정, k≈1), 논문 장 구성 제안,
+- [~] T10 `Simulink/Thesis/RESULTS.md`(한국어): 방법, 표, 그림, 한계(이상 모델 가정, k≈1), 논문 장 구성 제안,
   ICROS2026 대비 개선 요약. 3.392 A(논문 최대 저감) 재검증 결과 포함.
+  2026-10-24: 3.392 A 재검증 완료(RESULTS 4절, `icros_max_check.py`: 그 점의 정상상태 최적 1.686 A > 필요 1.344 A → 도달 불가;
+  출처는 RegHDCTrainer.m 콘솔 출력, 데이터셋 I_SPS − 대리모델, 원 코드 덮어써짐). 8절 확정. 남은 것: 9절(T7) 확정, 장 구성,
+  ICROS2026 대비 요약, 맨 앞 요약(초록용 수치).
 
 ## 선택
 - [x] T11 ZVS 영역 분석(`zvs.py` → `out/zvs.log`, `zvs_table.csv`; 시험 1만 점, 이상 모델). 전 레그 ZVS(I_min 0):

@@ -71,20 +71,33 @@ def part_a(plant, out, chunk=900):
         w.writerows(rows)
 
 
-def part_b(plant, out, n, chunk=600):
-    import evaluate as ev
+def load_models(names):
+    """'SPS', 'b<tag>' (out/model_smooth_reghdc_b<tag>.json), 'L<...>' (out/model_lut_L<...>.npz)."""
     from train_lut_e2e import TrainLUT
-    rng = np.random.default_rng(606)
-    P = rng.uniform(25.0, ct.P_MAX, n)
-    V = rng.uniform(ct.V2_LO, ct.V2_HI, n)
-    ctrls, best = ev.build(b_tags=["3"])
-    sel = [c for c in ctrls if c.name in ("SPS", "Smooth RegHDC (b3)")]
-    for tag in ("L49s3", "L49"):
-        path = os.path.join(OUT, f"model_lut_{tag}.npz")
-        if os.path.exists(path):
-            m = TrainLUT.load(path)
-            m.name = f"LUT 49x22 E2E ({tag})"
+    sel = []
+    for s in names:
+        if s == "SPS":
+            sel.append(ct.SPS())
+        elif s.startswith("b"):
+            m = ct.SmoothRegHDC.from_json(os.path.join(OUT, f"model_smooth_reghdc_{s}.json"))
+            m.name = f"Smooth RegHDC ({s})"
             sel.append(m)
+        else:
+            m = TrainLUT.load(os.path.join(OUT, f"model_lut_{s}.npz"))
+            m.name = f"LUT {m.P.size}x{m.V.size} E2E ({s})"
+            sel.append(m)
+    return sel
+
+
+def part_b(plant, out, n, chunk=600, models="SPS,b3,L49s3,L49", region="all", tag=""):
+    rng = np.random.default_rng(606 if region == "all" else 707)
+    if region == "all":
+        P = rng.uniform(25.0, ct.P_MAX, n)
+        V = rng.uniform(ct.V2_LO, ct.V2_HI, n)
+    else:                                                       # T7: the k ~ 1 light-load band where b3 degraded
+        P = rng.uniform(25.0, 500.0, n)
+        V = rng.uniform(88.0, 102.0, n)
+    sel = load_models(models.split(","))
     res = {}
     for c in sel:
         t0 = time.time()
@@ -100,7 +113,8 @@ def part_b(plant, out, n, chunk=600):
         res[c.name] = (I, Ii)
         out(f"  {c.name}: {time.time() - t0:.0f} s")
     I_sps, Ii_sps = res["SPS"]
-    out(f"\n{n} random points, |P| U[25, 1200] W, V2 U[84, 109.2] V; dI = Ipk(SPS) - Ipk(controller), both on the plant")
+    out(f"\n{n} random points, |P| U[{P.min():.0f}, {P.max():.0f}] W, V2 U[{V.min():.1f}, {V.max():.1f}] V; "
+        f"dI = Ipk(SPS) - Ipk(controller), both on the plant")
     out(f"{'controller':30s} {'plant mean dI':>13s} {'worst':>8s} {'>5 mA worse':>12s} {'>20 mA':>7s} {'infeas':>6s} | "
         f"{'ideal mean dI':>13s} {'worst':>8s}")
     rows = []
@@ -118,12 +132,19 @@ def part_b(plant, out, n, chunk=600):
             if bad.any():
                 out(f"    worse-than-SPS points: |P| {P[bad].min():.0f}-{P[bad].max():.0f} W, V2 {V[bad].min():.1f}-"
                     f"{V[bad].max():.1f} V, median |P| {np.median(P[bad]):.0f} W")
-    with open(os.path.join(OUT, "plant_verdict_B.csv"), "w", newline="", encoding="utf-8") as f:
+    with open(os.path.join(OUT, f"plant_verdict_B{tag}.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         w.writeheader()
         w.writerows(rows)
-    np.savez(os.path.join(OUT, "plant_verdict_B.npz"), P=P, V=V,
+    np.savez(os.path.join(OUT, f"plant_verdict_B{tag}.npz"), P=P, V=V,
              **{k.replace(" ", "_"): np.stack(v) for k, v in res.items()})
+
+
+VARIANTS = {   # T7 robustness: the plant variants that bracket validate_plant.py's fit (all td 100 ns, no edge grid)
+    "A": dict(Ron=0.052, droop=True),                           # default (as verdictB)
+    "B": dict(Ron=0.040, droop=False),                          # best Ipk bias on the 8000 steady rows (+0.008 A)
+    "C": dict(Ron=0.0, droop=False),                            # lossless channel: t7_probe sign flip at k ~ 1
+}
 
 
 def main():
@@ -131,21 +152,29 @@ def main():
     ap.add_argument("--part", choices=("A", "B"), required=True)
     ap.add_argument("--n", type=int, default=1200)
     ap.add_argument("--Ron", type=float, default=0.052)
+    ap.add_argument("--variant", default="", choices=("", "A", "B", "C"), help="plant variant (overrides --Ron)")
+    ap.add_argument("--region", default="all", choices=("all", "k1"))
+    ap.add_argument("--models", default="SPS,b3,L49s3,L49")
+    ap.add_argument("--tag", default="", help="output suffix: plant_verdict_B<tag>.{log,csv,npz}")
     a = ap.parse_args()
     t0 = time.time()
     # no 2.88 deg edge quantisation here: it is the Simulink controller's 100 ns sample grid (the MCU HRTIM resolves
     # 184 ps), and on a quantised D0 the PI cannot settle (power is a staircase in D0; it would dither)
-    plant = pf.FullPlant(Ron=a.Ron, quant=False)
+    kw = VARIANTS[a.variant] if a.variant else dict(Ron=a.Ron)
+    plant = pf.FullPlant(quant=False, **kw)
     lines = []
 
     def out(x=""):
         print(x, flush=True)
         lines.append(x)
 
-    out(f"plant: {plant}")
-    part_a(plant, out) if a.part == "A" else part_b(plant, out, a.n)
+    out(f"plant: {plant} variant {a.variant or '-'} {kw}")
+    if a.part == "A":
+        part_a(plant, out)
+    else:
+        part_b(plant, out, a.n, models=a.models, region=a.region, tag=a.tag)
     out(f"done in {time.time() - t0:.0f} s")
-    open(os.path.join(OUT, f"plant_verdict_{a.part}.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
+    open(os.path.join(OUT, f"plant_verdict_{a.part}{a.tag}.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
 
 
 if __name__ == "__main__":

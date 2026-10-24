@@ -16,6 +16,9 @@ train_e2e.py -- T3: the proposed Smooth RegHDC controller, trained in two stages
         dIpk/dD = dIpk/dD|phi - (dIpk/dphi) (dp/dD) / (dp/dphi)        (partials by finite differences)
     then the chain rule through Delta = softplus_tau(y) to the read-out M, c. The encoder (W, b) stays the fixed
     random projection, as in HDC. Adam, cosine learning-rate decay, the best validation state is kept.
+    T7 (--margin m): Ipk - Ipk_SPS is charged m (1 - exp(-(Delta1 + Delta2) / d0)) in the loss, the hinge and the
+    validation score, so the controller leaves SPS only where the predicted reduction exceeds m (dead-time
+    robustness on the non-ideal plant; see `departure`). b8+ start from b3 (--src b3).
 
 Models: out/model_smooth_reghdc_a.json, out/model_smooth_reghdc_b<tag>.json; tables out/train_e2e_a.csv,
 out/train_e2e_b<tag>_hist.csv. Validation = 4000 uniform random points (seed 101); T5 uses a different seed.
@@ -58,6 +61,17 @@ def jac_sq(m, P, V):
     return (J ** 2).sum(axis=(1, 2)), np.abs(J).max(axis=(1, 2))
 
 
+def departure(delta, margin, d0):
+    """T7 SPS-departure cost margin * (1 - exp(-(Delta1 + Delta2) / d0)) [A] and its gradient wrt Delta (N, 2).
+    On the dead-time plant, leaving SPS by Delta ~ 1e-3..0.06 moves Ipk erratically by +-20 mA at k ~ 1 (sign set by
+    Ron / droop details, t7_probe.py), so a departure has to buy at least `margin` of predicted reduction; below
+    that the optimum is exactly SPS, which is SPS on any plant."""
+    if margin <= 0.0:
+        return np.zeros(delta.shape[0]), np.zeros_like(delta)
+    ex = np.exp(-delta.sum(axis=1) / d0)
+    return margin * (1.0 - ex), np.repeat((margin / d0 * ex)[:, None], 2, axis=1)
+
+
 class Evaluator:
     """Fixed random validation set + the 25 W x 1.2 V grid of T1 (for the adjacent-step metric)."""
 
@@ -69,12 +83,16 @@ class Evaluator:
         self.GP, self.GV = np.meshgrid(self.gP, self.gV)
         _, _, self.DP, self.DV = dense_grid()
 
-    def __call__(self, m, beta, gamma):
+    def __call__(self, m, beta, gamma, margin=0.0, d0=0.005):
         d1, d2 = m.predict(self.P, self.V)
+        d1, d2 = np.asarray(d1, float).ravel(), np.asarray(d2, float).ravel()
         r = ps.operating_point(self.P, d1, d2, self.V)
         dI = self.sps - r["Ipk"]
         ok = r["ok"]
         dIf = dI[ok]
+        delta = np.stack([0.5 - d1, 0.5 - d2], axis=1)
+        dIr = (dI - departure(delta, margin, d0)[0])[ok]              # = dI when margin = 0
+        dsum = delta.sum(axis=1)[ok]
         j2, jmax = jac_sq(m, self.DP.ravel(), self.DV.ravel())
         g1, g2 = m.predict(self.GP, self.GV)
         st = steps(g1, g2)
@@ -84,8 +102,11 @@ class Evaluator:
                    hinge=float(np.maximum(-dIf, 0).mean()) if ok.any() else np.nan,
                    degraded=int(np.sum(dIf < -0.005)), degraded_any=int(np.sum(dIf < -1e-4)),
                    infeasible=int((~ok).sum()), jac2=float(j2.mean()), jac_max=float(jmax.max()),
-                   max_step=st["max_step"], tv=st["tv"])
-        rep["score"] = rep["mean_dI"] - beta * rep["hinge"] - gamma * rep["jac2"] - 1.0 * rep["infeasible"]
+                   max_step=st["max_step"], tv=st["tv"],
+                   # departures from SPS (Delta1 + Delta2 > 1e-3) that buy less than 25 mA: the dead-time risk band
+                   unpaid=int(np.sum((dsum > 1e-3) & (dIf < 0.025))), departed=int(np.sum(dsum > 1e-3)))
+        rep["score"] = (float(dIr.mean()) - beta * float(np.maximum(-dIr, 0).mean()) - gamma * rep["jac2"]
+                        - 1.0 * rep["infeasible"])
         return rep
 
 
@@ -172,8 +193,9 @@ def pmax_grad(P_abs, D1, D2, V2, hD=1e-6):
     return p0, np.stack([(p0 - p1) / hD, (p0 - p2) / hD], axis=1)
 
 
-def loss_grad(m, P, V, sps, beta, gamma, beta_inf):
-    """Training loss on one batch and its gradient wrt (M, c)."""
+def loss_grad(m, P, V, sps, beta, gamma, beta_inf, margin=0.0, d0=0.005):
+    """Training loss on one batch and its gradient wrt (M, c). margin > 0: Ipk is charged the SPS-departure cost
+    (T7, `departure`) in both the main term and the hinge."""
     N = P.size
     sq = np.sqrt(m.Dh)
     H = m.features(P, V)
@@ -181,13 +203,14 @@ def loss_grad(m, P, V, sps, beta, gamma, beta_inf):
     D1, D2 = 0.5 - delta[:, 0], 0.5 - delta[:, 1]
     r = ps.operating_point(P, D1, D2, V)
     ok = r["ok"]
-    e = np.where(ok, r["Ipk"] - sps, 0.0)
+    c_dep, g_dep = departure(delta, margin, d0)
+    e = np.where(ok, r["Ipk"] - sps + c_dep, 0.0)
     L_main = e.sum() / N
     L_deg = beta * np.maximum(e, 0).sum() / N
     dL_dD = np.zeros((N, 2))
     gi, good = ift_grad(np.nan_to_num(r["phi"]), D1, D2, V)
     w = np.where(ok, (1.0 + beta * (e > 0)) / N, 0.0)
-    dL_dD += w[:, None] * gi
+    dL_dD += w[:, None] * (gi - g_dep)                                  # dDelta/dD = -1
     L_inf = 0.0
     if (~ok).any():
         bi = ~ok
@@ -226,20 +249,20 @@ def stage_b(a):
     mom = [np.zeros_like(x) for x in th]
     vel = [np.zeros_like(x) for x in th]
     b1, b2, eps = 0.9, 0.999, 1e-12
-    rep = ev(m, a.beta, a.gamma)
+    rep = ev(m, a.beta, a.gamma, a.margin, a.d0)
     rep.update(step=0, loss=np.nan)
     hist = [rep]
     best = (rep["score"], m.M.copy(), m.c.copy(), 0)
-    print(f"stage (b{tag}) init={a.init} D={m.Dh} sigma={m.sigma} tau={m.tau} beta={a.beta} gamma={a.gamma} "
-          f"lr={a.lr} batch={a.batch} steps={a.steps}", flush=True)
+    print(f"stage (b{tag}) init={a.init} src={a.src} D={m.Dh} sigma={m.sigma} tau={m.tau} beta={a.beta} "
+          f"gamma={a.gamma} margin={a.margin} d0={a.d0} lr={a.lr} batch={a.batch} steps={a.steps}", flush=True)
     print(f"  step     0: val dI mean {rep['mean_dI']:.4f} min {rep['min_dI'] * 1e3:+.1f} mA deg {rep['degraded']} "
           f"inf {rep['infeasible']} jac2 {rep['jac2']:.2f} max {rep['jac_max']:.2f} step {rep['max_step']:.3f} "
-          f"score {rep['score']:.4f}", flush=True)
+          f"unpaid {rep['unpaid']}/{rep['departed']} score {rep['score']:.4f}", flush=True)
     run = []
     for it in range(1, a.steps + 1):
         P, V = random_points(a.batch, rng)
         sps = ps.sps_reference(P, V)["Ipk"]
-        L, gM, gc, parts = loss_grad(m, P, V, sps, a.beta, a.gamma, a.beta_inf)
+        L, gM, gc, parts = loss_grad(m, P, V, sps, a.beta, a.gamma, a.beta_inf, a.margin, a.d0)
         run.append([L, parts["main"], parts["deg"], parts["smooth"], parts["n_inf"], parts["n_skip"]])
         lr = (a.lr_min + 0.5 * (a.lr - a.lr_min) * (1 + np.cos(np.pi * it / a.steps))) * min(1.0, it / a.warmup)
         for x, gx, mo, ve in zip(th, (gM, gc), mom, vel):
@@ -249,7 +272,7 @@ def stage_b(a):
             ve += (1 - b2) * gx * gx
             x -= lr * (mo / (1 - b1 ** it)) / (np.sqrt(ve / (1 - b2 ** it)) + eps)
         if it % a.eval_every == 0 or it == a.steps:
-            rep = ev(m, a.beta, a.gamma)
+            rep = ev(m, a.beta, a.gamma, a.margin, a.d0)
             ra = np.mean(run, axis=0)
             run = []
             rep.update(step=it, loss=float(ra[0]), tr_main=float(ra[1]), tr_deg=float(ra[2]), tr_smooth=float(ra[3]),
@@ -262,11 +285,12 @@ def stage_b(a):
             print(f"  step {it:5d}: loss {ra[0]:+.4f} (main {ra[1]:+.4f} deg {ra[2]:.4f} smooth {ra[3]:.4f} "
                   f"inf {ra[4]:.1f} skip {ra[5]:.1f}) | val dI mean {rep['mean_dI']:.4f} min {rep['min_dI'] * 1e3:+.1f} "
                   f"mA deg {rep['degraded']} inf {rep['infeasible']} jac2 {rep['jac2']:.2f} max {rep['jac_max']:.2f} "
-                  f"step {rep['max_step']:.3f} score {rep['score']:.4f}{mark} ({time.time() - t0:.0f} s)", flush=True)
+                  f"step {rep['max_step']:.3f} unpaid {rep['unpaid']}/{rep['departed']} score {rep['score']:.4f}{mark} "
+                  f"({time.time() - t0:.0f} s)", flush=True)
     _, m.M, m.c, it_best = best
-    rep = ev(m, a.beta, a.gamma)
+    rep = ev(m, a.beta, a.gamma, a.margin, a.d0)
     keys = ["step", "loss", "mean_dI", "min_dI", "max_dI", "hinge", "degraded", "degraded_any", "infeasible", "jac2",
-            "jac_max", "max_step", "tv", "score"]
+            "jac_max", "max_step", "tv", "unpaid", "departed", "score"]
     with open(os.path.join(OUT, f"train_e2e_b{tag}_hist.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(keys)
@@ -274,7 +298,7 @@ def stage_b(a):
             w.writerow([f"{float(r[k]):.6g}" for k in keys])
     meta = {k: float(v) for k, v in rep.items()}
     meta.update(stage=f"b{tag}", init=a.init, src=a.src, beta=a.beta, gamma=a.gamma, beta_inf=a.beta_inf, lr=a.lr,
-                batch=a.batch, steps=a.steps, best_step=it_best, seed=a.seed)
+                batch=a.batch, steps=a.steps, best_step=it_best, seed=a.seed, margin=a.margin, d0=a.d0)
     m.to_json(os.path.join(OUT, f"model_smooth_reghdc_b{tag}.json"), **meta)
     print(f"\nbest step {it_best}:", {k: (round(v, 5) if isinstance(v, float) else v) for k, v in rep.items()})
     print(f"done in {time.time() - t0:.0f} s")
@@ -299,6 +323,8 @@ def main():
     ap.add_argument("--sps-init-y", type=float, default=-3.0, help="initial pre-activation / tau for --init sps")
     ap.add_argument("--tag", default="")
     ap.add_argument("--beta-inf", type=float, default=10.0)
+    ap.add_argument("--margin", type=float, default=0.0, help="T7 SPS-departure cost [A] (0: off, as b1-b7)")
+    ap.add_argument("--d0", type=float, default=0.005, help="departure scale in Delta1 + Delta2")
     # Adam moves all 2D read-out weights at once, so Delta moves by ~ lr * sqrt(2 D): 2e-3 overshoots by 0.4 A
     ap.add_argument("--lr", type=float, default=2e-4)
     ap.add_argument("--lr-min", type=float, default=2e-6)

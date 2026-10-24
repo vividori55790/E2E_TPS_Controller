@@ -30,7 +30,7 @@ sys.path.insert(0, HERE)
 import controllers as ct  # noqa: E402
 import pi_steady as ps  # noqa: E402
 from evaluate import LUT16  # noqa: E402
-from train_e2e import Evaluator, ift_grad, pmax_grad  # noqa: E402
+from train_e2e import Evaluator, departure, ift_grad, pmax_grad  # noqa: E402
 
 OUT = os.path.join(HERE, "out")
 
@@ -72,7 +72,7 @@ class TrainLUT(LUT16):
         return m
 
 
-def lut_loss_grad(m, P, V, sps, beta, gamma, beta_inf):
+def lut_loss_grad(m, P, V, sps, beta, gamma, beta_inf, margin=0.0, d0=0.005):
     """train_e2e.loss_grad for a table: loss and gradient wrt (T1, T2)."""
     N = P.size
     iv, ip, tp, tv = m.cell(P, V)
@@ -80,12 +80,13 @@ def lut_loss_grad(m, P, V, sps, beta, gamma, beta_inf):
     D1, D2 = np.clip(raw1, ct.D_MIN, 0.5), np.clip(raw2, ct.D_MIN, 0.5)
     r = ps.operating_point(P, D1, D2, V)
     ok = r["ok"]
-    e = np.where(ok, r["Ipk"] - sps, 0.0)
+    c_dep, g_dep = departure(np.stack([0.5 - D1, 0.5 - D2], axis=1), margin, d0)
+    e = np.where(ok, r["Ipk"] - sps + c_dep, 0.0)
     L_main = e.sum() / N
     L_deg = beta * np.maximum(e, 0).sum() / N
     gi, good = ift_grad(np.nan_to_num(r["phi"]), D1, D2, V)
     w = np.where(ok, (1.0 + beta * (e > 0)) / N, 0.0)
-    dL_dD = w[:, None] * gi
+    dL_dD = w[:, None] * (gi - g_dep)
     L_inf = 0.0
     if (~ok).any():
         bi = ~ok
@@ -126,6 +127,10 @@ def stratified(m, k, rng):
 
 
 def initial(a):
+    if a.init_from:                                           # continue from a trained table (T7: --margin)
+        m = TrainLUT.load(os.path.join(OUT, f"model_lut_{a.init_from}.npz"))
+        m.name = f"LUT {m.P.size}x{m.V.size} E2E ({a.tag})"
+        return m
     S = np.load(os.path.join(OUT, "surface_v2.npz"))
     gP, gV = S["P"][::a.stride], S["V2"][::a.stride]
     if a.init == "v2":
@@ -143,6 +148,9 @@ def main():
     ap.add_argument("--beta", type=float, default=20.0)       # = b3 (the selected proposed model)
     ap.add_argument("--gamma", type=float, default=1e-3)
     ap.add_argument("--beta-inf", type=float, default=10.0)
+    ap.add_argument("--margin", type=float, default=0.0, help="T7 SPS-departure cost [A] (train_e2e.departure)")
+    ap.add_argument("--d0", type=float, default=0.005)
+    ap.add_argument("--init-from", default="", help="tag of a trained table to start from (overrides --init)")
     ap.add_argument("--lr", type=float, default=2e-4)         # per table entry, in units of D
     ap.add_argument("--lr-min", type=float, default=2e-6)
     ap.add_argument("--warmup", type=int, default=50)
@@ -160,7 +168,7 @@ def main():
     mom = [np.zeros_like(x) for x in th]
     vel = [np.zeros_like(x) for x in th]
     b1, b2, eps = 0.9, 0.999, 1e-12
-    rep = ev(m, a.beta, a.gamma)
+    rep = ev(m, a.beta, a.gamma, a.margin, a.d0)
     rep.update(step=0, loss=np.nan)
     hist = [rep]
     best = (rep["score"], m.T1.copy(), m.T2.copy(), 0)
@@ -173,7 +181,7 @@ def main():
     for it in range(1, a.steps + 1):
         P, V = stratified(m, k, rng)
         sps = ps.sps_reference(P, V)["Ipk"]
-        L, grads, parts = lut_loss_grad(m, P, V, sps, a.beta, a.gamma, a.beta_inf)
+        L, grads, parts = lut_loss_grad(m, P, V, sps, a.beta, a.gamma, a.beta_inf, a.margin, a.d0)
         run.append([L, parts["main"], parts["deg"], parts["smooth"], parts["n_inf"], parts["n_skip"]])
         lr = (a.lr_min + 0.5 * (a.lr - a.lr_min) * (1 + np.cos(np.pi * it / a.steps))) * min(1.0, it / a.warmup)
         for x, gx, mo, ve in zip(th, grads, mom, vel):
@@ -184,7 +192,7 @@ def main():
             x -= lr * (mo / (1 - b1 ** it)) / (np.sqrt(ve / (1 - b2 ** it)) + eps)
             np.clip(x, ct.D_MIN, 0.5, out=x)
         if it % a.eval_every == 0 or it == a.steps:
-            rep = ev(m, a.beta, a.gamma)
+            rep = ev(m, a.beta, a.gamma, a.margin, a.d0)
             ra = np.mean(run, axis=0)
             run = []
             rep.update(step=it, loss=float(ra[0]))
@@ -199,7 +207,7 @@ def main():
                   f"score {rep['score']:.4f}{mark} ({time.time() - t0:.0f} s)", flush=True)
     _, T1, T2, it_best = best
     m.T1[...], m.T2[...] = T1, T2
-    rep = ev(m, a.beta, a.gamma)
+    rep = ev(m, a.beta, a.gamma, a.margin, a.d0)
     keys = ["step", "loss", "mean_dI", "min_dI", "max_dI", "hinge", "degraded", "degraded_any", "infeasible", "jac2",
             "jac_max", "max_step", "tv", "score"]
     with open(os.path.join(OUT, f"train_lut_{a.tag}_hist.csv"), "w", newline="", encoding="utf-8") as f:
@@ -209,7 +217,7 @@ def main():
             w.writerow([f"{float(r[k]):.6g}" for k in keys])
     meta = {k: float(v) for k, v in rep.items()}
     meta.update(beta=a.beta, gamma=a.gamma, beta_inf=a.beta_inf, lr=a.lr, k=k, steps=a.steps, best_step=it_best,
-                stride=a.stride, init_sps=float(a.init == "sps"))
+                stride=a.stride, init_sps=float(a.init == "sps"), margin=a.margin, d0=a.d0)
     m.save(os.path.join(OUT, f"model_lut_{a.tag}.npz"), **meta)
     print(f"\nbest step {it_best}:", {kk: (round(v, 5) if isinstance(v, float) else v) for kk, v in rep.items()})
     print(f"done in {time.time() - t0:.0f} s")
