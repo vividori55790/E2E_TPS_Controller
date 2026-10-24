@@ -8,4 +8,8 @@ void smooth_reghdc_f32(float p_abs, float v2, float *d1, float *d2);
 void smooth_reghdc_q15(int16_t u_q15, int16_t v_q15, float *d1, float *d2);
 int16_t smooth_reghdc_u_q15(float p_abs);
 int16_t smooth_reghdc_v_q15(float v2);
+/* measured HV link V1 != 380 V: equivalent inputs by the ideal-DAB scaling (V2' = V2*380/V1, |P|' = |P|*(380/V1)^2);
+ * call first and feed p_eq, v2_eq to the functions above (v1_invariance.py: raw inputs at V1 = 361-399 V are > 5 mA
+ * worse than SPS at 9.5 % of points, normalised ones at 0 %) */
+void smooth_reghdc_v1_equiv(float p_abs, float v2, float v1, float *p_eq, float *v2_eq);
 #endif

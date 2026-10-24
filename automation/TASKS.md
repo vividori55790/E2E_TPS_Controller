@@ -42,7 +42,21 @@
   지표: SPS 대비 ΔIpk(전체 평균, TPS 이득 구간 평균, 최대), 열화 점 비율(ΔI < −0.005 A), 점별 최적 대비 손실,
   불가능 점 수, 매끄러움(인접 최대 변화, 총변동, |∂D/∂P| 최대), 메모리, 연산량, Irms 변화(부가).
   결과 표 `out/eval_table.csv`, 그림: D1/D2 곡면 비교(기존 vs 제안), ΔIpk 지도, 열화 지도. 논문 Fig. 2/3 스타일.
-- [!] T6 Simulink 정상상태 검증(0단계, 판정용). **막힘(2026-10-21 17:10): 데스크톱 로그온 사용자 없음**
+- [!] T6 Simulink 정상상태 검증(0단계, 판정용). **원인 확정(2026-10-24)**: MATLAB R2025b가 **온라인 라이선싱**
+  (`C:\Program Files\MATLAB\R2025b\licenses\license_info.xml`: `<licmode>onlinelicensing</licmode>`, .lic 없음) →
+  비대화형 Session 0에서는 MathWorks 계정 로그인/ServiceHost에 닿지 못해 로그 한 줄 없이 멈춤(matlab_probe2: -logfile
+  비어 있음, 2.5분 후 종료). 해결은 사용자만 가능: (1) 데스크톱 로그온(대화형 잡 자동 실행), (2) MathWorks batch licensing
+  토큰(MLM_LICENSE_TOKEN), (3) 라이선스 파일 방식 활성화. **대체 경로(진행 중, RESULTS 8절)**:
+  - `out/plant_params.md`: .slx XML에서 데이터셋 시기(35d5a78) 플랜트 복원. **HEAD 모델은 입력이 상수로 주석 처리돼
+    T6에 못 씀** → verify_steady_state.m을 `dataset_era/` 복사본(make_dataset_era.py, git 제외)으로 전환.
+  - `plant_full.py`(전체 주기 슈팅: Ron, 다이오드, 데드타임 100 ns, 2.88° 엣지 올림, 직렬 C, 전원 처짐; test_plant_full ALL PASS).
+    `plant_sim.py`는 반주기 대칭 간이판.
+  - `validate_plant.py`(D0 = +90° 정상 행): 예비 300점에서 이상 모델 Ipk RMSE 0.238 A, 플랜트 0.150 A. 잡 `validate90`(8000점).
+  - `transient_replay.py`: 생성 과정 재생. **선형보간 가설 채택(예비 40조합: RMSE 0.52 A, 전력 지문 0.9986 vs 0.9994;
+    ZOH는 2000조합 RMSE 1.40 A, 0.952)** → 데이터셋 D0 라벨이 실제와 다름. 잡 `replay2000`(linear 진행 중).
+  - `plant_verdict.py` A(k≈1 재최적화)/B(b3·LUT가 비이상 플랜트에서 SPS보다 나쁜지) 잡 `verdictA`, `verdictB`.
+  다음: 잡 결과로 RESULTS 8절 확정, T7 판단(잔차가 유의하면 비이상 플랜트 기준 재학습 = T7).
+  (이전 기록) **막힘(2026-10-21 17:10): 데스크톱 로그온 사용자 없음**
   (explorer.exe 없음) → --interactive 작업이 실행되지 않음(결과 0x41303 "아직 실행 안 됨"). 스모크 잡
   `matlab_smoke`는 로그온 트리거로 등록돼 있어 사용자가 로그온하면 자동 실행됨 → `job.py status/diag matlab_smoke`로 확인.
   그동안 verify_steady_state.m은 미리 작성해 둘 수 있음(실행은 로그온 후).
@@ -57,9 +71,12 @@
   판정: (a) k≈1 TPS 이득 실재 여부, (b) 해석–Simulink 잔차 크기·구조.
 - [ ] T7 (T6 결과에 따라) 잔차가 의미 있으면 회색상자: 해석 모델 + 잔차 보정(소형 회귀)으로 T1–T5 재실행. 무시할 만하면
   그 근거를 RESULTS.md에 기록.
-- [ ] T8 최종 폐루프 검증: 제안 제어기를 Simulink에 넣은 버전(복사본 모델 또는 MATLAB Function, D0는 기존 PI)으로
+- [~] T8 최종 폐루프 검증: 제안 제어기를 Simulink에 넣은 버전(복사본 모델 또는 MATLAB Function, D0는 기존 PI)으로
   대표 운전점 정상상태 Ipk를 SPS와 비교, 전력 계단 응답 1–2개. MATLAB 추론 함수 `Simulink/Thesis/smooth_reghdc_infer.m`.
-- [~] T9 `export_mcu.py` 작성: float32 + int16(위상을 2^-k 회전 단위 uint32로 → 랩어라운드 = mod 2π, Q15 cos 표 선형보간,
+  **2026-10-24 준비**: `smooth_reghdc_infer.m`(P*, V2[, V1] → D1, D2; V1 물리 정규화, codegen용 persistent),
+  `smooth_reghdc_params.m`(export_matlab.py 생성, 가중치 리터럴), `test_smooth_reghdc_infer.m`(시험벡터 208개,
+  `out/smooth_reghdc_testvec.csv`). Python 왕복 검사 `test_export_matlab.py` PASS(5e-16). MATLAB 실행은 미검증.
+- [~] T9 (2026-10-24: V1 등가 입력 함수 `smooth_reghdc_v1_equiv()` 추가, 수치 불변) `export_mcu.py` 작성: float32 + int16(위상을 2^-k 회전 단위 uint32로 → 랩어라운드 = mod 2π, Q15 cos 표 선형보간,
   int64 MAC) C 코드와 비트 단위 Python 에뮬레이션(`SmoothRegHDCFixed`, evaluate의 int16 행). b3 기준으로 내보냄:
   int16 max|ΔD| 2.7e-4(성능 동일, 4618 B), float32 5.6e-7(5128 B). **남은 것: C 컴파일 시험** — gcc/clang/cl 없음.
   선택지: (1) 사용자가 컴파일러 설치, (2) `pip install ziglang`(zig cc)로 PC 시험 — 시스템 Python에 패키지를 설치하는 일이라 사용자 확인 후.
@@ -69,10 +86,18 @@
   ICROS2026 대비 개선 요약. 3.392 A(논문 최대 저감) 재검증 결과 포함.
 
 ## 선택
-- [ ] T11 ZVS 영역 분석(스위칭 순간 전류 부호) — 부가 지표.
+- [x] T11 ZVS 영역 분석(`zvs.py` → `out/zvs.log`, `zvs_table.csv`; 시험 1만 점, 이상 모델). 전 레그 ZVS(I_min 0):
+  SPS 74.6 %, ICROS 곡면 50.9 %, LUT49 81.5 %, b3 78.8 %, 점별 최적 87.9 %. |P|<300 W: SPS 23 % → b3 40 %.
+  I_min 0.5 A에서는 모두 62–65 %(TPS는 스위칭 순간 전류가 작아 ZVS 여유가 얇음 — 정직하게 기록).
 - [ ] T12 V2 범위 확장 민감도(72–120 V) — 이득이 커지는지.
-- [ ] T13 (2026-10-21 발견에서) 2입력에서는 같은 메모리 LUT(T1 곡면 49×22, 4.3 kB)가 제안 (a)와 사실상 같은 성능
+- [x] T13 완료(2026-10-24, RESULTS 5절): `train_lut_e2e.py`(+test ALL PASS). 시험 1만 점: LUT49 E2E 0.0815 A/−0.9 mA,
+  SPS 시작 L49s3 0.0815/−0.2 mA(최악점 최선), L25 1116 B 0.0813/−5.6 mA, L13 328 B 0.0804/−16.9 mA; RegHDC D64(b7, 1288 B)
+  0.0812/−6.1 mA. → 성능을 좌우하는 것은 물리 E2E 학습, 파라미터화는 무관(정직하게 기록). evaluate.py에 행 추가.
+  (원 메모) 2입력에서는 같은 메모리 LUT(T1 곡면 49×22, 4.3 kB)가 제안 (a)와 사실상 같은 성능
   (test 평균 ΔI 0.0812 vs 0.0814 A, 열화 0 vs 0.08 %). 공정 비교로 **LUT에도 같은 E2E 미세조정**(쌍선형 가중치 연쇄법칙,
   train_e2e의 loss_grad 재사용)을 적용해 비교. 논문 주장(통합·매끄러움·물리 E2E)이 LUT 대비 무엇을 더 주는지 정직하게 정리.
-- [ ] T14 3입력 확장(V1 380 V ± 5 %를 입력으로): LUT 메모리는 곱으로, RegHDC는 선형으로 늘어남 → HDC 회귀의 장점이
-  드러나는 실험 후보. 해석 모델·pi_steady는 V1 인자를 이미 받음.
+- [x] T14 (축소: 3입력은 이상 모델에서 소거됨) `v1_invariance.py` → `out/v1_invariance.log`. 이상 DAB 스케일링
+  i = V1/(ωL)·F(k, D), P = V1²/(ωL)·G(k, D) (수치 확인 7e-15 A)이므로 V1 입력은 (V2' = V2·380/V1, |P|' = |P|·(380/V1)²)
+  정규화로 2입력에 흡수된다 → 3입력 HDC로 메모리 장점을 보이는 실험은 이상 모델에서는 의미 없음(비이상성만 남김).
+  대신 강건성: V1 361–399 V에서 b3 원 입력은 9.45 % 점이 SPS보다 5 mA 넘게 나쁨(최악 −302 mA, k 0.92–1.07),
+  정규화 입력은 0 %(최악 −2.4 mA), 평균 0.0802 → 0.0908 A. → smooth_reghdc_infer.m에 V1 정규화 반영(C 내보내기는 아직).

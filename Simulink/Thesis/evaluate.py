@@ -108,6 +108,14 @@ def build(b_tags=None):
     ctrls.append(Signed(lv, +1, "Legacy RegHDC (v2 surface)"))
     ctrls.append(LUT16(gP, gV, T1, T2, name=f"LUT v2 {gP.size}x{gV.size}"))
     ctrls.append(LUT16(gP[::2], gV[::2], T1[::2, ::2], T2[::2, ::2], name=f"LUT v2 {gP[::2].size}x{gV[::2].size}"))
+    # T13: the same physics E2E fine-tuning applied to the tables (train_lut_e2e.py); L49s3 starts from SPS (no surface)
+    from train_lut_e2e import TrainLUT
+    for tag in ("L49", "L49s3", "L25", "L13"):
+        path = os.path.join(OUT, f"model_lut_{tag}.npz")
+        if os.path.exists(path):
+            m = TrainLUT.load(path)
+            m.name = f"LUT {m.P.size}x{m.V.size} E2E ({tag})"
+            ctrls.append(m)
     a = ct.SmoothRegHDC.from_json(os.path.join(OUT, "model_smooth_reghdc_a.json"))
     a.name = "Smooth RegHDC (a)"
     ctrls.append(a)

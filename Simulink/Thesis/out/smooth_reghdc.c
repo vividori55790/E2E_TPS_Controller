@@ -32,6 +32,13 @@ void smooth_reghdc_f32(float p_abs, float v2, float *d1, float *d2)
     finish(y, d1, d2);
 }
 
+void smooth_reghdc_v1_equiv(float p_abs, float v2, float v1, float *p_eq, float *v2_eq)
+{
+    const float s = SRHDC_V1_NOM / (v1 > 1.0f ? v1 : 1.0f);
+    *p_eq = p_abs * s * s;
+    *v2_eq = v2 * s;
+}
+
 int16_t smooth_reghdc_u_q15(float p_abs) { return (int16_t)lrintf(clamp01(p_abs / SRHDC_P_MAX) * 32767.0f); }
 int16_t smooth_reghdc_v_q15(float v2)
 {

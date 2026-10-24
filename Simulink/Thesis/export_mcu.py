@@ -115,7 +115,7 @@ def emit(base, fx, path_h, path_c, path_ch, src):
          "#ifndef SMOOTH_REGHDC_STM32_H", "#define SMOOTH_REGHDC_STM32_H", "", "#include <stdint.h>", "",
          f"#define SRHDC_D        {D}", f"#define SRHDC_TAU      {f(base.tau)}", f"#define SRHDC_P_MAX    {f(ct.P_MAX)}",
          f"#define SRHDC_V2_LO    {f(ct.V2_LO)}", f"#define SRHDC_V2_HI    {f(ct.V2_HI)}",
-         f"#define SRHDC_D_MIN    {f(ct.D_MIN)}",
+         f"#define SRHDC_D_MIN    {f(ct.D_MIN)}", f"#define SRHDC_V1_NOM   {f(380.0)}",
          f"#define SRHDC_WQ_SHIFT {fx.k}   /* WQ in 2^-{fx.k} turns; phase unit 2^-{fx.k + 15} turn */",
          f"#define SRHDC_MQ_SHIFT {fx.m}   /* MQ = M' * 2^{fx.m} */", "#define SRHDC_COS_N    1024", "",
          "/* ---- float32 path: rad per normalised input, rad, read-out with sqrt(2)/sqrt(D) folded in ---- */",
@@ -145,6 +145,10 @@ void smooth_reghdc_f32(float p_abs, float v2, float *d1, float *d2);
 void smooth_reghdc_q15(int16_t u_q15, int16_t v_q15, float *d1, float *d2);
 int16_t smooth_reghdc_u_q15(float p_abs);
 int16_t smooth_reghdc_v_q15(float v2);
+/* measured HV link V1 != 380 V: equivalent inputs by the ideal-DAB scaling (V2' = V2*380/V1, |P|' = |P|*(380/V1)^2);
+ * call first and feed p_eq, v2_eq to the functions above (v1_invariance.py: raw inputs at V1 = 361-399 V are > 5 mA
+ * worse than SPS at 9.5 % of points, normalised ones at 0 %) */
+void smooth_reghdc_v1_equiv(float p_abs, float v2, float v1, float *p_eq, float *v2_eq);
 #endif
 """
 
@@ -180,6 +184,13 @@ void smooth_reghdc_f32(float p_abs, float v2, float *d1, float *d2)
         y[1] += h * SRHDC_M[d][1];
     }
     finish(y, d1, d2);
+}
+
+void smooth_reghdc_v1_equiv(float p_abs, float v2, float v1, float *p_eq, float *v2_eq)
+{
+    const float s = SRHDC_V1_NOM / (v1 > 1.0f ? v1 : 1.0f);
+    *p_eq = p_abs * s * s;
+    *v2_eq = v2 * s;
 }
 
 int16_t smooth_reghdc_u_q15(float p_abs) { return (int16_t)lrintf(clamp01(p_abs / SRHDC_P_MAX) * 32767.0f); }

@@ -1,18 +1,27 @@
 function verify_steady_state(pointsCsv, outCsv, simTime)
 % verify_steady_state.m -- T6: steady-state check of the analytic TPS model against the Simulink plant.
 %
-% Runs Modules/Control_Logic.slx with the SAME variables as Scripts/Generate_TPS_Dataset.m (manual phase mode:
-% Mode_Select = 1, Ctrl_Mode_Ext = 3) but with a CONSTANT D0 for simTime (default 30 ms) instead of the 1 ms
-% staircase, and measures the last 1 ms: Ipk = max|i_L|, mean(i_L) (DC offset), rms(i_L), P_LV, P_HV, V_LV, V_HV.
+% Runs the DATASET-ERA model (git 35d5a78, extracted by make_dataset_era.py into dataset_era/ as
+% Control_Logic_dataset_era.slx + its DAB_Controller_System.m) with the SAME variables as Scripts/Generate_TPS_Dataset.m
+% (manual phase mode) but with a CONSTANT D0 for simTime (default 30 ms) instead of the 1 ms staircase, and measures
+% the last 1 ms: Ipk = max|i_L|, mean(i_L) (DC offset), rms(i_L), P_LV, P_HV, V_LV, V_HV.
 % Settling is checked with Ipk / P_LV in 1 ms windows ending at 10, 15, 20, 25 ms as well.
 % Points come from make_verify_points.py (out/verify_points.csv); the comparison is done in Python.
+% HEAD's Modules/Control_Logic.slx is NOT usable: its From Workspace inputs are commented out (constants Phi 70 deg,
+% D1 = D2 = 0.5, V2 96 V) and the logged names differ (out/plant_params.md section 0).
 %
-% Run in the logged-on desktop session (Session 0 stalls `matlab -batch`):
+% Run in the logged-on desktop session (online licensing stalls `matlab -batch` in Session 0):
 %   python automation/job.py submit t6_verify --interactive -- matlab -batch "cd('Simulink/Thesis'); verify_steady_state"
 % Read-only use of the original model: nothing is saved into Modules/.
 
     thesisDir = fileparts(mfilename('fullpath'));
     simDir    = fileparts(thesisDir);
+    eraDir    = fullfile(thesisDir, 'dataset_era');
+    if ~isfile(fullfile(eraDir, 'Control_Logic_dataset_era.slx'))
+        [st, msg] = system(sprintf('python -I "%s"', fullfile(thesisDir, 'make_dataset_era.py')));
+        fprintf('%s', msg);
+        if st ~= 0, error('make_dataset_era.py failed'); end
+    end
     if nargin < 1 || isempty(pointsCsv), pointsCsv = fullfile(thesisDir, 'out', 'verify_points.csv'); end
     if nargin < 2 || isempty(outCsv),    outCsv    = fullfile(thesisDir, 'out', 'simulink_steady.csv'); end
     if nargin < 3 || isempty(simTime),   simTime   = 0.030; end
@@ -24,10 +33,11 @@ function verify_steady_state(pointsCsv, outCsv, simTime)
     Kp_val = 0.05; Ki_val = 50.0; Kpv_val = 5.0; Kiv_val = 5000;
 
     addpath(simDir); addpath(fullfile(simDir, 'Modules'));
-    modelName = 'Control_Logic';
+    addpath(eraDir);                                   % last addpath = first on the path: old DAB_Controller_System.m
+    modelName = 'Control_Logic_dataset_era';
     oldDir = pwd;
     cleanup = onCleanup(@() cd(oldDir));
-    cd(fullfile(simDir, 'Modules'));
+    cd(eraDir);
 
     t_in = [0; simTime];
     base = Simulink.SimulationInput(modelName);
@@ -57,7 +67,7 @@ function verify_steady_state(pointsCsv, outCsv, simTime)
         simIn(k) = s;
     end
 
-    setup = @() workerSetup(Kp_val, Ki_val, Kpv_val, Kiv_val, spec);
+    setup = @() workerSetup(Kp_val, Ki_val, Kpv_val, Kiv_val, spec, eraDir);
     t0 = tic;
     usePar = license('test', 'Distrib_Computing_Toolbox') && ~isempty(ver('parallel'));
     if usePar
@@ -88,14 +98,14 @@ function verify_steady_state(pointsCsv, outCsv, simTime)
         [iL, tI] = extractSignal(o, {'Inductor_Current1', 'Inductor_Current', 'I_L1', 'I_L'});
         [pLV, tP] = extractSignal(o, {'Power_LV'});
         [pHV, tH] = extractSignal(o, {'Power_HV'});
-        [vLV, tVL] = extractSignal(o, {'V_LV1', 'V_LV'});
-        [vHV, tVH] = extractSignal(o, {'V_HV1', 'V_HV'});
+        [vLV, tVL] = extractSignal(o, {'Voltage_Low1', 'V_LV1', 'V_LV'});      % dataset-era names first
+        [vHV, tVH] = extractSignal(o, {'Voltage_High1', 'V_HV1', 'V_HV'});
         if isempty(pLV) && ~isempty(vLV)
-            [iLV, ~] = extractSignal(o, {'I_LV1', 'I_LV'});
+            [iLV, ~] = extractSignal(o, {'Current_Low1', 'I_LV1', 'I_LV'});
             if ~isempty(iLV), pLV = vLV .* iLV; tP = tVL; end
         end
         if isempty(pHV) && ~isempty(vHV)
-            [iHV, ~] = extractSignal(o, {'I_HV1', 'I_HV'});
+            [iHV, ~] = extractSignal(o, {'Current_High1', 'I_HV1', 'I_HV'});
             if ~isempty(iHV), pHV = vHV .* iHV; tH = tVH; end
         end
         if isempty(iL), err(k) = "inductor current not logged"; continue; end
@@ -122,7 +132,8 @@ function verify_steady_state(pointsCsv, outCsv, simTime)
     fprintf('wrote %s (%d points, %d errors)\n', outCsv, N, sum(err ~= ""));
 end
 
-function workerSetup(Kp, Ki, Kpv, Kiv, spec)
+function workerSetup(Kp, Ki, Kpv, Kiv, spec, eraDir)
+    addpath(eraDir);                                   % parsim workers: old DAB_Controller_System.m first on the path
     assignin('base', 'C_HV', 1000e-6);
     assignin('base', 'R_ESR_HV', 0.05);
     assignin('base', 'R_ESR_LV', 0.01);

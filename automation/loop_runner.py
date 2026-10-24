@@ -75,9 +75,14 @@ def now():
 def log(line):
     os.makedirs(STATE_DIR, exist_ok=True)
     msg = f"[{now()}] {line}"
-    print(msg, flush=True)
     with io.open(LOG, "a", encoding="utf-8") as f:
         f.write(msg + "\n")
+    # the detached console is cp949: a U+2212 in a turn summary killed the runner on 10-21 (silent 3-day stop)
+    enc = getattr(sys.stdout, "encoding", None) or "utf-8"
+    try:
+        print(msg.encode(enc, errors="replace").decode(enc, errors="replace"), flush=True)
+    except Exception:
+        pass
 
 
 def load_json(p, default):
@@ -330,6 +335,9 @@ def running_jobs():
     for p in glob.glob(os.path.join(STATE_DIR, "jobs", "*.json")):
         j = load_json(p, {})
         if j.get("status") == "running" and not os.path.exists(p[:-5] + ".done"):
+            # an --interactive job that never started (no desktop logon -> no .log yet) cannot finish; don't wait on it
+            if j.get("interactive") and not os.path.exists(p[:-5] + ".log"):
+                continue
             n += 1
     return n
 
