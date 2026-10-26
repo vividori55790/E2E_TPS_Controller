@@ -47,7 +47,10 @@ $body += '@echo off'
 $body += 'cd /d "' + $root + '"'
 $body += 'echo ==== detached start %DATE% %TIME% (task ' + $task + ') >> "' + $log + '"'
 $body += '"' + $py + '" ' + (($argv | ForEach-Object { '"' + $_ + '"' }) -join ' ') + ' >> "' + $log + '" 2>> "' + $err + '"'
-$body += 'echo ==== detached exit %ERRORLEVEL% %DATE% %TIME% >> "' + $log + '"'
+# keep the runner's exit code: ending on `echo` reported success and disabled restart-on-failure (10-21)
+$body += 'set RC=%ERRORLEVEL%'
+$body += 'echo ==== detached exit %RC% %DATE% %TIME% >> "' + $log + '"'
+$body += 'exit /b %RC%'
 Set-Content -Path $cmdf -Value $body -Encoding ASCII
 
 $me = [Security.Principal.WindowsIdentity]::GetCurrent().Name

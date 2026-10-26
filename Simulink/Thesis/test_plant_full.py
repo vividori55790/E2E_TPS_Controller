@@ -51,6 +51,43 @@ def main():
     samples = up.sum(axis=0) * q.dth / q.g + q.td_deg / q.g     # on-time incl. the dead time, in samples
     ok &= check("quantised on-time 62/63 samples", np.all(np.isin(np.round(samples, 6), [62.0, 63.0])),
                 f"{np.round(samples, 3)}")
+    # 5. dead time at light load near k = 1: the switching currents sit on the kinks of the period map and plain
+    #    Newton cycled (plant_conv_probe.py). steady_fixed must converge there and agree with brute time stepping.
+    b = pf.FullPlant(Ron=0.040, droop=False, quant=False)
+    m = 40
+    D0s = np.linspace(-7.0, -1.0, m)
+    d1, d2 = np.full(m, 0.4338), np.full(m, 0.4485)
+    Vb1, Vb2 = np.full(m, 380.0), np.full(m, 92.66)
+    old = b.steady_fixed(D0s, d1, d2, Vb1, Vb2, polish=0, relax=None)
+    new = b.steady_fixed(D0s, d1, d2, Vb1, Vb2)
+    # the answer must be a steady state: continued for 1500 periods it stays (max |i| / mean P over 80 periods).
+    # Not compared with a cold start: there are coexisting stable states there (plant_attractor_probe.py, ~20 mA apart)
+    sch = b.schedule(D0s, d1, d2)
+    _, _, I_new, _, P_new, _ = b._relax(new["i0"], new["vc0"], sch, Vb1, Vb2, 1420, 80)
+    _, _, I_old, _, P_old, _ = b._relax(old["i0"], old["vc0"], sch, Vb1, Vb2, 1420, 80)
+    eI = np.abs(I_new - new["Ipk"])
+    eP = np.abs(P_new - new["P_LV"])
+    _, _, I_cold, _, _, _ = b._relax(np.zeros(m), np.zeros(m), sch, Vb1, Vb2, 1500, 80)
+    ok &= check("dead-time light load: answer is stationary", np.mean(eI < 3e-3) >= 0.95 and eI.max() < 0.03,
+                f"after 1500 more periods |dIpk| < 3 mA at {np.mean(eI < 3e-3) * 100:.0f} %, max {eI.max() * 1e3:.1f} mA, "
+                f"max |dP| {eP.max():.2f} W (plain 8-step Newton: max {np.abs(I_old - old['Ipk']).max() * 1e3:.0f} mA); "
+                f"period-1 {new['conv'].mean() * 100:.0f} %, time-stepped {new['cycle'].mean() * 100:.0f} %; (info) vs a cold "
+                f"start: max {np.abs(I_cold - new['Ipk']).max() * 1e3:.0f} mA (coexisting states)")
+    # 6. operating_point = the FIRST upward crossing of P_LV(D0) = P*, at P* within 0.05 W
+    P_t = np.array([28.6, 33.9, 122.5, 418.0, 900.0])
+    V_t = np.array([92.66, 92.63, 91.17, 100.9, 84.0])
+    g1 = np.array([0.4338, 0.4219, 0.4582, 0.5, 0.45])
+    g2 = np.array([0.4485, 0.4396, 0.4712, 0.5, 0.5])
+    op = b.operating_point(P_t, g1, g2, V_t)
+    eP = np.abs(-op["P_LV"] - P_t).max()
+    first_ok = True
+    for j in range(P_t.size):                                   # fine scan below the answer: never above P*
+        s = np.linspace(float(op["D0"][j]) - 12.0, float(op["D0"][j]) - 0.02, 50)
+        rs = b.steady_fixed(s, np.full(50, g1[j]), np.full(50, g2[j]), np.full(50, float(op["V1_bus"][j])),
+                            np.full(50, float(op["V2_bus"][j])))
+        first_ok &= bool(np.all(-rs["P_LV"] < P_t[j]))
+    ok &= check("operating_point = first crossing", eP < 0.05 and first_ok and op["ok"].all() and op["conv"].all(),
+                f"max |P_LV - P*| {eP:.4f} W, no crossing below: {first_ok}, ok {op['ok'].all()}, conv {op['conv'].all()}")
     print("ALL PASS" if ok else "SOME FAILED")
 
 

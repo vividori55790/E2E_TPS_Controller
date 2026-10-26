@@ -101,6 +101,20 @@ def build(b_tags=None, final=None):
     lg = legacy("ICROS2026 RegHDC", d["Target_P_W"].to_numpy(float), d["Target_V2_V"].to_numpy(float),
                 d["Opt_D1"].to_numpy(float), d["Opt_D2"].to_numpy(float), "model_legacy_icros.npz")
     ctrls += [Signed(lg, +1, "ICROS2026 RegHDC (P>0)"), Signed(lg, -1, "ICROS2026 RegHDC (P<0)")]
+    # R1 (scope change 2026-10-26): target M-A = the existing pipeline's Physics_Dataset_Final_Regression_Ready.csv
+    # (train_targets.py): its surface replayed, the paper's LegacyRegHDC on it, and the proposed structure on it
+    from train_targets import dataset_tables
+    dF, tabF = dataset_tables()
+    for sgn, lab in ((+1, "P>0"), (-1, "P<0")):
+        P, V, T1, T2 = tabF[sgn]
+        ctrls.append(ct.GridLUT(P, V, T1, T2, name=f"M-A dataset surface ({lab})"))
+    lgF = legacy("M-A Legacy RegHDC", dF["Target_P_W"].to_numpy(float), dF["Target_V2_V"].to_numpy(float),
+                 dF["Opt_D1"].to_numpy(float), dF["Opt_D2"].to_numpy(float), "model_legacy_final.npz")
+    ctrls += [Signed(lgF, +1, "M-A Legacy RegHDC (P>0)"), Signed(lgF, -1, "M-A Legacy RegHDC (P<0)")]
+    for tag in ("MA_pos", "MA_neg"):
+        path = os.path.join(OUT, f"model_smooth_reghdc_{tag}.json")
+        if os.path.exists(path):
+            ctrls.append(ct.SmoothRegHDC.from_json(path))           # name "M-A Smooth RegHDC (dataset P<0)" etc.
     S = np.load(os.path.join(OUT, "surface_v2.npz"))
     gP, gV, T1, T2 = S["P"], S["V2"], S["smooth_D1"], S["smooth_D2"]
     PP, VV = np.meshgrid(gP, gV)
@@ -349,6 +363,19 @@ def main():
            for n, col in zip(["ICROS2026 surface (P>0)", "Legacy RegHDC (v2 surface)"] + ([best.name] if best else []),
                              [ORANGE, AQUA, BLUE])]
     fig_slices(os.path.join(OUT, "fig_eval_slices.png"), ser, (ref["D1"].reshape(sh), ref["D2"].reshape(sh), gain))
+    # R3: the same structure on the two targets -- M-A (existing dataset), M-B0 (steady-state surface), M-B (+ E2E)
+    tnames = [n for n in ("M-A Smooth RegHDC (dataset P<0)", "Smooth RegHDC (a)", best.name if best else None)
+              if n in maps]
+    tlabel = {"M-A Smooth RegHDC (dataset P<0)": "M-A (existing dataset target)",
+              "Smooth RegHDC (a)": "M-B0 (steady-state surface target)"}
+    if best is not None:
+        tlabel[best.name] = f"M-B (M-B0 + physics E2E, {best.name.split('(')[-1].rstrip(')')})"
+    fig_maps(os.path.join(OUT, "fig_targets_maps.png"), fig_rows[:1] + [
+        (tlabel[n], maps[n]["d1"].reshape(sh), maps[n]["d2"].reshape(sh), maps[n]["dI"].reshape(sh)) for n in tnames])
+    fig_slices(os.path.join(OUT, "fig_targets_slices.png"),
+               [(tlabel[n], col, maps[n]["d1"].reshape(sh), maps[n]["d2"].reshape(sh), maps[n]["dI"].reshape(sh))
+                for n, col in zip(tnames, [ORANGE, AQUA, BLUE])],
+               (ref["D1"].reshape(sh), ref["D2"].reshape(sh), gain))
     print(f"done in {time.time() - t0:.0f} s")
 
 

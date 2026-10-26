@@ -2,6 +2,78 @@
 
 <!-- 새 항목은 이 줄 바로 아래에 -->
 
+## 2026-10-26 13:54–14:50 (반복 5, 사용 한도로 끊긴 10-24 턴의 이어서) — 범위 변경 R1 완료 / 플랜트 해법 결함·다중 정상상태 / Simulink PI 판정 착수
+- **R1** `train_targets.py`: M-A = 사용자 데이터셋(`Physics_Dataset_Final_Regression_Ready.csv`)을 (a)와 같은 부호화·α로 ridge
+  (방향별; ±P 라벨이 최대 0.09/0.14 다름). 해석 1만 점(`evaluate.py`, 평가표에 M-A 곡면·Smooth·Legacy 행 추가): M-A(P<0)
+  −0.0096 A, 5 mA 초과 열화 27.3 %, 최악 −828 mA(V2 ≈ 95 V 경부하에서 D ≈ 0.15–0.2의 깊은 TPS); M-B(b3) +0.0815 A, 0 %, −2.8 mA.
+  그림 `fig_targets_maps.png`, `fig_targets_slices.png`.
+- **플랜트 해법 결함(10-24 턴 끝에서 발견, 이번에 수정)**: `t7_outliers.py`/`plant_conv_probe.py` — 경부하·k≈1에서 8회 Newton이
+  수렴하지 않아(잔차 최대 0.4 A) Ipk 오차 최대 0.4 A. 수정(`plant_full.py`): 감쇠 Newton(`_polish`), 주기 사상 스펙트럼 반경 검사,
+  1주기 해가 없거나 불안정하면 시간적분(600주기 + 80주기 창, `_relax`), `operating_point` = 따뜻한 시작 D0 스캔으로 첫 상향
+  교차점 → 구간 이분법(옛 동작은 `legacy=True`). `plant_period_probe.py`: 미수렴 점의 일부는 1주기 해가 있는데 Newton이 놓친 것,
+  일부는 지속 저주파 진동. **`plant_attractor_probe.py`: 안정한 1주기 정상상태가 둘 이상 공존**(Ipk ~17–20 mA, P ~3 W 차이, 이력이
+  결정) → T7의 ±20 mA는 해법 잡음만이 아니라 실제 불확정성. test_plant_full 항목 5(정상성)·6(첫 교차점) 추가(잡 test_plant_full4).
+  → 10-24 verdictB·pv_*·t7_select 수치는 무효(RESULTS 8절 (4)·9절에 표시), T7 선택(b10)은 채택 안 함.
+- **Simulink 대 Python 플랜트**(`plant_vs_simulink.py`, t6 52점 상수 D0): 플랜트(양자화 포함) Ipk RMSE 0.39 A(ICROS 경부하 TPS 0.76 A),
+  P_LV RMSE 110 W(편향 −70 W); 해석 모델 0.41 A / 144 W. 경부하에서는 플랜트도 Simulink 전력을 잘 못 맞춤 → Simulink 자체로 판정.
+- **R2(3) Simulink PI**: 기존 제어기의 "외부 D1/D2 + 위상 PI" 모드(Ctrl_Mode 3, Mode_Select≠1)를 찾음. 데이터셋 시기 모델은
+  Mode_Select/Kp/Ki가 Constant 블록(1, 20, 490000; `slx_trace_inputs.py`) → `setBlockParameter`로 시뮬레이션별 변경
+  (`verify_pi_closed_loop.m`, 모델 미저장). 파일럿 4회: 모델 이득은 채터링(Ipk 16–18 A), 낮춘 이득들도 SPS Ipk +1.2–3 A·평균 전류
+  0.1–0.5 A로 이득과 무관 → 원인은 100 ns(2.88°) 위상 격자에서의 PI 디더(시뮬레이션 제어기 산물, HRTIM엔 없음). → 디더 없는 PI
+  정상상태 = 목표 전력을 감싸는 두 D0 계단의 상수 D0 정상상태 보간(`simulink_sweep.py make/next/compare`). 1차 92회 잡 `sw1b`.
+- **R3 근거 재현 스크립트**(사용자 10-26 세션 수치를 파일로): `dataset_vs_simulink.py`(데이터셋 SPS − Simulink 정상상태, 같은 전력:
+  84 V +0.10…+1.45 / −0.15…+2.34 A, 109.2 V −0.02…+2.54 / −0.36…+1.79 A), `tps_limit.py`(상한 V1|1−k|/(4fsL) 1.53/0/1.97 A,
+  84 V 100 W −29 % … 1 kW −2.0 %, 109.2 V −39 % … −2.9 %, 95 V 0; 무제약 전수탐색 ≈ PI 첫 교차 최적).
+  RESULTS 0절 요약·R.1–R.7·10절·한계 작성.
+- 버그·인프라: verify_steady_state.m/verify_pi_closed_loop.m가 cd 후 상대 경로로 writetable → 절대 경로화. **job.py kill은 대화형
+  MATLAB 프로세스를 못 끝냄**(schtasks /End만) → 취소한 sw1의 MATLAB+워커 6개가 남아 같은 92회를 계산 중(taskkill은 승인 필요라
+  못 함; `dataset_era/out/`을 만들어 그 결과도 쓰이게 함). CPU를 나눠 써서 sw1b 약 1시간 예상.
+- (15:00–16:40) **Simulink R2(3) 완료**. sw1b는 parsim 결과 역직렬화 중 메모리 부족(결과 1개 94 MB × 92)으로 순차 실행으로 떨어졌고
+  고아 sw1은 끝까지 감. 둘 다 멈출 권한이 없어 `dataset_era/DAB_Controller_System.m`(git 제외 복사본) setupImpl에 잠시
+  `error(...)`를 넣어 새 시뮬레이션만 실패시킴 → 고아는 88/92 정상 결과를 쓰고 종료, sw1b 종료 → 원본 복원(cmp 확인).
+  이후 `verify_steady_batch.m`(24회씩 묶음)으로 2–4차. **위상 카운터 knife edge**: 엣지 위상이 정확히 2.88° 격자점이면 부동소수점
+  누적 오차로 펄스가 62/63샘플로 흔들려 저주파 진동·Ipk 증가(95 V 600 W SPS 1.659 vs D2 0.49984 1.256 A) → 모든 듀티 ≤ 0.4999999
+  (`D_SAFE`)로 재실행, D = 0.5 정확값 실행 제외. 결과(RESULTS R.4): M-A 6/12점 열화(95 V 4점 모두, 최악 −0.493 A = −50 %),
+  M-B0 0/12, M-B 1/12(84 V 300 W −11 mA, 계단 보간 불확도 안), M-B 평균 +0.221 A / +7.1 %, k≠1 경부하 +0.41…+0.53 A(23–24 %),
+  95 V는 SPS와 같음. 109.2 V 600 W는 SPS 기준 자체가 진동(5.15 A)해 해석 제외.
+- 플랜트(수정 해법, variant B, 1200점): M-B0 +0.0789 A(이상 +0.0764), 1.25 % 열화, 최악 −45 mA, 전부 V2 92–100 V·|P| ≤ 401 W.
+- (17:08) 플랜트 M-A −0.0178 A / 27.7 % 열화(최악 −885 mA), M-B(b3) +0.0788 A / 1.0 % 열화 / 최악 −19.5 mA / 20 mA 초과 0 %
+  → RESULTS R.3 표·0절 결론("세 잣대가 같은 순서: 목표가 결과를 가른다"). (17:10) MATLAB `test_smooth_reghdc_infer.m` PASS
+  (208 벡터, 4.4e-16) → T8 MATLAB 미검증 해소. RESULTS 8절 경위·한계 갱신(MATLAB 사용 가능, 잡 운영 주의 2가지).
+- 상태: R1–R4 완료, T6/T8/T9/T10 완료로 정리, T7 중단·종결. 남은 선택 과제: LV→HV Simulink, 109.2 V 600 W SPS 진동 원인,
+  C 컴파일(컴파일러 필요), 주기 동기 위상 갱신을 넣은 진짜 PI 폐루프.
+
+## 2026-10-26 13:50–14:10 (대화형 세션) — 범위 축소, Simulink 대 Simulink 판정, 루프 재개
+- **범위 축소(사용자)**: 분류기 제거 + (D1, D2) E2E 회귀, D0는 PI(연산 병목 제거가 프로젝트 가정), 학습 목표는 "둘 다 비교"
+  → TASKS.md 맨 앞 "★ 범위 변경" 절(R1–R4)이 최우선. T7 나머지·T12 중단.
+- **t6_verify 완료(10-24 19:40, 52점, 0 오류, 1537 s)** → `out/simulink_steady.csv`. 20→30 ms Ipk 변화 ≤ 0.14 A(정착).
+  SPS 18점: Simulink − 해석 Ipk 평균 +0.064 A, RMSE 0.308 A. −1200 W, V2 90/100 V(ICROS 곡면 = SPS): Simulink 4.10/4.32 A
+  (데이터셋 SPS 6.68/6.23 A). 경부하 ICROS 점(V2 110 V)은 **고정 D0라 Simulink 전력이 목표와 다름**(데드타임 이동, 예 −150 W 목표
+  → −16 W) → 같은 전력 비교는 R2의 PI 정상상태로 해야 함.
+- **Simulink 대 Simulink(해석 모델·D0 라벨 미사용)**: 데이터셋 SPS 행 vs t6 Simulink 정상상태 SPS를 **측정 전력이 같은 지점**에서
+  보간 비교. 데이터셋 − 정상상태: 84 V P>0 +0.04…+1.40 A, 84 V P<0 −0.16…+2.34 A(1354 W 8.12 vs 5.78 A),
+  109.2 V P>0 −0.04…+2.47 A, 109.2 V P<0 −0.34…+1.79 A. → 같은 Simulink 플랜트(기생성분 포함)에서도 데이터셋 Ipk는 정상상태가
+  아님. **사용자의 반론("해석 모델은 기생성분을 못 담는다")에 대한 핵심 근거이므로 RESULTS 맨 앞 요약과 8절에 표로 넣을 것.**
+  한계로 명기: Simulink 모델에도 Coss·자화 인덕턴스 없음.
+- 같은 세션의 무제약 전수탐색(D 0.01–0.5, D0 전 분기, 전력 ±0.5 %): 84 V 100/200/600/1000 W 저감 29/13/2.8/1.9 %,
+  109.2 V 39/22/4.1/2.8 %, 95 V ≈ 0. 상한 = 전압 불일치 순환 성분 V1·|1−k|/(4·fs·L)(84 V 1.53 A, 109.2 V 1.97 A).
+- 인프라: register_watchdog.ps1의 PowerShell 배열 버그(쉼표가 +보다 먼저 묶임)로 `_detached.cmd`가 깨져 10-24 19:44 재시작이
+  멈췄음 → 수정·재생성. job.py: submit 전 _refresh(오래된 running 기록이 재제출을 막던 문제), status가 모든 잡 갱신,
+  대화형 잡은 wscript로 창 없이 실행(10-24 18:35 t6_verify가 콘솔 창 닫힘으로 ^C 종료된 것으로 추정).
+
+## 2026-10-24 18:45 (대화형 세션, 인프라만) — 감시 작업 / 러너 견고화 / 재시작 예약
+- 사용자: 중간에 컴퓨터가 종료됨(부팅 16:59, AtStartup으로 러너 17:01 자동 재개 확인).
+- 3일 정지(10-21 17:54–10-24 17:01)의 재시작 실패 원인: `_detached.cmd`가 마지막 `echo`의 0을 반환 → 작업 스케줄러가 성공으로 보고
+  restart-on-failure 미작동. 수정: 래퍼가 러너 종료코드를 반환(`register_watchdog.ps1`이 재작성, `start_loop.ps1`도 동일).
+- **감시 작업 `DABThesisLoopWatchdog`**(S4U, 10분마다 + 부팅 5분 후): 러너가 없고 STOP이 없으면 DABThesisLoop 시작.
+  STOP+RESTART가 함께 있으면 둘 다 지우고 재시작(옛 러너는 STOP만 알아서). 로그 `automation/state/watchdog.log`.
+- loop_runner.py: 30초 하트비트 스레드(턴 중에도 갱신), 반복 단위 예외 방어(한 예외로 러너가 죽지 않음), goal_met 시 STOP 기록
+  (감시 작업이 끝난 캠페인을 다시 띄우지 않게), RESTART 파일(잡이 없을 때 종료 → 감시 작업이 새 코드로 재시작),
+  boost_effort 기본 "max"(주간이 균등 일정보다 3 % 이상 뒤처지고 5h < 50 %일 때만; 거부되면 자동 제거).
+- job.py: 부팅 이전에 시작했거나 감독 프로세스(pid)가 사라진 잡은 `died`(.done = −2)로 표시 → 헛대기 방지.
+- 18:43 STOP+RESTART 기록: 지금 러너(pid 8652, 옛 코드)는 턴 5 후 종료, 감시 작업이 10분 안에 새 코드로 재시작한다.
+  (주간 사용량 2 % vs 일정 29 % — 3일 정지분만큼 뒤처짐.)
+
 ## 2026-10-24 17:52–18:30 (반복 4) — T6 대체 판정 확정 / 데드타임 원인 규명 / T7 견고 학습 착수 / 3.392 A 재검증
 - **잡 결과(RESULTS 8절 확정)**:
   - validate90(8000 정상 행, 11 변형, 651 s): 이상 bias −0.133 / RMSE 0.250 A; 최적 플랜트 Ron40 무droop +0.008 / 0.177;

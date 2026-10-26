@@ -25,6 +25,8 @@ function verify_steady_state(pointsCsv, outCsv, simTime)
     if nargin < 1 || isempty(pointsCsv), pointsCsv = fullfile(thesisDir, 'out', 'verify_points.csv'); end
     if nargin < 2 || isempty(outCsv),    outCsv    = fullfile(thesisDir, 'out', 'simulink_steady.csv'); end
     if nargin < 3 || isempty(simTime),   simTime   = 0.030; end
+    % relative paths are relative to the caller's folder: resolve them before cd(eraDir) below
+    pointsCsv = absPath(char(pointsCsv)); outCsv = absPath(char(outCsv));
     fprintf('verify_steady_state: %s -> %s, %.1f ms per point\n', pointsCsv, outCsv, simTime * 1e3);
 
     pts = readtable(pointsCsv, 'TextType', 'string');
@@ -130,6 +132,12 @@ function verify_steady_state(pointsCsv, outCsv, simTime)
     T = [pts, array2table(R, 'VariableNames', names), table(err, 'VariableNames', {'error'})];
     writetable(T, outCsv);
     fprintf('wrote %s (%d points, %d errors)\n', outCsv, N, sum(err ~= ""));
+end
+
+function p = absPath(p)
+    if ~(numel(p) > 1 && p(2) == ':') && ~startsWith(p, {'\', '/'})
+        p = fullfile(pwd, p);
+    end
 end
 
 function workerSetup(Kp, Ki, Kpv, Kiv, spec, eraDir)

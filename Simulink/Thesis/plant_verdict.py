@@ -72,13 +72,13 @@ def part_a(plant, out, chunk=900):
 
 
 def load_models(names):
-    """'SPS', 'b<tag>' (out/model_smooth_reghdc_b<tag>.json), 'L<...>' (out/model_lut_L<...>.npz)."""
+    """'SPS', '<tag>' with out/model_smooth_reghdc_<tag>.json (b3, a, MA_neg, ...), 'L<...>' (out/model_lut_L<...>.npz)."""
     from train_lut_e2e import TrainLUT
     sel = []
     for s in names:
         if s == "SPS":
             sel.append(ct.SPS())
-        elif s.startswith("b"):
+        elif os.path.exists(os.path.join(OUT, f"model_smooth_reghdc_{s}.json")):
             m = ct.SmoothRegHDC.from_json(os.path.join(OUT, f"model_smooth_reghdc_{s}.json"))
             m.name = f"Smooth RegHDC ({s})"
             sel.append(m)
@@ -105,20 +105,23 @@ def part_b(plant, out, n, chunk=600, models="SPS,b3,L49s3,L49", region="all", ta
         d1, d2 = np.asarray(d1, float).ravel(), np.asarray(d2, float).ravel()
         I = np.full(n, np.nan)
         Ii = np.full(n, np.nan)
+        cv = np.zeros(n)
         for s in range(0, n, chunk):
             sl = slice(s, s + chunk)
             r = plant.operating_point(P[sl], d1[sl], d2[sl], V[sl])
             I[sl] = np.where(r["ok"], r["Ipk"], np.nan)
             Ii[sl] = r["Ipk_ideal"]
-        res[c.name] = (I, Ii)
-        out(f"  {c.name}: {time.time() - t0:.0f} s")
-    I_sps, Ii_sps = res["SPS"]
+            cv[sl] = r.get("conv", np.ones(r["Ipk"].size, bool))
+        res[c.name] = (I, Ii, cv)                                    # npz rows: plant Ipk, ideal Ipk, period-1 converged
+        out(f"  {c.name}: {time.time() - t0:.0f} s, {int((cv < 0.5).sum())} points without a converged period-1 "
+            f"steady state")
+    I_sps, Ii_sps, _ = res["SPS"]
     out(f"\n{n} random points, |P| U[{P.min():.0f}, {P.max():.0f}] W, V2 U[{V.min():.1f}, {V.max():.1f}] V; "
         f"dI = Ipk(SPS) - Ipk(controller), both on the plant")
     out(f"{'controller':30s} {'plant mean dI':>13s} {'worst':>8s} {'>5 mA worse':>12s} {'>20 mA':>7s} {'infeas':>6s} | "
         f"{'ideal mean dI':>13s} {'worst':>8s}")
     rows = []
-    for name, (I, Ii) in res.items():
+    for name, (I, Ii, _) in res.items():
         dI = I_sps - I
         dIi = Ii_sps - Ii
         ok = np.isfinite(dI)

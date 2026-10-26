@@ -1,0 +1,3 @@
+controller,plant_mean_dI,plant_worst,plant_deg5,plant_deg20,infeasible,ideal_mean_dI,ideal_worst
+SPS,0.0,0.0,0.0,0.0,0,0.0,0.0
+Smooth RegHDC (a),0.07894266632364688,-0.04539947327526117,0.0125,0.0025,0,0.07639104077041463,-0.007161558140872493

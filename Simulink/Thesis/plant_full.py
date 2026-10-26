@@ -119,17 +119,107 @@ class FullPlant:
                 rec.append(i.copy())
         return i, vc, E_hv / self.Ns, E_lv / self.Ns, (np.array(rec) if record else None)
 
-    def steady_fixed(self, D0, D1, D2, V1b, V2b, iters=8, x0=None):
-        """periodic steady state at fixed bus voltages; returns dict."""
+    TOL_I, TOL_VC = 1e-6, 1e-4      # steady-state residual [A], [V] (1e-4 V of vc moves i by ~7 uA in a half period)
+
+    def _residual(self, i0, vc0, sch, V1b, V2b):
+        i1, v1, _, _, _ = self.period(i0, vc0, sch, V1b, V2b)
+        return i1 - i0, v1 - vc0
+
+    def _merit(self, Fi, Fv):
+        return np.maximum(np.abs(Fi) / self.TOL_I, np.abs(Fv) / self.TOL_VC)
+
+    def _polish(self, i0, vc0, sch, V1b, V2b, iters):
+        """damped (backtracking) Newton for the points plain Newton left unconverged. The period map is piecewise
+        linear (dead-time and diode voltages switch with the current sign); at light load near k = 1 the switching
+        currents sit on those kinks and full Newton steps cycle (plant_conv_probe.py: 8 plain steps left residuals
+        up to 0.4 A and Ipk errors up to 90 mA). No descent along the Newton direction -> one plain period step
+        (the map is a contraction) to leave the cycle."""
+        h = np.array([1e-4, 1e-3])
+        Fi, Fv = self._residual(i0, vc0, sch, V1b, V2b)
+        m = self._merit(Fi, Fv)
+        N = i0.size
+        for _ in range(iters):
+            act = m > 1.0
+            if not act.any():
+                break
+            ia, va = self.period(i0 + h[0], vc0, sch, V1b, V2b)[:2]
+            ib, vb = self.period(i0, vc0 + h[1], sch, V1b, V2b)[:2]
+            i1, v1 = i0 + Fi, vc0 + Fv
+            J = np.empty((N, 2, 2))
+            J[:, 0, 0] = (ia - i1) / h[0] - 1.0
+            J[:, 1, 0] = (va - v1) / h[0]
+            J[:, 0, 1] = (ib - i1) / h[1]
+            J[:, 1, 1] = (vb - v1) / h[1] - 1.0
+            dx = np.linalg.solve(J, -np.stack([Fi, Fv], axis=1)[:, :, None])[:, :, 0]
+            alpha = np.ones(N)
+            done = ~act
+            for _ls in range(5):
+                it, vt = i0 + alpha * dx[:, 0], vc0 + alpha * dx[:, 1]
+                Fi_t, Fv_t = self._residual(it, vt, sch, V1b, V2b)
+                m_t = self._merit(Fi_t, Fv_t)
+                take = ~done & (m_t < m)
+                i0, vc0 = np.where(take, it, i0), np.where(take, vt, vc0)
+                Fi, Fv, m = np.where(take, Fi_t, Fi), np.where(take, Fv_t, Fv), np.where(take, m_t, m)
+                done |= take
+                if done.all():
+                    break
+                alpha = np.where(done, alpha, 0.5 * alpha)
+            stuck = ~done
+            if stuck.any():
+                i0, vc0 = np.where(stuck, i0 + Fi, i0), np.where(stuck, vc0 + Fv, vc0)
+                Fi_t, Fv_t = self._residual(i0, vc0, sch, V1b, V2b)
+                Fi, Fv = np.where(stuck, Fi_t, Fi), np.where(stuck, Fv_t, Fv)
+                m = np.where(stuck, self._merit(Fi_t, Fv_t), m)
+        return i0, vc0, m
+
+    def _map_radius(self, i0, vc0, sch, V1b, V2b, h=(1e-4, 1e-3)):
+        """spectral radius of the period map's finite-difference Jacobian at (i0, vc0): >= 1 = unstable period-1."""
+        i1, v1 = self.period(i0, vc0, sch, V1b, V2b)[:2]
+        ia, va = self.period(i0 + h[0], vc0, sch, V1b, V2b)[:2]
+        ib, vb = self.period(i0, vc0 + h[1], sch, V1b, V2b)[:2]
+        J = np.empty((i0.size, 2, 2))
+        J[:, 0, 0], J[:, 1, 0] = (ia - i1) / h[0], (va - v1) / h[0]
+        J[:, 0, 1], J[:, 1, 1] = (ib - i1) / h[1], (vb - v1) / h[1]
+        return np.abs(np.linalg.eigvals(J)).max(axis=1)
+
+    def _relax(self, i0, vc0, sch, V1b, V2b, settle, window):
+        """time stepping like the Simulink runs: `settle` periods, then max |i|, mean powers / rms over `window`."""
+        for _ in range(settle):
+            i0, vc0 = self.period(i0, vc0, sch, V1b, V2b)[:2]
+        ipk = np.zeros(i0.size)
+        ph = np.zeros(i0.size)
+        pl = np.zeros(i0.size)
+        ms = np.zeros(i0.size)
+        for _ in range(window):
+            i0, vc0, Ph, Pl, w = self.period(i0, vc0, sch, V1b, V2b, record=True)
+            ipk = np.maximum(ipk, np.abs(w).max(axis=0))
+            ph += Ph / window
+            pl += Pl / window
+            ms += np.mean(w[:-1] ** 2, axis=0) / window
+        return i0, vc0, ipk, ph, pl, np.sqrt(ms)
+
+    def steady_fixed(self, D0, D1, D2, V1b, V2b, iters=8, x0=None, polish=40, relax=(600, 80)):
+        """periodic steady state at fixed bus voltages; returns dict. polish: damped-Newton iterations for the
+        points still unconverged after `iters` plain Newton steps (0 = off, the pre-2026-10-24-turn-5 behaviour);
+        'conv' = residual within TOL_I / TOL_VC. relax = (settle, window) periods: where no stable period-1 steady
+        state was found (unconverged, or the period map's spectral radius >= 1), the answer is what Simulink would
+        measure -- time stepping, then max |i| and mean P over the window (plant_period_probe.py: at light load near
+        k = 1 the dead time leaves sustained low-frequency oscillations there, and Newton's answer was off by up to
+        0.12 A). 'cycle' marks those points. relax=None: off.
+        Not unique there: plant_attractor_probe.py found two coexisting stable period-1 states at many light-load
+        k ~ 1 points (Ipk ~17-20 mA, P ~3 W apart; which one is reached depends on the history), so a steady state
+        is only defined to that tolerance; callers continue from the previous operating point (warm start)."""
         sch = self.schedule(D0, D1, D2)
         N = D0.size
+        V1b = np.broadcast_to(np.asarray(V1b, float), (N,)).copy()
+        V2b = np.broadcast_to(np.asarray(V2b, float), (N,)).copy()
         if x0 is None:
             import tps_model as tm
             r = tm.evaluate(D0, D1, D2, V2b, V1b, details=True)
             i0 = r["I_edges"][:, 0]
             vc0 = np.zeros(N)
         else:
-            i0, vc0 = x0
+            i0, vc0 = np.array(x0[0], float), np.array(x0[1], float)
         h = np.array([1e-3, 1e-2])
         for _ in range(iters):
             i1, v1, _, _, _ = self.period(i0, vc0, sch, V1b, V2b)
@@ -145,19 +235,47 @@ class FullPlant:
             i0, vc0 = i0 + dx[:, 0], vc0 + dx[:, 1]
             if np.abs(F[:, 0]).max() < 1e-6:
                 break
+        if polish:
+            bad = np.where(self._merit(*self._residual(i0, vc0, sch, V1b, V2b)) > 1.0)[0]
+            if bad.size:
+                sub = [(u[:, bad], lo[:, bad]) for u, lo in sch]
+                i0[bad], vc0[bad], _ = self._polish(i0[bad], vc0[bad], sub, V1b[bad], V2b[bad], polish)
         iT, vT, Ph, Pl, wave = self.period(i0, vc0, sch, V1b, V2b, record=True)
         cont = np.abs(wave).max(axis=0)
         # dataset measurement: max |i| on the 100 ns sample grid (every 10th step when steps = 1250), + offset
         stride = int(round(self.g / self.dth))
         off = int(round(self.sample_offset / self.dth))
         samp = np.abs(wave[off::stride]).max(axis=0)
-        return dict(Ipk=cont, Ipk_sampled=samp, Irms=np.sqrt(np.mean(wave[:-1] ** 2, axis=0)), P_HV=Ph, P_LV=Pl,
-                    i0=i0, vc0=vc0, resid=np.abs(iT - i0), wave=wave)
+        irms = np.sqrt(np.mean(wave[:-1] ** 2, axis=0))
+        conv = self._merit(iT - i0, vT - vc0) <= 1.0
+        cycle = np.zeros(N, bool)
+        if relax:
+            stable = np.zeros(N, bool)
+            if conv.any():
+                c = np.where(conv)[0]
+                sub = [(u[:, c], lo[:, c]) for u, lo in sch]
+                stable[c] = self._map_radius(i0[c], vc0[c], sub, V1b[c], V2b[c]) < 1.0
+            cycle = ~stable
+            if cycle.any():
+                c = np.where(cycle)[0]
+                sub = [(u[:, c], lo[:, c]) for u, lo in sch]
+                i0[c], vc0[c], cont[c], Ph[c], Pl[c], irms[c] = self._relax(i0[c], vc0[c], sub, V1b[c], V2b[c], *relax)
+                samp[c] = cont[c]
+                conv = conv & ~cycle
+        return dict(Ipk=cont, Ipk_sampled=samp, Irms=irms, P_HV=Ph, P_LV=Pl,
+                    i0=i0, vc0=vc0, resid=np.abs(iT - i0), resid_vc=np.abs(vT - vc0),
+                    conv=conv, cycle=cycle, wave=wave)
 
-    def operating_point(self, P_abs, D1, D2, V2, width=15.0, iters=18):
+    def operating_point(self, P_abs, D1, D2, V2, width=15.0, step=1.0, iters=12, legacy=False):
         """PI steady state, power HV -> LV (pi_steady's branch, phi = D0 + 180 (D2 - D1) >= 0): D0 such that the
         power delivered to the LV bus is P_abs. Bus voltages are known at the operating point (|P_LV| = P_abs), so the
-        droop is applied up front; bisection on D0 around the ideal first crossing, warm-started shooting."""
+        droop is applied up front. The PI settles on the FIRST upward crossing of P_LV(D0) = P_abs: a warm-started
+        scan of D0 (step deg) from the ideal crossing - width finds it, then bisection inside that bracket. With dead
+        time P_LV(D0) is not monotone at light load (a plateau with ripples where the switching currents are ~0,
+        plant_conv_probe.py), so a bisection over the whole window could land on any crossing. Points without a
+        stable period-1 steady state are time-stepped (steady_fixed relax): lightly during the scan / bisection
+        (warm-started continuation, power only), with the full Simulink-like window at the answer.
+        legacy=True: the old window bisection with plain 8-step Newton (as used up to 2026-10-24 18:30)."""
         import pi_steady as ps
         P_abs, D1, D2, V2 = [np.asarray(x, float).ravel() for x in np.broadcast_arrays(P_abs, D1, D2, V2)]
         V2b = V2 + (self.R_lv * P_abs / V2 if self.droop else 0.0)
@@ -165,11 +283,42 @@ class FullPlant:
         ideal = ps.operating_point(P_abs, D1, D2, V2b, V1b)
         D0i = np.nan_to_num(ideal["D0"], nan=60.0)
         # no phi >= 0 clamp: with dead time the zero-power phase moves (SPS at V2 = 84 V delivers 150 W at D0 = 0)
-        lo, hi = D0i - width, D0i + width
+        if legacy:
+            return self._operating_point_legacy(P_abs, D1, D2, V1b, V2b, D0i, ideal, width, 18)
+        N = P_abs.size
+        grid = D0i[None, :] + np.arange(-width, width + 1e-9, step)[:, None]          # (K, N)
+        Pg = np.empty_like(grid)
+        Xi, Xv = np.empty_like(grid), np.empty_like(grid)
         x0 = None
+        light = (40, 20)
+        for k in range(grid.shape[0]):
+            r = self.steady_fixed(grid[k], D1, D2, V1b, V2b, x0=x0, relax=light)
+            Pg[k], Xi[k], Xv[k] = -r["P_LV"], r["i0"], r["vc0"]
+            x0 = (r["i0"], r["vc0"])
+        above = Pg >= P_abs[None, :]
+        first = np.argmax(above, axis=0)
+        ok = above.any(axis=0) & (first > 0)
+        k1 = np.maximum(first, 1)
+        col = np.arange(N)
+        lo, hi = grid[k1 - 1, col], grid[k1, col]
+        x0 = (Xi[k1, col], Xv[k1, col])
+        for _ in range(iters):
+            mid = 0.5 * (lo + hi)
+            r = self.steady_fixed(mid, D1, D2, V1b, V2b, x0=x0, relax=light)
+            x0 = (r["i0"], r["vc0"])
+            up = -r["P_LV"] >= P_abs
+            hi = np.where(up, mid, hi)
+            lo = np.where(up, lo, mid)
+        D0 = 0.5 * (lo + hi)
+        r = self.steady_fixed(D0, D1, D2, V1b, V2b, x0=x0)
+        r.update(D0=D0, ok=ok, D0_ideal=ideal["D0"], Ipk_ideal=ideal["Ipk"], V1_bus=V1b, V2_bus=V2b)
+        return r
+
+    def _operating_point_legacy(self, P_abs, D1, D2, V1b, V2b, D0i, ideal, width, iters):
+        lo, hi = D0i - width, D0i + width
 
         def pw(d0, x0):
-            r = self.steady_fixed(d0, D1, D2, V1b, V2b, x0=x0)
+            r = self.steady_fixed(d0, D1, D2, V1b, V2b, x0=x0, polish=0, relax=None)
             return -r["P_LV"], r
 
         plo, _ = pw(lo, None)
@@ -184,7 +333,7 @@ class FullPlant:
             hi = np.where(up, mid, hi)
             lo = np.where(up, lo, mid)
         D0 = 0.5 * (lo + hi)
-        r = self.steady_fixed(D0, D1, D2, V1b, V2b, x0=x0)
+        r = self.steady_fixed(D0, D1, D2, V1b, V2b, x0=x0, polish=0, relax=None)
         r.update(D0=D0, ok=ok, D0_ideal=ideal["D0"], Ipk_ideal=ideal["Ipk"], V1_bus=V1b, V2_bus=V2b)
         return r
 

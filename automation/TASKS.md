@@ -1,5 +1,52 @@
 # 작업 큐 (상태: [ ] 미착수, [~] 진행 중, [x] 완료, [!] 막힘)
 
+## ★ 범위 변경 (사용자 결정 2026-10-24 ~ 10-26) — 이 절이 아래 모든 항목보다 우선한다
+사용자 지시: "기존 SPS/TPS 분류기만 없애서 내부 위상을 완전히 회귀 모델의 E2E로 출력하는 것까지만 진행"
++ "외부 위상(D0)은 연산 병목을 없애려고 PI 제어기로 설계한다고 가정하는 프로젝트" + 학습 목표는 **"둘 다 비교"**.
+마감 2026-10-28. 이 범위 밖의 새 작업은 하지 않는다(이미 끝난 결과는 RESULTS.md 부록으로만 유지).
+- [x] R1 (2026-10-26 14:00) `train_targets.py` → `out/model_smooth_reghdc_MA_{neg,pos}.json`(M-A, a와 같은 부호화·α, 방향별:
+  데이터셋 ±P 라벨이 최대 0.09/0.14 다름, 본문 = HV→LV = 데이터셋 P<0), M-B0 = (a), M-B = b3. Legacy M-A는 evaluate.build
+  (`model_legacy_final.npz`). 해석 1만 점: M-A −0.0096 A / 27.3 % 열화 / 최악 −828 mA, M-B +0.0815 / 0 % / −2.8 mA.
+  (원 명세) **두 학습 목표의 E2E 회귀 모델** (분류기·FSM 없음, 출력 (D1, D2), D0는 PI). **같은 모델 구조·같은 학습 절차**로 목표만 바꾼다.
+  - M-A "기존 목표": 사용자의 기존 파이프라인 데이터셋 `Simulink/Physics_Dataset_Final_Regression_Ready.csv`
+    (사용자의 최신 순수 회귀 trainer `Simulink/Data/RegHDCTrainer.m`이 읽는 파일, 부호 있는 P, V2 80–110 V).
+    필요하면 `Simulink/RegHDC_PostProcessed_Dataset.csv`(논문 그림 2 우측)도 같은 방식으로 한 행 더.
+  - M-B0 "정상상태 목표": `out/surface_v2`(정상상태 최적 매끄러운 곡면)를 같은 절차로 지도학습.
+  - M-B "정상상태 + 물리 E2E 미세조정": 기존 b3(또는 같은 절차로 재현).
+  - 모델 구조: SmoothRegHDC(제안)를 기본으로, 표에 LegacyRegHDC(D=32, K=8, Q=32, γ=8; 논문 설정)도 같은 두 목표로 한 줄씩.
+- [x] R2 **완료(2026-10-26 17:10)**. (1) 해석 1만 점(RESULTS R.2). (2) 플랜트(수정 해법, variant B, 1200점; RESULTS R.3):
+  M-A −0.0178 A / 27.7 % 열화 / 최악 −885 mA, M-B0 +0.0789 / 1.25 % / −45 mA, M-B +0.0788 / 1.0 % / −19.5 mA(20 mA 초과 0 %,
+  열화는 전부 V2 92–100 V·|P| ≤ 401 W = 다중 정상상태 영역). (3) Simulink(RESULTS R.4): `simulink_sweep.py` 4차 150회 →
+  `out/simulink_pi_compare.{csv,log}`, `fig_simulink_pi_compare.png`. M-A 6/12점 열화(95 V 전부, 최악 −0.49 A = −50 %),
+  M-B 95 V = SPS, k≠1 경부하 −0.41…−0.53 A(23–24 %), 평균 +0.22 A(+7.1 %), 열화 1점 −11 mA(보간 불확도 안). 듀티 0.5 정확값은
+  위상 카운터 경계(knife edge) 산물이라 D ≤ 0.4999999로 재실행. LV→HV는 미실행(최소 요건 한 방향 충족).
+  (이전 기록 14:40) (1) 완료(`evaluate.py --b-tags 1,2,3,4,5_sps,6,7_D64 --final 3`, 그림 `fig_targets_*.png`).
+  (2) 플랜트 해법 결함 수정 후 잡 `pvR2_MA_MB`, `pvR2_MB0`(variant B, 1200점) 실행 중 → `out/plant_verdict_B_R2_B_*.{log,npz}`.
+  (3) **진짜 폐루프는 판정에 못 씀**: 제어기 PI 모드가 2.88° 위상 격자에서 디더해 SPS Ipk +1.2–3 A(이득 무관, RESULTS R.7) →
+  `simulink_sweep.py`: 목표 전력을 감싸는 두 D0 계단의 상수 D0 정상상태(verify_steady_state.m) 보간. 1차 92회 잡 `sw1b`
+  → `out/simulink_sweep_r1.csv`(취소한 sw1의 고아 MATLAB도 같은 계산 → `dataset_era/out/simulink_sweep_r1.csv`, 먼저 끝나는 쪽 사용).
+  다음: `simulink_sweep.py next`(감싸지 못한 구성 2차) → `compare` → RESULTS R.3/R.4 표·그림 채우기.
+  (원 명세) **평가 (같은 잣대)**: (1) 정상상태 해석 모델(무작위 1만 점 + 조밀 격자; 기존 evaluate.py 지표), (2) 비이상 플랜트
+  `plant_full.py` PI 정상상태(변형 Ron40 무droop), (3) **Simulink PI 정상상태(결정적 판정)**: V2 {84, 95, 109.2} × |P|
+  {100, 300, 600, 1000} W(최소 한 방향, 가능하면 양방향 일부) × 제어기 {SPS, M-A, M-B0, M-B}.
+  D0는 PI로 닫는다: 가능하면 `dataset_era/`의 DAB_Controller_System.m **복사본**에 "PI + 외부 D1/D2" 모드를 넣어 진짜 폐루프로
+  (프로젝트 가정과 동일), 어려우면 plant_full로 예측한 D0 주변 3점 정상상태 스윕 + 보간(= PI 정상상태)으로. 같은 측정 전력에서
+  Ipk를 SPS와 비교. MATLAB은 `job.py submit NAME --interactive` (사용자가 MATLAB에 로그인해 둠, 10-24 19:12 스모크 성공,
+  t6_verify 52점 1537 s 성공). 결과 `out/simulink_pi_compare.csv` + 표·그림.
+- [x] R3 (2026-10-26 17:15) RESULTS 0절 요약(결론·세 잣대 수치), R.1–R.7(R.3 플랜트 표, R.4 Simulink 표·그림, R.5 Simulink 대
+  Simulink `dataset_vs_simulink.py`, R.6 상한 `tps_limit.py`, R.7 PI 폐루프 파일럿), 8절 경위·(4) 무효 표시, 9절 부록 A 처리,
+  10절 장 구성, 한계 갱신.
+  (원 명세) RESULTS.md 마무리(한국어): 맨 앞 요약(초록용 수치), M-A vs M-B 비교표(해석/플랜트/Simulink), D1·D2 곡면 그림 비교,
+  ΔIpk 지도. **물리 설명 포함**: TPS가 줄일 수 있는 것은 SPS 피크 중 전압 불일치 순환 성분 V1·|1−k|/(4·fs·L)뿐
+  (이 설계 k = 0.88–1.15 → 84 V 1.53 A, 109.2 V 1.97 A, 95 V 0) → 저감은 경부하 30–40 %, 1 kW 2–3 %, k≈1 ≈ 0.
+  사용자는 "400 V·1 kW인데 저감이 너무 작다"고 의심함 → 절대값보다 **상대 저감(%)과 |1−k| 의존성**으로 제시하고, 무제약 전수탐색
+  (D 0.01–0.5, D0 전 분기) 결과도 같다는 것을 근거로 적는다(2026-10-26 대화형 세션 확인: 84 V 100 W −29 %, 1000 W −1.9 %;
+  109.2 V 100 W −39 %, 1000 W −2.8 %; 95 V ≈ 0). 논문 장 구성 초안 갱신.
+- [x] R4 (2026-10-26) 최종 모델 M-B = b3 그대로 → 재생성 불필요(`out/SmoothRegHDC_STM32.h`, `smooth_reghdc_params.m`는 b3 기준).
+  C 컴파일 시험은 선택(컴파일러 없음).
+  (원 명세) 최종 모델(M-B)의 MCU/MATLAB 내보내기 재생성(모델이 b3에서 바뀐 경우만). C 컴파일 시험은 선택.
+- 중단(범위 밖): T7 나머지(b8–b11 선택, pv_* 후속), T8의 별도 계단 응답, T12. 이미 얻은 결과는 부록으로만.
+
 마감 2026-10-28. 필수 = T1–T9. 선택 = T10+.
 
 ## 완료
@@ -42,7 +89,9 @@
   지표: SPS 대비 ΔIpk(전체 평균, TPS 이득 구간 평균, 최대), 열화 점 비율(ΔI < −0.005 A), 점별 최적 대비 손실,
   불가능 점 수, 매끄러움(인접 최대 변화, 총변동, |∂D/∂P| 최대), 메모리, 연산량, Irms 변화(부가).
   결과 표 `out/eval_table.csv`, 그림: D1/D2 곡면 비교(기존 vs 제안), ΔIpk 지도, 열화 지도. 논문 Fig. 2/3 스타일.
-- [~] T6 Simulink 정상상태 검증. **대체 경로 판정 완료(2026-10-24 18:00, RESULTS 8절)**: validate90(8000 정상 행) 플랜트
+- [x] T6 **완료(2026-10-26)**: Simulink 자체 실행 — t6_verify 52점(10-24 19:40, `out/simulink_steady.csv`), Python 플랜트 대
+  Simulink 비교(`plant_vs_simulink.py`), R.4 PI 정상상태 150회. 아래는 이전 기록.
+  Simulink 정상상태 검증. **대체 경로 판정 완료(2026-10-24 18:00, RESULTS 8절)**: validate90(8000 정상 행) 플랜트
   Ron40 무droop bias +0.008 / RMSE 0.177 A(이상 −0.133/0.250); replay2000 선형보간 RMSE 0.525 A vs ZOH 1.40 → 라벨 오류 확정;
   verdictA: k≈1(93.6–96.4 V) 플랜트 TPS 이득 0–16 mA = 사실상 없음; verdictB: b3 플랜트 평균 0.0793 A, 그러나 1.25 % 점이
   SPS보다 5 mA 넘게 나쁨(최악 −23.8 mA, V2 90–100 V, |P| < 430 W), LUT −135 mA. 원인 = 데드타임(t7_probe: td0이면 1 mA 이내,
@@ -74,7 +123,9 @@
   P_LV, P_HV, V_LV, V_HV 측정. 점: SPS(V2 84/95/109.2 × D0 ±8, ±20, ±35) + TPS 대표점(제안 곡면의 몇 점, 기존 데이터에서
   k≈1 이득이 컸던 점 포함). 해석 모델(측정된 V_LV, V_HV 사용)과 비교 → 표·그림. parsim 사용 가능하면 병렬.
   판정: (a) k≈1 TPS 이득 실재 여부, (b) 해석–Simulink 잔차 크기·구조.
-- [~] T7 (2026-10-24 18:20) 잔차 보정 대신 **데드타임 견고 학습**: 플랜트 잔차의 문제 부분(k≈1 경부하 ±20 mA)은 부호조차
+- [x] T7 **중단·종결(2026-10-26 범위 변경)**: 플랜트 평가 수치는 옛 해법 오류로 무효(RESULTS 9절 = 부록 A), 최종 모델은 b3.
+  ±20 mA는 다중 정상상태라 판정 불가(R.3). 아래는 이전 기록.
+  (2026-10-24 18:20) 잔차 보정 대신 **데드타임 견고 학습**: 플랜트 잔차의 문제 부분(k≈1 경부하 ±20 mA)은 부호조차
   플랜트 세부에 따라 바뀌어 보정 대상이 아님 → E2E에 SPS 이탈 비용 m(1−exp(−ΣΔ/δ0)) 추가(`train_e2e.departure`, --margin;
   LUT도 지원, test ALL PASS). 학습: b8(25 mA) 0.0791 / b9(40 mA) 0.0755 / b10(δ0 0.01) 0.0799 / L49m 0.0841(LUT 거의 불변),
   b3 0.0857(검증). 잡: pv_{A,B,C}_{all,k1}(플랜트 변형 3 × 영역 2, 모델 SPS,b3,b8,b9,b10,L49s3,L49m), e2e_b11(b8 이어 2000 step).
@@ -82,18 +133,24 @@
   점수로 b3를 고름 → T7 모델을 명시적으로 선택하도록 수정), export_mcu/export_matlab 재생성, RESULTS 9절 확정.
   원 명세: (T6 결과에 따라) 잔차가 의미 있으면 회색상자: 해석 모델 + 잔차 보정(소형 회귀)으로 T1–T5 재실행. 무시할 만하면
   그 근거를 RESULTS.md에 기록.
-- [~] T8 최종 폐루프 검증: 제안 제어기를 Simulink에 넣은 버전(복사본 모델 또는 MATLAB Function, D0는 기존 PI)으로
+- [x] T8 **완료(2026-10-26)**: R.4 = 제어기의 (D1, D2)를 Simulink에 넣은 PI 정상상태 판정. 기존 제어기의 PI 모드 실폐루프는
+  2.88° 위상 격자 디더로 피크가 부풀어 판정에 못 씀(RESULTS R.7, 파일럿 기록). `test_smooth_reghdc_infer.m` MATLAB 실행 PASS
+  (208 벡터, max|ΔD| 4.4e-16). 계단 응답은 범위 밖으로 중단. 아래는 이전 기록.
+  최종 폐루프 검증: 제안 제어기를 Simulink에 넣은 버전(복사본 모델 또는 MATLAB Function, D0는 기존 PI)으로
   대표 운전점 정상상태 Ipk를 SPS와 비교, 전력 계단 응답 1–2개. MATLAB 추론 함수 `Simulink/Thesis/smooth_reghdc_infer.m`.
   **2026-10-24 준비**: `smooth_reghdc_infer.m`(P*, V2[, V1] → D1, D2; V1 물리 정규화, codegen용 persistent),
   `smooth_reghdc_params.m`(export_matlab.py 생성, 가중치 리터럴), `test_smooth_reghdc_infer.m`(시험벡터 208개,
   `out/smooth_reghdc_testvec.csv`). Python 왕복 검사 `test_export_matlab.py` PASS(5e-16). MATLAB 실행은 미검증.
-- [~] T9 (2026-10-24: V1 등가 입력 함수 `smooth_reghdc_v1_equiv()` 추가, 수치 불변) `export_mcu.py` 작성: float32 + int16(위상을 2^-k 회전 단위 uint32로 → 랩어라운드 = mod 2π, Q15 cos 표 선형보간,
+- [x] T9 **완료(C 컴파일은 선택, 2026-10-26 범위 변경 R4)**: 내보내기와 비트 단위 Python 에뮬레이션까지. 컴파일러가 없어 C 컴파일
+  시험은 하지 않음(한계로 RESULTS에 기록). 아래는 이전 기록.
+  (2026-10-24: V1 등가 입력 함수 `smooth_reghdc_v1_equiv()` 추가, 수치 불변) `export_mcu.py` 작성: float32 + int16(위상을 2^-k 회전 단위 uint32로 → 랩어라운드 = mod 2π, Q15 cos 표 선형보간,
   int64 MAC) C 코드와 비트 단위 Python 에뮬레이션(`SmoothRegHDCFixed`, evaluate의 int16 행). b3 기준으로 내보냄:
   int16 max|ΔD| 2.7e-4(성능 동일, 4618 B), float32 5.6e-7(5128 B). **남은 것: C 컴파일 시험** — gcc/clang/cl 없음.
   선택지: (1) 사용자가 컴파일러 설치, (2) `pip install ziglang`(zig cc)로 PC 시험 — 시스템 Python에 패키지를 설치하는 일이라 사용자 확인 후.
   원 명세: MCU 배포물: `Simulink/Thesis/export_mcu.py` → `out/SmoothRegHDC_STM32.h` + `smooth_reghdc.c`(int16/float 둘 다,
   cos는 테이블 또는 CORDIC 주석), PC에서 C 참조 구현과 Python 출력 일치 테스트(gcc 있으면). 메모리/연산량 표.
-- [~] T10 `Simulink/Thesis/RESULTS.md`(한국어): 방법, 표, 그림, 한계(이상 모델 가정, k≈1), 논문 장 구성 제안,
+- [x] T10 **완료(2026-10-26, R3와 함께)**: RESULTS 0절 요약·R절 본론·10절 장 구성·한계. 아래는 이전 기록.
+  `Simulink/Thesis/RESULTS.md`(한국어): 방법, 표, 그림, 한계(이상 모델 가정, k≈1), 논문 장 구성 제안,
   ICROS2026 대비 개선 요약. 3.392 A(논문 최대 저감) 재검증 결과 포함.
   2026-10-24: 3.392 A 재검증 완료(RESULTS 4절, `icros_max_check.py`: 그 점의 정상상태 최적 1.686 A > 필요 1.344 A → 도달 불가;
   출처는 RegHDCTrainer.m 콘솔 출력, 데이터셋 I_SPS − 대리모델, 원 코드 덮어써짐). 8절 확정. 남은 것: 9절(T7) 확정, 장 구성,

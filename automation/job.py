@@ -48,7 +48,7 @@ def _quote(a):
 
 def submit(name, cmd, cwd, interactive):
     os.makedirs(JOBS, exist_ok=True)
-    old = _load(name)
+    old = _refresh(name)
     if old.get("status") == "running" and not os.path.exists(_p(name, "done")):
         print(f"REFUSED: job {name} is still running (pid {old.get('pid')})")
         return 2
@@ -68,10 +68,14 @@ def submit(name, cmd, cwd, interactive):
     if interactive:
         body.append(f'schtasks /Delete /TN "{task}" /F >nul 2>&1')
         io.open(_p(name, "cmd"), "w", encoding="ascii", errors="replace").write("\r\n".join(body) + "\r\n")
+        # wscript runs the .cmd hidden (window style 0) and waits: a console on the user's desktop can be closed
+        # by accident (2026-10-24 18:35: t6_verify started at logon and ended in ^C)
+        io.open(_p(name, "vbs"), "w", encoding="ascii", errors="replace").write(
+            'CreateObject("WScript.Shell").Run "cmd.exe /c ""' + _p(name, "cmd") + '""", 0, True\r\n')
     if interactive:
         ps = (
             "$me=[Security.Principal.WindowsIdentity]::GetCurrent().Name;"
-            f"$a=New-ScheduledTaskAction -Execute 'cmd.exe' -Argument '/c \"{_p(name, 'cmd')}\"';"
+            f"$a=New-ScheduledTaskAction -Execute 'wscript.exe' -Argument '//B //Nologo \"{_p(name, 'vbs')}\"';"
             "$pr=New-ScheduledTaskPrincipal -UserId $me -LogonType Interactive -RunLevel Limited;"
             "$s=New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries "
             "-ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew;"
@@ -125,10 +129,46 @@ def _run(name):
     return 0
 
 
+def _boot_ts():
+    try:
+        import ctypes
+        ctypes.windll.kernel32.GetTickCount64.restype = ctypes.c_ulonglong
+        return time.time() - ctypes.windll.kernel32.GetTickCount64() / 1000.0
+    except Exception:
+        return 0.0
+
+
+def _pid_alive(pid):
+    try:
+        import ctypes
+        k = ctypes.windll.kernel32
+        h = k.OpenProcess(0x1000, False, int(pid))            # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return False
+        code = ctypes.c_ulong()
+        ok = k.GetExitCodeProcess(h, ctypes.byref(code))
+        k.CloseHandle(h)
+        return bool(ok) and code.value == 259                  # STILL_ACTIVE
+    except Exception:
+        return True                                            # cannot tell -> do not declare it dead
+
+
 def _refresh(name):
     d = _load(name)
     if not d:
         return d
+    if d.get("status") == "running" and not os.path.exists(_p(name, "done")):
+        # a job started before the last boot, or whose detached supervisor is gone, will never write .done
+        # (2026-10-24: the PC shut down mid-run; such jobs would otherwise count as running forever)
+        dead = float(d.get("start_ts", 0)) < _boot_ts() - 5
+        if not dead and d.get("pid") and not d.get("interactive"):
+            dead = not _pid_alive(d["pid"]) and not os.path.exists(_p(name, "done"))
+        if dead:
+            io.open(_p(name, "done"), "w", encoding="ascii").write("-2\n")
+            d["status"] = "died"
+            d["end"] = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            _save(name, d)
+            return d
     if d.get("status") == "running" and os.path.exists(_p(name, "done")):
         try:
             rc = int(io.open(_p(name, "done"), encoding="ascii", errors="ignore").read().strip() or "0")
@@ -148,8 +188,10 @@ def status():
                    key=lambda n: _load(n).get("start_ts", 0))
     if not names:
         print("(no jobs)")
+    for n in names:
+        _refresh(n)
     for n in names[-15:]:
-        d = _refresh(n)
+        d = _load(n)
         el = ""
         if d.get("status") == "running":
             el = f"{(time.time() - d.get('start_ts', time.time())) / 60:.0f} min"

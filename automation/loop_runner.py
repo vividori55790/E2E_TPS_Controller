@@ -41,6 +41,7 @@ STATE = os.path.join(STATE_DIR, "state.json")
 LOG = os.path.join(STATE_DIR, "loop_log.md")
 HEARTBEAT = os.path.join(STATE_DIR, "heartbeat.txt")
 STOPFILE = os.path.join(STATE_DIR, "STOP")
+RESTARTFILE = os.path.join(STATE_DIR, "RESTART")      # exit at the next safe point; the watchdog relaunches
 PROMPTS = os.path.join(STATE_DIR, "prompts")
 REPORTS = os.path.join(STATE_DIR, "reports")
 TASKS = os.path.join(AUTO, "TASKS.md")
@@ -51,7 +52,9 @@ WEEK_S = 7 * 86400
 
 CFG = dict(models=["claude-opus-5-5"], probe_model="claude-haiku-4-5-20251001",
            five_max=0.85, week_max=1.00, week_burst=0.05,
-           turn_timeout_s=3 * 3600, min_gap_s=60, job_wait_max_min=240, effort="", boost_effort="",
+           # boost_effort: used only while the week is >= 3 % behind the even schedule and the 5 h window < 50 %
+           # (the user wants the weekly allowance spent evenly; a rejected value is dropped by run_turn)
+           turn_timeout_s=3 * 3600, min_gap_s=60, job_wait_max_min=240, effort="", boost_effort="max",
            skip_permissions=False, max_fail=6)
 
 ALLOWED_TOOLS = ",".join([
@@ -98,9 +101,28 @@ def save_json(p, obj):
     os.replace(tmp, p)
 
 
+HB = dict(info="start")
+
+
 def heartbeat(info=""):
+    """info='' keeps the last phase, so the 30 s thread can beat while a turn blocks for an hour."""
+    if info:
+        HB["info"] = info
     os.makedirs(STATE_DIR, exist_ok=True)
-    io.open(HEARTBEAT, "w", encoding="utf-8").write(f"{time.time():.0f} {now()} pid={os.getpid()} {info}\n")
+    io.open(HEARTBEAT, "w", encoding="utf-8").write(f"{time.time():.0f} {now()} pid={os.getpid()} {HB['info']}\n")
+
+
+def start_heartbeat_thread(every_s=30.0):
+    import threading
+
+    def beat():
+        while True:
+            time.sleep(every_s)
+            try:
+                heartbeat()
+            except Exception:
+                pass
+    threading.Thread(target=beat, daemon=True, name="heartbeat").start()
 
 
 def stop_requested():
@@ -331,6 +353,10 @@ def jobs_status():
 
 
 def running_jobs():
+    try:
+        jobs_status()          # job.py marks jobs that died (reboot, lost supervisor) so they are not waited on
+    except Exception:
+        pass
     n = 0
     for p in glob.glob(os.path.join(STATE_DIR, "jobs", "*.json")):
         j = load_json(p, {})
@@ -471,7 +497,10 @@ def status():
     print("heartbeat:", tail(HEARTBEAT, 1).strip() or "(none)")
     if os.path.exists(HEARTBEAT):
         age = time.time() - os.path.getmtime(HEARTBEAT)
-        print(f"  age {age / 60:.1f} min ->", "ALIVE" if age < 180 else "NOT RUNNING (stale)")
+        verdict = "ALIVE" if age < 180 else "NOT RUNNING (stale)"
+        if age >= 180 and "turn" in tail(HEARTBEAT, 1):
+            verdict = "probably in a turn (a runner older than the 30 s heartbeat thread beats only between turns)"
+        print(f"  age {age / 60:.1f} min ->", verdict)
     print("STOP file:", "present" if stop_requested() else "absent")
     s = load_json(STATE, {})
     print(f"iterations {s.get('iter', 0)}, list-price spend ${s.get('spent_usd', 0):.2f}")
@@ -491,7 +520,7 @@ def main():
     ap.add_argument("--skip-permissions", action="store_true")
     ap.add_argument("--model", action="append")
     ap.add_argument("--effort", default="")
-    ap.add_argument("--boost-effort", default="")
+    ap.add_argument("--boost-effort", default=None, help="effort while behind the weekly schedule ('' disables)")
     ap.add_argument("--usage", action="store_true", help="print the account usage and exit")
     a = ap.parse_args()
     os.makedirs(STATE_DIR, exist_ok=True)
@@ -510,60 +539,77 @@ def main():
     if a.model:
         CFG["models"] = a.model
     CFG["skip_permissions"] = a.skip_permissions
-    CFG["effort"], CFG["boost_effort"] = a.effort, a.boost_effort
+    CFG["effort"] = a.effort
+    if a.boost_effort is not None:
+        CFG["boost_effort"] = a.boost_effort
     if stop_requested():
         print("STOP file present -- remove it with --clear-stop to start.")
         return
     state = load_json(STATE, {})
     log(f"=== runner start pid {os.getpid()} (models {CFG['models']}) ===")
+    start_heartbeat_thread()
     fails = 0
     while True:
-        heartbeat("loop")
-        if stop_requested():
-            log("STOP file found -- exiting cleanly")
-            break
-        ok, wake, why, behind = pace_gate() if not a.dry_run else (True, None, "dry-run", False)
-        if not ok:
-            sleep_checked(max(120, wake - time.time()), f"pacing: {why}")
-            continue
-        log(f"pacing ok: {why}")
-        effort = CFG["boost_effort"] if (behind and CFG["boost_effort"]) else CFG["effort"]
+        # one iteration may not kill the runner: on 10-21 a single print() exception stopped it for three days
         try:
-            rep = run_turn(state, a.dry_run, effort)
-        except Exception as e:
-            log(f"turn crashed: {type(e).__name__}: {e}")
-            rep = "fail"
-        if a.dry_run:
-            break
-        if rep in ("limit", "retry"):
-            continue
-        if rep == "fail":
-            fails += 1
+            heartbeat("loop")
+            if stop_requested():
+                log("STOP file found -- exiting cleanly")
+                break
+            if os.path.exists(RESTARTFILE) and running_jobs() == 0:
+                os.remove(RESTARTFILE)
+                log("RESTART requested and no job running -- exiting so the watchdog starts the new code")
+                break
+            ok, wake, why, behind = pace_gate() if not a.dry_run else (True, None, "dry-run", False)
+            if not ok:
+                sleep_checked(max(120, wake - time.time()), f"pacing: {why}")
+                continue
+            log(f"pacing ok: {why}")
+            effort = CFG["boost_effort"] if (behind and CFG["boost_effort"]) else CFG["effort"]
+            try:
+                rep = run_turn(state, a.dry_run, effort)
+            except Exception as e:
+                log(f"turn crashed: {type(e).__name__}: {e}")
+                rep = "fail"
+            if a.dry_run:
+                break
+            if rep in ("limit", "retry"):
+                continue
+            if rep == "fail":
+                fails += 1
+                save_json(STATE, state)
+                if fails >= CFG["max_fail"]:
+                    log(f"{fails} failed turns in a row -- pausing 60 min")
+                    sleep_checked(3600, "repeated failures")
+                    fails = 0
+                else:
+                    sleep_checked(300 * fails, "after a failed turn")
+                continue
+            fails = 0
+            state["iter"] = int(state.get("iter", 0)) + 1
             save_json(STATE, state)
-            if fails >= CFG["max_fail"]:
-                log(f"{fails} failed turns in a row -- pausing 60 min")
-                sleep_checked(3600, "repeated failures")
-                fails = 0
+            try:
+                commit(rep)
+            except Exception as e:
+                log(f"  commit failed: {e}")
+            log(f"turn done: {str(rep.get('summary'))[:200]}")
+            if rep.get("goal_met"):
+                # a STOP file, so the watchdog does not relaunch a finished campaign
+                io.open(STOPFILE, "w", encoding="utf-8").write(f"{now()} goal_met reported by the agent\n")
+                log("agent reports every task done -- STOP written, exiting")
+                break
+            if a.once:
+                break
+            if rep.get("wait_for_jobs") and running_jobs():
+                wait_for_jobs(min(CFG["job_wait_max_min"], int(rep.get("wait_minutes") or CFG["job_wait_max_min"])))
             else:
-                sleep_checked(300 * fails, "after a failed turn")
-            continue
-        fails = 0
-        state["iter"] = int(state.get("iter", 0)) + 1
-        save_json(STATE, state)
-        try:
-            commit(rep)
+                sleep_checked(CFG["min_gap_s"], "gap between turns")
         except Exception as e:
-            log(f"  commit failed: {e}")
-        log(f"turn done: {str(rep.get('summary'))[:200]}")
-        if rep.get("goal_met"):
-            log("agent reports every task done -- exiting")
-            break
-        if a.once:
-            break
-        if rep.get("wait_for_jobs") and running_jobs():
-            wait_for_jobs(min(CFG["job_wait_max_min"], int(rep.get("wait_minutes") or CFG["job_wait_max_min"])))
-        else:
-            sleep_checked(CFG["min_gap_s"], "gap between turns")
+            try:
+                log(f"iteration error (runner keeps going): {type(e).__name__}: {e}")
+            except Exception:
+                pass
+            time.sleep(60)
     log("=== runner exit ===")
 
 
