@@ -2,6 +2,24 @@
 
 <!-- 새 항목은 이 줄 바로 아래에 -->
 
+## 2026-10-28 04:04–04:50 (반복 8, 마감일) — MATLAB 9시간째 정지 / Simulink만의 분해로 사용자 질문에 답 / 로그인 후 한 번에 마무리할 준비
+- MATLAB: `matlab_stall_probe.py` — stair_i0/R6_smoke/r5r6의 MATLAB.exe 세 개 모두 5초 CPU 증가 0(누적 87/16/14 s),
+  ServiceHostWindow 21개, 잡 로그 변화 없음(r5r6는 시작 줄뿐 = r5r6_chain 아직 호출 전). 산출물 변화 없음.
+- **`ipk_decompose.py` → `out/ipk_decompose.{log,csv}`(Simulink 수치만)**: 같은 측정 전력(HV→LV, 첫 상향 교차)에서 A = 데이터셋
+  SPS 행, B = 데이터셋 20×20 최저 TPS 행(`dataset_fixed_compare_py_zoh.csv`의 orig_full), C/D = R.4 SPS/M-B 정상상태.
+  k≠1 7점(진동 점 109.2 V 600 W 제외) 평균 A−B +1.348 = A−C +1.151(85 %) + C−D +0.211 + D−B −0.014 A. 즉 M-B의 Simulink 정상상태
+  피크 = 데이터셋 최저 TPS 행(평균). D−B 최대 109.2 V 100 W +0.287, 84 V 300 W +0.095. k≈1(94.61 vs 95 V)은 따로 표시.
+  10-27 대화형 세션의 분해(1.21 = 1.15 + 0.21 − 0.15)와 같은 결론을 스크립트로 재현.
+- **BT_ 정상상태 23점**(`add_best_tps_steady_points.py`): D−B > 0 세 점의 데이터셋 최저 조합 (0.247, 0.200)@109.2 V, (0.374, 0.389)@84 V,
+  (0.216, 0.232)@84 V를 D0 라벨 −4.87°…(데이터셋이 1.5×목표에 닿은 라벨 + 1)로 `out/stair_steady_points.csv`에 추가(83 → 106점;
+  R6 격자에는 이 조합 없음). Python 플랜트로 감쌈 확인(84 V 두 조합은 D0 = 0에서 이미 −124/−220 W라 음의 라벨 2개가 필요했음).
+  Python 예측 정상상태 B = 1.499 / 2.142 / 1.310 A, 같은 플랜트 M-B 1.609 / 2.159 / 1.259 → 같은 플랜트 차 +0.11 / +0.02 / −0.05 A.
+  `test_ipk_decompose.py`(임시 디렉터리의 가짜 part로 Simulink 경로 시험) PASS. out/에 가짜 part를 만들지 않았다.
+- **`r8_finalize.py`**: 로그인 후 한 번 실행하면 staircase_compare → ipk_decompose --py → k1_simulink_compare → dataset_fixed_analyze를
+  입력이 있는 것만 돌려 `out/r8_finalize.log`에 모음(현재는 ipk_decompose만 실행됨, 시험 완료).
+- RESULTS: 0절 R.8 항목을 Simulink만의 분해 중심으로 다시 씀, R.8 (d) 표·답 단락 추가, (ii) 대기 단락에 106점·r8_finalize, 10절 3장,
+  한계에 "MATLAB 정지로 R.8 Simulink 확인 일부가 마감까지 없을 수 있음" 항목.
+
 ## 2026-10-27 23:35 – 10-28 00:15 (반복 7) — MATLAB 여전히 정지 / R7 예비의 두 의문점을 Python으로 점검
 - MATLAB: `matlab_stall_probe.py`(ctypes, 읽기 전용) — stair_i0/R6_smoke/r5r6의 MATLAB.exe 세 개 모두 5초 동안 CPU 증가 0,
   누적 61.8/10.5/9.2 s, MathWorksServiceHostWindow 21개. 4시간째 로그인 대기. 산출물 변화 없음(staircase_check.csv는 interp=1 195행뿐).
