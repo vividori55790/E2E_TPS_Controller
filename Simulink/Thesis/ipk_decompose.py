@@ -84,6 +84,61 @@ def main():
     print(txt)
     with open(os.path.join(OUT, "ipk_decompose.log"), "w", encoding="utf-8") as f:
         f.write(txt + "\n")
+    fig(T[(~T["k1"]) & T["clean"]].reset_index(drop=True))
+
+
+def fig(t):
+    """(a) the four Simulink peaks at the same power: dataset rows (moving D0, hollow) vs steady state (filled);
+    (b) the dataset's reduction A - B split into SPS over-measure A - C and M-B's steady reduction C - D (+ D - B)"""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from evaluate import BLUE, INK2, MUTED, ORANGE, _style
+    _style(plt)
+    names = [f"{v:g} V\n{p:.0f} W" for v, p in zip(t["V2_R4"], t["P"])]
+    x = np.arange(len(t))
+    f, (a1, a2) = plt.subplots(1, 2, figsize=(12.4, 4.6), constrained_layout=True,
+                               gridspec_kw={"width_ratios": [1, 1.12]})
+
+    dx = 0.13
+    a1.vlines(x - dx, t["C_sl_SPS"], t["A_ds_SPS"], color=ORANGE, lw=2, alpha=0.45, zorder=2)
+    a1.vlines(x + dx, t["D_sl_MB"], t["B_ds_bestTPS"], color=BLUE, lw=2, alpha=0.45, zorder=2)
+    for c, m, col, hollow, lab in (("A_ds_SPS", "o", ORANGE, True, "A  dataset SPS row (D0 moving)"),
+                                   ("C_sl_SPS", "o", ORANGE, False, "C  SPS, steady state (R.4)"),
+                                   ("B_ds_bestTPS", "s", BLUE, True, "B  dataset best TPS row (D0 moving)"),
+                                   ("D_sl_MB", "s", BLUE, False, "D  M-B, steady state (R.4)")):
+        a1.scatter(x + (dx if m == "s" else -dx), t[c], s=60 if hollow else 90, marker=m, lw=2,
+                   zorder=4 - hollow, facecolors="#fcfcfb" if hollow else col,
+                   edgecolors=col if hollow else "#fcfcfb", label=lab)
+    i = int(np.argmax(t["sps_overmeasure"]))
+    a1.annotate(f"SPS row over-measured\n+{t['sps_overmeasure'][i]:.2f} A", (x[i] - dx, (t["A_ds_SPS"][i]
+                + t["C_sl_SPS"][i]) / 2), xytext=(-10, 0), textcoords="offset points", ha="right", va="center",
+                fontsize=8, color=INK2)
+    a1.set_xticks(x, names, fontsize=8)
+    a1.set_ylabel("Ipk at the same measured power [A]")
+    a1.set_ylim(0, None)
+    a1.set_title("(a) Simulink peaks, HV→LV: hollow = dataset rows, filled = steady state", loc="left")
+    a1.legend(fontsize=8, frameon=False, loc="upper left")
+
+    groups = list(names) + ["mean\n(7 points)"]
+    xg = np.arange(len(groups))
+    cols = [("ds_reduction", "#c3c2b7", "A − B  dataset 'reduction'"),
+            ("sps_overmeasure", ORANGE, "A − C  SPS row over-measure"),
+            ("mb_reduction", BLUE, "C − D  M-B steady-state reduction")]
+    w = 0.26
+    for j, (c, col, lab) in enumerate(cols):
+        v = np.append(t[c].to_numpy(), t[c].mean())
+        a2.bar(xg + (j - 1) * w, v, w * 0.92, color=col, label=f"{lab} (mean {v[-1]:+.2f} A)", zorder=3)
+    a2.axvline(xg[-1] - 0.5, color=MUTED, lw=0.8, ls=":")
+    a2.axhline(0, color="#c3c2b7", lw=0.8)
+    a2.set_xticks(xg, groups, fontsize=8)
+    a2.set_ylabel("Ipk difference [A]")
+    a2.set_title(f"(b) A − B = (A − C) + (C − D) + (D − B);  mean D − B = {t['mb_minus_dsTPS'].mean():+.3f} A",
+                 loc="left")
+    a2.set_ylim(None, 1.25 * a2.get_ylim()[1])
+    a2.legend(fontsize=8, frameon=False, loc="upper left")
+    f.savefig(os.path.join(OUT, "fig_ipk_decompose.png"), dpi=130)
+    plt.close(f)
 
 
 def steady_best(T, py):

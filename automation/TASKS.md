@@ -34,7 +34,10 @@
   워커 1회 ~180 s → 44 ms ≈ 4–5 h). **재시작 안전하게**: 배치(12개)마다 `out/dataset_fixed_part_XXX.csv`를 쓰고 이미 있는 조합은
   건너뛴다(재부팅·잡 종료 후 재제출 시 이어서). 잡은 `--interactive`(로그온 필요; 로그온이 없으면 대기 — PROGRESS에 기록).
   먼저 2조합 스모크로 시간·신호를 확인한 뒤 전체 제출.
-- [~] R7 **(10-28 04:40, 반복 8: MATLAB 여전히 정지(9시간째, 세 MATLAB dcpu 0). Simulink 수치만으로 분해 `ipk_decompose.py` →
+- [~] R7 **(10-28 08:30, 반복 9: MATLAB 13시간째 정지(세 MATLAB dcpu 0, 산출물 변화 없음). 마감 정리: `ipk_decompose.py`에 그림
+  `out/fig_ipk_decompose.png`((a) A/B/C/D 점, (b) A−B 분해 막대; r8_finalize가 다시 그림) 추가, RESULTS 0절에 "마감 상태" 항목
+  (확정 = R.1–R.7, R.8 a/c/d; 예비 = R.8 ii, R6/R7). 로그인 후 할 일은 아래 반복 8과 같다(r8_finalize.py 한 번).)**
+  **(10-28 04:40, 반복 8: MATLAB 여전히 정지(9시간째, 세 MATLAB dcpu 0). Simulink 수치만으로 분해 `ipk_decompose.py` →
   RESULTS R.8 (d): k≠1 7점 데이터셋 저감 1.35 A = SPS 과대 1.15 A(85 %) + M-B 정상상태 저감 0.21 + (M-B − 데이터셋 최저 TPS) −0.01 A.
   D − B > 0.05 A인 109.2 V 100 W(+0.29)·84 V 300 W(+0.10)·84 V 100 W의 데이터셋 최저 조합 3개 정상상태 23점(BT_)을
   `stair_steady_points.csv`에 추가(`add_best_tps_steady_points.py`, 106점; Python 플랜트로 감쌈 확인). **out/에 stair_steady_part*.csv를

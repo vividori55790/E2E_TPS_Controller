@@ -2,6 +2,17 @@
 
 <!-- 새 항목은 이 줄 바로 아래에 -->
 
+## 2026-10-28 08:13–08:35 (반복 9, 마감일) — MATLAB 13시간째 정지 / 분해 그림 추가, RESULTS 마감본 표시
+- MATLAB: `matlab_stall_probe.py` — stair_i0/R6_smoke/r5r6의 MATLAB.exe 세 개 모두 5초 CPU 증가 0(누적 110/21/18 s),
+  ServiceHostWindow 21개, 산출물 변화 없음(staircase_check.csv interp=1 195행뿐, stair_steady_part 없음).
+- **그림 `out/fig_ipk_decompose.png`**(`ipk_decompose.py`의 `fig()`, main 끝에서 호출 → r8_finalize가 다시 그림): k≠1 깨끗한 7점.
+  (a) 같은 측정 전력의 Ipk — 주황 원 = SPS(속 빈 A 데이터셋 행 / 찬 C 정상상태), 파랑 사각 = TPS(속 빈 B 데이터셋 최저 /
+  찬 D M-B 정상상태). SPS는 크게 벌어지고(최대 109.2 V 100 W +2.33 A) TPS는 거의 겹친다. (b) A−B, A−C, C−D 막대 + 평균
+  (+1.35 / +1.15 / +0.21 A), 제목에 평균 D−B −0.014 A. 수치는 반복 8의 log와 같다. `test_ipk_decompose.py` PASS,
+  `r8_finalize.py` 정상(Simulink 입력이 없는 두 단계는 건너뜀).
+- RESULTS: 0절의 깨진 줄바꿈 고침, 그림 경로를 0절·R.8 (d)·10절 3장에 넣음, R.8 (d)에 그림 읽는 법 두 문장, 0절에 "마감 상태"
+  항목(확정/예비 구분, 로그인 후 절차, 바뀔 수 있는 칸 = 109.2 V 100 W D−B와 R7 진짜 계단 열).
+
 ## 2026-10-28 04:04–04:50 (반복 8, 마감일) — MATLAB 9시간째 정지 / Simulink만의 분해로 사용자 질문에 답 / 로그인 후 한 번에 마무리할 준비
 - MATLAB: `matlab_stall_probe.py` — stair_i0/R6_smoke/r5r6의 MATLAB.exe 세 개 모두 5초 CPU 증가 0(누적 87/16/14 s),
   ServiceHostWindow 21개, 잡 로그 변화 없음(r5r6는 시작 줄뿐 = r5r6_chain 아직 호출 전). 산출물 변화 없음.
