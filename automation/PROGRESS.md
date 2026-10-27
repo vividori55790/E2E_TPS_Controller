@@ -2,6 +2,55 @@
 
 <!-- 새 항목은 이 줄 바로 아래에 -->
 
+## 2026-10-27 19:07–19:45 (반복 6) — R5(a) 확정: 데이터셋 = 생성 실험 + D0 선형보간(비트 단위 재현) / MATLAB 로그인 대기로 R5(b)·R6 보류
+- 시작 상태: 대화형 세션이 같은 `staircase_check`를 두 번 제출했다(`staircase_check` 19:00, `stair_check` 19:01; 같은 결과를 같은
+  파일에 씀). 둘 다 정상 종료.
+- **R5(a)**: interp=1 195행(5조합 × 39계단)이 체크포인트의 같은 (V2, D1, D2, D0 라벨) 행과 **비트 단위로 같다**(max|ΔIpk| =
+  |ΔP_LV| = |ΔP_HV| = 0). → 데이터셋 = 이 모델(35d5a78) + 이 스크립트 + D0 From Workspace 블록 Interpolate on(기본값) 확정.
+- interp=0 5회는 모두 실패했다("보간이 활성화되지 않았기 때문에 최종 작업 공간 데이터 값 이후에 출력값을 외삽할 수 없습니다").
+  → OutputAfterFinalValue='Holding final value'가 필요하다. `staircase_check.m`을 수정했다(3번째 인수 interps, 블록 파라미터 2개).
+- **같은 측정 전력 SPS − TPS (Simulink interp=1 = 데이터셋)**, `staircase_compare.py` → `out/staircase_compare.log`:
+  109.2 V HV→LV 100/150/300 W +2.64/+2.79/+1.65 A, 84 V (0.263, 0.311) 100/150 W +0.72/+0.73, 84 V (0.468, 0.484) 1 kW +1.70,
+  LV→HV 84 V 100 W +1.79, 109.2 V 100 W +1.34. 같은 전력 SPS 정상상태(R.4) 109.2 V 100 W 2.30 A, 84 V 1 kW 4.38 A. 데이터셋 SPS는
+  각각 4.63 A(100 W)와 6.62 A다.
+- **MATLAB 정지(차단 요인)**: `stair_i0`(19:10)는 parpool이 곧바로 닫혀 직렬 실행으로 넘어갔고, 19:11:14 "시뮬레이션 실행 중"에서
+  멈췄다(CPU 누적 37 s, 이후 0 %). 19:11:20에 MathWorksServiceHost 새 인스턴스가 떴다(부모 프로세스는 이미 종료, CrashReporter·Monitor
+  동반). 그 뒤 `R6_smoke`(19:16)와 `r5r6`(19:23)도 MATLAB 시작 단계에서 CPU 0 %로 멈췄다(누적 5 s, 첫 출력 없음). MATLAB마다
+  MathWorksServiceHostWindow 프로세스 7개가 붙어 있다 → 온라인 라이선싱 로그인 창 대기로 추정한다(Session 0에서는 창을 볼 수 없음).
+  mathworks 호스트 443 연결은 정상이다. 프로세스를 끝낼 권한이 없어(taskkill 승인 필요) 그대로 뒀다. 진단은 Python ctypes(프로세스
+  스냅샷 + GetProcessTimes)로 했다.
+- 대응: `r5r6_chain.m`(잡 `r5r6`)이 한 세션에서 순서대로 실행한다. (1) interp=0 5회, (2) 같은 D0 라벨 65점의 정상상태(30 ms,
+  verify_steady_batch 36개씩, `out/stair_steady_points.csv`), (3) `gen_dataset_fixed` 363조합(SPS → 6×6 거친 격자 → 나머지 순서,
+  배치 18, 이어하기). 각 단계는 출력이 있으면 건너뛴다. 로그인되면 자동으로 진행되고, 예상 시간은 약 0.5 h + 4.5 h다.
+- 새 스크립트: `gen_dataset_fixed.m`(R6; MATLAB 미검증 — 스모크가 멈춤), `staircase_compare.py`(a/b/c 표 + 그림
+  `fig_staircase_compare.png`), `dataset_fixed_analyze.py`(R7; 원 데이터셋으로 시험: 전 격자 최저 TPS, 109.2 V HV→LV 150 W
+  +3.43 A, 84 V 1 kW +2.04 A), `staircase_replay.py`, `replay_grid.py`.
+- **보조(Python 플랜트, 판정 근거 아님)**: `staircase_replay.py` — linear 재생 대 Simulink interp=1 Ipk RMSE 0.31–0.88 A,
+  zoh 대 플랜트 정상상태 평균 ±0.03 A(|D0| ≤ 32°). 같은 전력 SPS − TPS(linear → zoh → 정상상태): 109.2 V HV→LV 100 W
+  +1.70 → +0.73 → +0.75, 150 W +1.70 → +0.51 → +0.59; 84 V 100 W +1.24 → +0.53 → +0.53; 1 kW +0.88 → +0.08 → +0.09.
+- **R7 예비(Python)**: `replay_grid.py`로 R6 격자 363조합을 zoh/linear로 재생했고(각 64 s), `dataset_fixed_analyze.py`로 분석했다.
+  HV→LV 8점 평균 ΔI(격자 최저 TPS, 같은 전력): 원 데이터셋 84 V +0.82 A(+25 %) / 109.2 V +1.95 A(+40 %) / 94.61 V +0.31 A,
+  진짜 계단(zoh) +0.23 / +0.46 / +0.18 A, linear 재생 +0.68 / +1.20 / +0.23 A. zoh의 SPS Ipk는 R.4 Simulink 정상상태 SPS와 0.17 A
+  안에서 같다(진동점 제외). 남은 질문(R6 Simulink로 판정)은 둘이다. 경부하 격자 최저 TPS가 M-B보다 더 줄이는지(84 V 100 W +0.63 vs
+  +0.41, 109.2 V +0.85 vs +0.53), 그리고 k ≈ 1 100 W에서 +0.46 A가 나오는지(M-B는 SPS 유지).
+- RESULTS: R.8절을 새로 쓰고((a) 확정, (c) 데이터셋 방식 표, Python 보조, R7 예비 표, Simulink (ii)·R6 대기), 0절 요약에 한 항목을
+  넣었다.
+
+## 2026-10-27 18:45–19:05 (대화형 세션) — 사용자 데이터셋 재확인, 생성 방식 재현 실험 착수, 루프 재개
+- 사용자: "Simulink 기존 파일로 돌린 게 맞나, 저감이 너무 낮다", "내 데이터셋(TPS_Checkpoint_done_20260316_021229)을 확인하라",
+  "데이터셋도 정상상태까지 돌렸다(고정 외부 위상)".
+- 모델 확인: R.4/T6의 `dataset_era/Control_Logic_dataset_era.slx` = git 35d5a78 `Control_Logic.slx`와 SHA1 동일(7dc93ab…).
+  HEAD 모델과의 회로 파라미터 차이는 커패시터 3개(Capacitor2 47→470 µF, Capacitor3/4 1000→100 µF)뿐.
+- `inspect_checkpoint.m`(잡 ckpt_inspect): 312,000행 전부 valid, 8000 시뮬 오류 0, CSV와 7열 행 단위 동일.
+- 데이터셋만으로 본 저감(첫 분기, 같은 측정 전력): 84 V 150/300/600/1000 W +1.42/+0.76/+0.84/+1.15 A, 109.2 V +3.42/+0.66/+0.89/+0.50 A.
+  HV→LV 정상 7점 분해: 데이터셋 저감 1.21 A = 데이터셋 SPS 과대 1.15 A + 정상상태 저감 0.21 A − 0.15 A.
+  예: 84 V 1 kW 데이터셋 SPS 6.62 A vs 정상상태 4.38 A, 데이터셋 최저 TPS 4.40 A ≈ 정상상태 SPS.
+- 모델 XML: D0 From Workspace(`From Workspace11`) Interpolate 기본값(on). → R5 `staircase_check.m`(잡 실행 중) 작성.
+- 그림 `fig_surface3d.py` → `out/fig_surface3d.png`(M-B vs 기존 목표 D1/D2 3D, 논문 그림 2/3 형식).
+  M-B: V2 84 V |P| 0/100/300/600/1000 W에서 D1 0.100/0.212/0.358/0.442/0.451, D2 0.113/0.244/0.407/0.500/0.500;
+  95 V는 100 W부터 SPS; 109.2 V D1 0.127/0.199/0.350/0.487/0.500, D2 0.100/0.167/0.296/0.421/0.443.
+- 사용자 지시: 루프 러너로 자동화해 원격이 꺼져도 계속 → TASKS.md "★★ 2026-10-27" R5–R7 추가, STOP 제거 후 러너 재시작.
+
 ## 2026-10-26 13:54–14:50 (반복 5, 사용 한도로 끊긴 10-24 턴의 이어서) — 범위 변경 R1 완료 / 플랜트 해법 결함·다중 정상상태 / Simulink PI 판정 착수
 - **R1** `train_targets.py`: M-A = 사용자 데이터셋(`Physics_Dataset_Final_Regression_Ready.csv`)을 (a)와 같은 부호화·α로 ridge
   (방향별; ±P 라벨이 최대 0.09/0.14 다름). 해석 1만 점(`evaluate.py`, 평가표에 M-A 곡면·Smooth·Legacy 행 추가): M-A(P<0)

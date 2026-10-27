@@ -180,6 +180,15 @@ def _refresh(name):
     return d
 
 
+def _read_text(path):
+    """job log as text: UTF-8 if it decodes, else cp949 (MATLAB's Korean messages on this PC), never raising"""
+    b = io.open(path, "rb").read()
+    try:
+        return b.decode("utf-8")
+    except UnicodeDecodeError:
+        return b.decode("cp949", errors="replace")
+
+
 def status():
     if not os.path.isdir(JOBS):
         print("(no jobs)")
@@ -199,7 +208,7 @@ def status():
                 el += f", log idle {(time.time() - os.path.getmtime(_p(n, 'log'))) / 60:.0f} min"
         last = ""
         if os.path.exists(_p(n, "log")):
-            ls = [x.rstrip() for x in io.open(_p(n, "log"), encoding="utf-8", errors="replace").readlines() if x.strip()]
+            ls = [x.rstrip() for x in _read_text(_p(n, "log")).splitlines() if x.strip()]
             last = ls[-1][:110] if ls else ""
         print(f"{n:28s} {d.get('status', '?'):14s} {d.get('start', ''):19s} {el:24s} | {last}")
     return 0
@@ -209,7 +218,7 @@ def tail(name, n):
     if not os.path.exists(_p(name, "log")):
         print("(no log yet)")
         return 1
-    print("".join(io.open(_p(name, "log"), encoding="utf-8", errors="replace").readlines()[-n:]))
+    print("\n".join(_read_text(_p(name, "log")).splitlines()[-n:]))
     return 0
 
 
@@ -262,6 +271,11 @@ def diag(name):
 
 
 def main():
+    for st in (sys.stdout, sys.stderr):        # a cp949 console must not crash status/tail on a stray character;
+        try:                                   # piped (loop_runner.sh reads UTF-8) -> write UTF-8
+            st.reconfigure(errors="replace", **({} if st.isatty() else {"encoding": "utf-8"}))
+        except (AttributeError, ValueError):
+            pass
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("submit")

@@ -2,3 +2,5 @@ out/*.npz
 __pycache__/
 dataset_era/
 out/slx_*.txt
+# 37 MB copy of the user's checkpoint (= Simulink/Data/TPS_Dataset_20260316_021229.csv); regenerate with inspect_checkpoint.m
+out/checkpoint_*.csv

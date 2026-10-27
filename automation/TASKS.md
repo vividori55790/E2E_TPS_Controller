@@ -1,5 +1,50 @@
 # 작업 큐 (상태: [ ] 미착수, [~] 진행 중, [x] 완료, [!] 막힘)
 
+## ★★ 2026-10-27 추가 (최우선) — 사용자: "전류 피크 저감이 그 정도일 리가 없다", 자기 데이터셋으로 확인하라
+배경(대화형 세션 10-27 확인, PROGRESS 10-27 항목): `Simulink/Data/TPS_Checkpoint_done_20260316_021229.mat` = CSV와 행 단위로 동일
+(`inspect_checkpoint.m` → `out/checkpoint_20260316_021229.csv`). 데이터셋은 같은 전력에서 TPS가 SPS보다 0.5–3.4 A 낮다고 말하지만,
+정상상태(R.4) 대비 분해하면 그 차이의 대부분(평균 1.15 / 1.21 A)이 **데이터셋 SPS 행의 과대값**이다(TPS 행은 정상상태와 거의 같음).
+데이터셋 생성 모델(35d5a78, `dataset_era/`)의 D0 From Workspace 블록(`From Workspace11`)은 **Interpolate data = on(기본값)** —
+스크립트가 timeseries에 ZOH를 지정해도 블록이 선형보간한다. 사용자는 "고정 외부 위상(수동 위상)으로, 정상상태까지 돌렸다"고 함.
+- **진행 기록(10-27 19:30, 반복 6)**: (a) **완료** — interp=1 재실행 195행이 체크포인트와 **비트 단위로 같음**(max|ΔIpk| = |ΔP| = 0,
+  5조합 모두) → 데이터셋 = 이 모델 + 이 스크립트 + D0 블록 선형보간 확정. interp=0은 첫 시도에서 Simulink 설정 오류(보간 끔이면
+  OutputAfterFinalValue='Holding final value' 필요)로 실패 → `staircase_check.m` 수정(3번째 인수 interps). 재실행 `stair_i0`와
+  R6 스모크 `R6_smoke`가 **CPU 0 %로 멈춤**: 19:11:20에 MathWorksServiceHost가 재시작(CrashReporter 동반)된 뒤 MATLAB마다
+  MathWorksServiceHostWindow 프로세스가 떠 있음 → 온라인 라이선싱 로그인 창 대기로 추정(사용자 데스크톱에서 MathWorks 로그인 필요;
+  Session 0에서는 창을 볼 수 없음). 대응: R5(b)/(c)·R6을 한 세션에서 순서대로 하는 `r5r6_chain.m`(각 단계 출력이 있으면 건너뜀)을
+  잡 `r5r6`으로 제출(로그인되면 자동 진행). 그동안 Python 플랜트 보조 재생 `staircase_replay.py`(linear/zoh/정상상태). 분석
+  `staircase_compare.py`(a/b/c 표 + `fig_staircase_compare.png`), R7 분석 `dataset_fixed_analyze.py`(원 데이터셋에서 시험 완료).
+  멈춘 `stair_i0`/`R6_smoke`는 kill 권한이 없어 그대로 둔다(로그인 후 풀리면 같은 결과를 중복 계산할 뿐, 출력 파일 충돌 없음).
+- [~] R5 **판정 실험 `staircase_check.m`**(잡 `staircase_check`, 10-27 19:01 시작, 대화형 MATLAB): 사용자 생성기와 똑같은 44 ms·39계단·
+  0.1 ms 창 실험을 5조합(`out/staircase_combos.csv`: 데이터셋에서 저감이 가장 컸던 TPS 3 + 같은 V2 SPS 2) × {Interpolate 켬(원래),
+  끔}으로 재실행 → `out/staircase_check.csv`(tag, interp, V2, D1, D2, step, D0_label, Ipk, P_LV, P_HV). 할 일: `job.py status`로 끝났는지
+  보고, 분석 스크립트 `staircase_compare.py`를 써서 (a) interp=1 행이 체크포인트 CSV의 같은 (V2, D1, D2, D0 라벨) 행을 재현하는지
+  (Ipk, P 오차), (b) interp=0 행이 정상상태(t6 `out/simulink_steady.csv`, R.4 `out/simulink_pi_compare.csv`, 해석/플랜트)와 맞는지,
+  (c) **같은 측정 전력에서 TPS 조합 vs SPS의 Ipk 차이**가 interp=1과 interp=0에서 각각 얼마인지(사용자의 질문에 직접 답하는 표).
+  잡이 실패하면 log로 원인 파악 후 고쳐 재제출. 결과를 RESULTS.md 새 절 "R.8 데이터셋 생성 방식 재현 실험"에 표로.
+- [~] R6 **(10-27 19:30: `gen_dataset_fixed.m` 작성, `r5r6` 체인의 3단계로 대기 중 — MATLAB 로그인 필요. 격자는 명세의
+  linspace(0.2, 0.5, 11) 대신 데이터셋 격자의 부분집합 Dg([1:2:19, 20])로 했다(원 데이터셋과 행 단위 비교 가능). V2 = V2_vec(9) =
+  94.61 V(95 V에 가장 가까운 격자값; 명세의 96.63은 격자값이 아님). 실행 순서는 SPS → 6×6 → 나머지라 부분 결과로도 R7이 가능.
+  출력 `out/dataset_fixed_part_NNN.csv`. 스모크(R6_smoke)는 로그인 대기로 미실행 → 체인 3단계가 첫 실행이다. 오류가 나면 로그를
+  보고 고쳐 `r5r6`를 다시 제출하면 된다(1·2단계는 출력이 있으면 건너뜀).)** (원 명세) (R5에서 interp=0이 정상상태와 맞고 데이터셋 SPS
+  과대가 interp=1의 산물로 확인되면) **사용자 방법 그대로의 수정 데이터셋**:
+  `Simulink/Thesis/gen_dataset_fixed.m` = `Scripts/Generate_TPS_Dataset.m`의 실험을 그대로 따르되 D0 블록 Interpolate 'off'
+  (`setBlockParameter`, 모델 저장 금지, dataset_era 모델). 마감(10-28) 안에 끝나도록 격자 축소: V2 {84, 95, 109.2}(데이터셋 격자와
+  같은 값으로는 84/109.2 + 가장 가까운 96.6316) × D1, D2 ∈ linspace(0.2, 0.5, 11) = 363 시뮬, parsim 6워커(10-26 측정 ≈ 30 ms당
+  워커 1회 ~180 s → 44 ms ≈ 4–5 h). **재시작 안전하게**: 배치(12개)마다 `out/dataset_fixed_part_XXX.csv`를 쓰고 이미 있는 조합은
+  건너뛴다(재부팅·잡 종료 후 재제출 시 이어서). 잡은 `--interactive`(로그온 필요; 로그온이 없으면 대기 — PROGRESS에 기록).
+  먼저 2조합 스모크로 시간·신호를 확인한 뒤 전체 제출.
+- [~] R7 **(10-27 19:35: `dataset_fixed_analyze.py` 완료·시험. Python 플랜트 예비판(`replay_grid.py`, zoh/linear)을 RESULTS R.8에
+  넣었다. R6 Simulink 파트가 생기면 `python -I -X utf8 Simulink/Thesis/dataset_fixed_analyze.py`(기본 prefix out/dataset_fixed) →
+  `out/dataset_fixed_compare.{log,csv}`, `fig_dataset_fixed.png`. R.8의 예비 표를 Simulink 수치로 바꾸고 0절 결론을 갱신한다.
+  특히 경부하 격자 최저 TPS > M-B인지, k ≈ 1 100 W의 +0.46 A(Python)가 Simulink에서도 나오는지 판정한다.)** (원 명세) 수정 데이터셋
+  분석(사용자 파이프라인의 "가상물리모델 → 최적화"를 ML 없이 직접): 각 조합의 (D0 라벨→측정 P, Ipk)를 첫 분기에서
+  보간해 (V2, |P|)별 최소 Ipk TPS vs SPS를 구한다(원 데이터셋에도 같은 방법을 적용한 표와 나란히). 결과를 M-B(R.4 Simulink PI 정상상태)와
+  비교. RESULTS.md 0절 요약과 R.8 갱신, 사용자 질문("저감이 그 정도일 리 없다")에 대한 답을 수치로 한 단락. 원 데이터셋에서 쓰던
+  대리모델(MLP/XGBoost) 재학습은 하지 않는다(범위 밖, 시간 부족).
+- 주의: 루프 시작 시 `staircase_check`가 아직 돌고 있으면 그 사이 R6 스크립트·스모크를 준비하고 `wait_for_jobs`로 턴을 끝낸다.
+  MATLAB 잡을 kill해도 MATLAB.exe가 남을 수 있다(메모리 참고) — 중복 실행 전에 확인.
+
 ## ★ 범위 변경 (사용자 결정 2026-10-24 ~ 10-26) — 이 절이 아래 모든 항목보다 우선한다
 사용자 지시: "기존 SPS/TPS 분류기만 없애서 내부 위상을 완전히 회귀 모델의 E2E로 출력하는 것까지만 진행"
 + "외부 위상(D0)은 연산 병목을 없애려고 PI 제어기로 설계한다고 가정하는 프로젝트" + 학습 목표는 **"둘 다 비교"**.
