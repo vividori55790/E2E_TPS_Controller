@@ -34,7 +34,13 @@
   워커 1회 ~180 s → 44 ms ≈ 4–5 h). **재시작 안전하게**: 배치(12개)마다 `out/dataset_fixed_part_XXX.csv`를 쓰고 이미 있는 조합은
   건너뛴다(재부팅·잡 종료 후 재제출 시 이어서). 잡은 `--interactive`(로그온 필요; 로그온이 없으면 대기 — PROGRESS에 기록).
   먼저 2조합 스모크로 시간·신호를 확인한 뒤 전체 제출.
-- [~] R7 **(10-27 19:35: `dataset_fixed_analyze.py` 완료·시험. Python 플랜트 예비판(`replay_grid.py`, zoh/linear)을 RESULTS R.8에
+- [~] R7 **(10-28 00:10, 반복 7: MATLAB 여전히 로그인 대기(세 MATLAB CPU 0 %, `matlab_stall_probe.py`). Python 점검 완료 →
+  RESULTS R.8 "R7 예비의 점검": (1) k≈1 100 W +0.46 A = 계단 이력 산물(D0 0° 공존 상태 0.75 vs 0.44 A, 2.40° 느린 과도;
+  `k1_history_probe.py`), 정상상태 이득 ≤ 0.09 A, td 0이면 SPS 최선(`k1_light_probe.py`). (2) 같은 플랜트·같은 정상상태에서
+  M-B = 격자 최저 TPS 저감의 94 %(격자 없음 18점 +0.231 vs +0.246 A, 최대 차 0.088 A @109.2 V 100 W; 2.88° 격자 플랜트 0.040/0.167 A;
+  `mb_vs_grid_probe.py`). `stair_steady_points.csv`에 94.61 V K1_ 18점 추가(`add_k1_steady_points.py`) → r5r6 2단계가 함께 측정.
+  Simulink 결과가 생기면 `k1_simulink_compare.py`(준비·시험 완료)도 돌려 R.8 (1)을 Simulink로 확인한다.)**
+  **(10-27 19:35: `dataset_fixed_analyze.py` 완료·시험. Python 플랜트 예비판(`replay_grid.py`, zoh/linear)을 RESULTS R.8에
   넣었다. R6 Simulink 파트가 생기면 `python -I -X utf8 Simulink/Thesis/dataset_fixed_analyze.py`(기본 prefix out/dataset_fixed) →
   `out/dataset_fixed_compare.{log,csv}`, `fig_dataset_fixed.png`. R.8의 예비 표를 Simulink 수치로 바꾸고 0절 결론을 갱신한다.
   특히 경부하 격자 최저 TPS > M-B인지, k ≈ 1 100 W의 +0.46 A(Python)가 Simulink에서도 나오는지 판정한다.)** (원 명세) 수정 데이터셋
