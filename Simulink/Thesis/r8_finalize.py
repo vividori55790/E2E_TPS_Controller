@@ -5,6 +5,7 @@ Simulink outputs exist and runs every analysis whose inputs are there, in this o
   2. ipk_decompose.py          A - B = (A - C) + (C - D) + (D - B), BT_ steady B     always (BT_ part: stair_steady)
   3. k1_simulink_compare.py    k ~ 1 staircase vs steady (K1_ labels)               needs stair_steady + dataset_fixed
   4. dataset_fixed_analyze.py  R6 / R7: grid-best TPS vs SPS vs M-B                  needs dataset_fixed_part_*.csv
+  5. r8_verdict.py             the verdicts by the rules fixed 10-28 12:30 -> out/r8_verdict.md (Korean)   always
 Everything goes to out/r8_finalize.log (each script also writes its own log). Partial R6 output is fine.
 
     python -I -X utf8 Simulink/Thesis/r8_finalize.py
@@ -29,7 +30,8 @@ def main():
     runs = [("staircase_compare.py", have["interp0"] or bool(have["steady"])),
             ("ipk_decompose.py --py", True),
             ("k1_simulink_compare.py", bool(have["steady"])),
-            ("dataset_fixed_analyze.py", bool(have["fixed"]))]
+            ("dataset_fixed_analyze.py", bool(have["fixed"])),
+            ("r8_verdict.py", True)]
     for script, ok in runs:
         lines.append(f"\n===== {script}" + ("" if ok else ": skipped (inputs missing)"))
         if not ok:

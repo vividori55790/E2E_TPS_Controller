@@ -2,6 +2,29 @@
 
 <!-- 새 항목은 이 줄 바로 아래에 -->
 
+## 2026-10-28 12:20–12:50 (반복 10, 마감일) — MATLAB 17시간째 정지 / 로그인 직후 체인 안전장치, 판정 규칙 사전 고정
+- MATLAB: `matlab_stall_probe.py` — stair_i0/R6_smoke/r5r6의 MATLAB.exe 세 개 모두 5초 CPU 증가 ≈ 0(누적 133/25.5/23 s),
+  ServiceHostWindow 21개, 산출물 변화 없음(staircase_check.csv interp=1 195행뿐, stair_steady_part·dataset_fixed_part 없음).
+  PushNotification으로 사용자에게 로그인 요청을 보내려 했으나 "terminal active"라 전송되지 않았다(루프에서는 호출 수단이 없다).
+- **로그인 직후의 충돌 방지**(`r5r6_chain.m`): 멈춘 세 MATLAB은 같은 로그인에서 함께 풀린다. stair_i0는 직렬 실행 중이었다
+  (로그 cp949 해독: 풀이 시작 직후 종료됨). 그 출력 `staircase_check_interp0.csv`는 r5r6 1단계와 같은 파일이다. R6_smoke는 자체
+  6워커 풀을 연다. 그대로 두면 6워커 풀 2개와 클라이언트 3개가 6코어·31 GB를 나눠 쓰고 1단계를 중복 계산한다. → `waitForJobs`:
+  두 잡의 `automation/state/jobs/<이름>.done`(cmd가 MATLAB 종료 시 성공·실패와 관계없이 씀)을 최대 40분 기다린 뒤 풀을 연다.
+  r5r6 MATLAB은 시작 단계에서 멈춰 있어(로그에 첫 출력 없음) 아직 스크립트를 읽지 않았으므로 수정이 반영된다. MATLAB이 없어
+  실행 시험은 못 했고 정적으로만 확인했다. 함께 정적 점검한 것: verify_steady_state.m은 106점 파일(label/V2/D0/D1/D2/step)을 그대로
+  읽는다. R6_smoke 접두어 `dataset_fixed_smoke_part_*`는 R6 재개 dir 패턴과 분석 glob(`dataset_fixed_part_*`)에 걸리지 않는다.
+- **판정 규칙 사전 고정** `r8_verdict.py` → `out/r8_verdict.md`(한국어). Simulink 결과가 하나도 없는 12:30에 정했다.
+  Q1(R5 b/c): 데이터셋 실행에서 같은 전력 SPS − TPS ≥ 0.5 A인 칸들에서 r = 평균(진짜 계단)/평균(데이터셋). r ≥ 0.75면 사용자
+  쪽(M-B 결론 수정), r ≤ 0.5면 보간 산물, 그 사이는 일부. SPS 기준선(진짜 계단 SPS 행 − R.4 정상상태)과 같은 라벨 |ΔIpk|도 적는다.
+  Q2(BT_): D − B_st 최대 ≤ 0.05 A면 같음, ≤ 0.15 A면 작은 차, 그 이상이면 실재. Q3(K1_): 정상상태 SPS − TPS 최대(100–300 W)에
+  같은 문턱을 쓰고, 30/20 ms 정착 점검을 붙인다. Q4(R6/R7): 수정/원(같은 격자)의 r에 Q1 규칙, 수정 − M-B 평균 ≤ 0.1 A면 같은
+  수준이다. 끝에 0절용 문장을 조립하고, 결론 수정이 필요한 판정이 있으면 경고 줄을 넣는다. 입력이 없으면 "아직 없음"이다.
+  `test_r8_verdict.py`: 임시 디렉터리의 가짜 입력 5경우(none / artefact 30 % / partial 60 % / user 90 % / mb_match)에서 모든 갈래의
+  판정 코드가 맞고 보고서에 nan이 없다(ALL PASS). `r8_finalize.py` 5단계로 넣었다. 현재 실제 `out/r8_verdict.md`는 네 질문 모두
+  "아직 없음"이다. `test_ipk_decompose.py` PASS(회귀 없음).
+- RESULTS: 0절 정지 시각 갱신(17시간째, "마감까지 없다" → "아직 없다"), "마감 상태"에 사전 규칙 요약, R.8 (ii)에 대기와 판정 단계,
+  한계에 한 줄.
+
 ## 2026-10-28 08:13–08:35 (반복 9, 마감일) — MATLAB 13시간째 정지 / 분해 그림 추가, RESULTS 마감본 표시
 - MATLAB: `matlab_stall_probe.py` — stair_i0/R6_smoke/r5r6의 MATLAB.exe 세 개 모두 5초 CPU 증가 0(누적 110/21/18 s),
   ServiceHostWindow 21개, 산출물 변화 없음(staircase_check.csv interp=1 195행뿐, stair_steady_part 없음).

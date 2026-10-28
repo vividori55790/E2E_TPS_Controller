@@ -34,7 +34,13 @@
   워커 1회 ~180 s → 44 ms ≈ 4–5 h). **재시작 안전하게**: 배치(12개)마다 `out/dataset_fixed_part_XXX.csv`를 쓰고 이미 있는 조합은
   건너뛴다(재부팅·잡 종료 후 재제출 시 이어서). 잡은 `--interactive`(로그온 필요; 로그온이 없으면 대기 — PROGRESS에 기록).
   먼저 2조합 스모크로 시간·신호를 확인한 뒤 전체 제출.
-- [~] R7 **(10-28 08:30, 반복 9: MATLAB 13시간째 정지(세 MATLAB dcpu 0, 산출물 변화 없음). 마감 정리: `ipk_decompose.py`에 그림
+- [~] R7 **(10-28 12:45, 반복 10: MATLAB 17시간째 정지. (1) `r5r6_chain.m`이 먼저 stair_i0/R6_smoke의
+  `automation/state/jobs/*.done`을 최대 40분 기다린다(세 MATLAB이 같은 로그인에서 함께 풀리면 풀 2개가 6코어·31 GB를 나눠 쓰고
+  1단계가 중복되므로; r5r6 MATLAB은 시작 단계에서 멈춰 아직 스크립트를 읽지 않았다). (2) **판정 규칙 사전 고정** `r8_verdict.py`
+  (+ `test_r8_verdict.py` 5경우 ALL PASS) → r8_finalize 5단계가 `out/r8_verdict.md`(Q1 진짜 계단 저감 비 r ≥ 0.75 사용자 쪽 /
+  ≤ 0.5 보간 산물, Q2 D − B_st, Q3 K1_ 정상상태 이득 0.05/0.15 A, Q4 수정 데이터셋 r과 M-B 차 0.1 A, 0절용 문장)를 쓴다.
+  로그인 후 할 일: r8_finalize 한 번 → r8_verdict.md의 판정·문장을 RESULTS 0절·R.8에 옮긴다(규칙이 결론 수정을 말하면 고친다).)**
+  **(10-28 08:30, 반복 9: MATLAB 13시간째 정지(세 MATLAB dcpu 0, 산출물 변화 없음). 마감 정리: `ipk_decompose.py`에 그림
   `out/fig_ipk_decompose.png`((a) A/B/C/D 점, (b) A−B 분해 막대; r8_finalize가 다시 그림) 추가, RESULTS 0절에 "마감 상태" 항목
   (확정 = R.1–R.7, R.8 a/c/d; 예비 = R.8 ii, R6/R7). 로그인 후 할 일은 아래 반복 8과 같다(r8_finalize.py 한 번).)**
   **(10-28 04:40, 반복 8: MATLAB 여전히 정지(9시간째, 세 MATLAB dcpu 0). Simulink 수치만으로 분해 `ipk_decompose.py` →
