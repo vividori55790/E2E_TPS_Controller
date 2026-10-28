@@ -2,6 +2,29 @@
 
 <!-- 새 항목은 이 줄 바로 아래에 -->
 
+## 2026-10-28 16:35–17:05 (반복 11, 마감일) — MATLAB 21시간째 정지 / 체인 단계 격리, MATLAB 없는 구문 점검, 0절 평균 정정
+- MATLAB: `matlab_stall_probe.py` — 세 MATLAB.exe 누적 CPU 157.5/30.8/27.8 s(4시간 동안 stair_i0만 +24 s, dcpu 0.05 = 배경 틱),
+  ServiceHostWindow 21개, 산출물 변화 없음(staircase_check.csv interp=1 195행뿐). r5r6 로그는 시작 줄뿐 = 아직 스크립트를 읽지 않음.
+  러너는 마감 후에도 STOP/goal_met 전까지 돌고, 잡 하나가 끝나면 바로 턴을 연다(loop_runner.wait_for_jobs) → 로그인 시각과 무관하게
+  결과가 처리된다.
+- **체인 정적 재검토**: staircase_check / verify_steady_batch / verify_steady_state / gen_dataset_fixed를 다시 읽었다. D0 보간 끄기는
+  실제 위상을 구동하는 블록에 걸린다(`out/plant_params.md` 0절: Phi_Manual 등은 데이터셋 시기 모델에서 미사용, 수동 모드 phi = D0
+  From Workspace). 실행 오류 요인은 찾지 못했다. 다만 `r5r6_chain.m`은 1단계가 예외를 던지면(예: interp=0 설정이 또 거부돼 5회 모두
+  실패 → `cell2table({})` 오류) 2단계(상수 D0 정상상태 106점 = Q2 BT_, Q3 K1_ 근거)와 3단계까지 통째로 중단되는 구조였다.
+  → `runStep`(try/catch, getReport 출력)으로 단계를 격리하고, 실패한 단계가 있으면 마지막에 error로 끝내 `job.py status`에 드러나게 했다.
+- **`m_static_check.py`**(새): MATLAB 없이 .m의 블록 키워드–`end` 짝과 괄호 균형을 본다(주석, 문자열/전치 구분, %{ %}, `...` 처리,
+  괄호 안 `end`는 인덱스). `test_m_static_check.py`: MATLAB에서 실제로 돈 7개 파일 통과, r5r6_chain 망가뜨린 사본 4종(`end` 누락·추가,
+  `)` 누락, 닫히지 않은 문자열) 모두 검출, 까다로운 구문(`case 'if'`, `x(end)`, `a'`, `[1 2\n3 4]`) 오탐 없음 → ALL PASS. 수정 후
+  Thesis의 .m 10개 모두 OK.
+- **RESULTS 0절 정정**: R.4 M-B 평균 "+0.22 A(+7.1 %)"는 12점 평균이라 SPS 기준 자체가 진동한 109.2 V 600 W(+1.18 A, 본문이 "크기를
+  해석하지 않는다"고 한 점)를 포함했다. 인용값을 진동 점을 뺀 11점 평균 +0.134 A(+5.7 %)로 바꾸고(`out/simulink_pi_compare.log`로
+  재계산 확인: (2.655 − 1.181)/11), R.4 요약표의 굵은 표시를 그 행으로 옮겼다. 맨 위에 "사용자 확인 필요"(로그인 → 자동 진행 →
+  r8_finalize) 상자, 0절·R.8 (ii) 정지 시각 21시간째, (ii)에 단계 격리 한 문장.
+- **그림 `out/fig_simulink_pi_compare.png` 수정**(`simulink_sweep.py fig`, 저장된 CSV에서 다시 그림 → CSV·log md5 불변): SPS 기준 실행이
+  진동한 (V2, P)(= 109.2 V 600 W)의 Simulink ΔI를 비우고 세로 점선 + "SPS reference oscillates: no Simulink value"로 표시했다. 전에는
+  그 점(M-B0 +1.61, M-B +1.18 A)이 109.2 V 칸의 축을 차지해 그림에서 가장 큰 "저감"으로 보였다. 속 빈 점 설명은 "제어기 실행의 진동"으로
+  좁혔다. 팔레트는 그대로(evaluate.py BLUE/ORANGE/AQUA; node가 없어 dataviz 검증 스크립트는 못 돌림).
+
 ## 2026-10-28 12:20–12:50 (반복 10, 마감일) — MATLAB 17시간째 정지 / 로그인 직후 체인 안전장치, 판정 규칙 사전 고정
 - MATLAB: `matlab_stall_probe.py` — stair_i0/R6_smoke/r5r6의 MATLAB.exe 세 개 모두 5초 CPU 증가 ≈ 0(누적 133/25.5/23 s),
   ServiceHostWindow 21개, 산출물 변화 없음(staircase_check.csv interp=1 195행뿐, stair_steady_part·dataset_fixed_part 없음).

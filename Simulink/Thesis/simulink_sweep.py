@@ -253,30 +253,40 @@ def fig(T):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    from evaluate import AQUA, BLUE, ORANGE, _style
+    from evaluate import AQUA, BLUE, INK2, ORANGE, _style
     _style(plt)
     col = {"M-A": ORANGE, "M-B0": AQUA, "M-B": BLUE}
     lab = {"M-A": "M-A (existing dataset target)", "M-B0": "M-B0 (steady-state surface)", "M-B": "M-B (+ physics E2E)"}
     Vs = sorted(T["V2"].unique())
+    # where the SPS reference run itself oscillates (109.2 V 600 W: 5.15 A vs analytic 3.43 A), every Simulink dI there
+    # is measured against a wrong baseline: leave a gap instead of letting that point set the axis (2026-10-28)
+    sps = T[T["ctrl"] == "SPS"]
+    bad = {(v, p) for v, p, m in zip(sps["V2"], sps["P"], sps["iL_mean_max"]) if m > 0.02}
     f, ax = plt.subplots(2, len(Vs), figsize=(4.6 * len(Vs), 7.2), constrained_layout=True, sharex=True, squeeze=False)
     for j, v in enumerate(Vs):
         for c in ("M-A", "M-B0", "M-B"):
             g = T[(T["V2"] == v) & (T["ctrl"] == c)].sort_values("P")
             cl = g["clean"].astype(bool).to_numpy() if "clean" in g else np.ones(len(g), bool)
+            keep = np.array([(v, p) not in bad for p in g["P"]])
             for r, (yk, ya) in enumerate((("dI_simulink", "dI_analytic"), ("dI_pct_simulink", "dI_pct_analytic"))):
-                ax[r, j].plot(g["P"], g[yk], "-", color=col[c], lw=2, label=lab[c] if r == 0 else None)
-                ax[r, j].plot(g["P"][cl], g[yk][cl], "o", color=col[c], ms=6)
-                ax[r, j].plot(g["P"][~cl], g[yk][~cl], "o", mfc="white", mec=col[c], mew=1.5, ms=7)
+                ax[r, j].plot(g["P"], g[yk].where(keep), "-", color=col[c], lw=2, label=lab[c] if r == 0 else None)
+                ax[r, j].plot(g["P"][cl & keep], g[yk][cl & keep], "o", color=col[c], ms=6)
+                ax[r, j].plot(g["P"][~cl & keep], g[yk][~cl & keep], "o", mfc="white", mec=col[c], mew=1.5, ms=7)
                 ax[r, j].plot(g["P"], g[ya], ":", color=col[c], lw=1.2)
         for r in (0, 1):
             ax[r, j].axhline(0.0, color="#c3c2b7", lw=1)
+        for p in sorted(p for vv, p in bad if vv == v):
+            for r in (0, 1):
+                ax[r, j].axvline(p, color="#c3c2b7", lw=1, ls="--", zorder=0)
+            ax[0, j].text(p, 0.98, "SPS reference oscillates:\nno Simulink value", transform=ax[0, j].get_xaxis_transform(),
+                          ha="center", va="top", fontsize=7.5, color=INK2)
         ax[0, j].set_title(f"V2 = {v:g} V (k = {4 * v / 380:.3f}), HV -> LV")
         ax[1, j].set_xlabel("|P| [W]")
     ax[0, 0].set_ylabel("Ipk reduction vs SPS [A]\nsolid: Simulink PI steady state, dotted: analytic")
     ax[1, 0].set_ylabel("Ipk reduction vs SPS [%]")
     ax[0, 0].legend(fontsize=8, frameon=False, loc="lower left")
-    ax[1, -1].text(0.98, 0.97, "hollow: low-frequency oscillation in the Simulink run\n(|mean i_L| > 20 mA, controller or SPS)",
-                   transform=ax[1, -1].transAxes, ha="right", va="top", fontsize=7.5, color="#52514e")
+    ax[1, -1].text(0.98, 0.97, "hollow: the controller's Simulink run kept a low-frequency\noscillation (|mean i_L| > 20 mA)",
+                   transform=ax[1, -1].transAxes, ha="right", va="top", fontsize=7.5, color=INK2)
     f.savefig(os.path.join(OUT, "fig_simulink_pi_compare.png"), dpi=130)
     plt.close(f)
 

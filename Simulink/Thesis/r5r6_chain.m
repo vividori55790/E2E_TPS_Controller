@@ -7,7 +7,9 @@ function r5r6_chain()
 %   3. gen_dataset_fixed (R6, restart-safe) -> out/dataset_fixed_part_*.csv     (363 runs, 44 ms)
 % Written 2026-10-27 after stair_i0 / R6_smoke stalled at 0 % CPU (MathWorks Service Host restarted at 19:11 and
 % opened its window; online licensing presumably waits for a sign-in in the desktop session). 10-28: first waits
-% (<= 40 min) for those two jobs' .done files, since all three resume at the same sign-in.
+% (<= 40 min) for those two jobs' .done files, since all three resume at the same sign-in. 10-28 16:50: an error in
+% one step no longer cancels the later ones (step 2 needs neither step 1 nor the D0 block change); the job still
+% ends with an error if any step failed, so job.py reports it.
 %   python automation/job.py submit r5r6 --interactive -- matlab -batch "cd('Simulink/Thesis'); r5r6_chain"
     here = fileparts(mfilename('fullpath'));
     out = fullfile(here, 'out');
@@ -16,11 +18,12 @@ function r5r6_chain()
     % session: let them finish first -- one pool at a time on 6 cores / 31 GB, and step 1 is then already on disk
     waitForJobs(fullfile(fileparts(fileparts(here)), 'automation', 'state', 'jobs'), {'stair_i0', 'R6_smoke'}, 40);
     startPoolChain(6);
+    failed = {};
 
     f0 = fullfile(out, 'staircase_check_interp0.csv');
     if ~isfile(f0)
         fprintf('--- step 1: staircase_check interp = 0\n');
-        staircase_check('', f0, 0);
+        failed = runStep(failed, 'step 1', @() staircase_check('', f0, 0));
     else
         fprintf('--- step 1: %s exists, skipped\n', f0);
     end
@@ -29,14 +32,27 @@ function r5r6_chain()
     parts = parts(~endsWith({parts.name}, '_in.csv'));
     if isempty(parts)
         fprintf('--- step 2: steady state at the staircase D0 labels\n');
-        verify_steady_batch(fullfile(out, 'stair_steady_points.csv'), fullfile(out, 'stair_steady.csv'), 36, 0.030);
+        failed = runStep(failed, 'step 2', @() verify_steady_batch(fullfile(out, 'stair_steady_points.csv'), ...
+                                                                fullfile(out, 'stair_steady.csv'), 36, 0.030));
     else
         fprintf('--- step 2: %d stair_steady part file(s) exist, skipped\n', numel(parts));
     end
 
     fprintf('--- step 3: gen_dataset_fixed (R6)\n');
-    gen_dataset_fixed(fullfile(out, 'dataset_fixed'), [1, 9, 20], [1:2:19, 20], 18, 6);
+    failed = runStep(failed, 'step 3', @() gen_dataset_fixed(fullfile(out, 'dataset_fixed'), [1, 9, 20], ...
+                                                            [1:2:19, 20], 18, 6));
     fprintf('r5r6_chain: done %s\n', datestr(now));
+    if ~isempty(failed), error('r5r6_chain: %s failed (reports above)', strjoin(failed, ', ')); end
+end
+
+function failed = runStep(failed, name, fn)
+% run one step; on an error print the full report and go on (the later steps do not read its output)
+    try
+        fn();
+    catch ME
+        fprintf('%s FAILED: %s\n', name, getReport(ME, 'extended', 'hyperlinks', 'off'));
+        failed{end + 1} = name;
+    end
 end
 
 function waitForJobs(jobsDir, names, maxMin)

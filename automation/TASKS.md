@@ -34,7 +34,11 @@
   워커 1회 ~180 s → 44 ms ≈ 4–5 h). **재시작 안전하게**: 배치(12개)마다 `out/dataset_fixed_part_XXX.csv`를 쓰고 이미 있는 조합은
   건너뛴다(재부팅·잡 종료 후 재제출 시 이어서). 잡은 `--interactive`(로그온 필요; 로그온이 없으면 대기 — PROGRESS에 기록).
   먼저 2조합 스모크로 시간·신호를 확인한 뒤 전체 제출.
-- [~] R7 **(10-28 12:45, 반복 10: MATLAB 17시간째 정지. (1) `r5r6_chain.m`이 먼저 stair_i0/R6_smoke의
+- [~] R7 **(10-28 16:50, 반복 11: MATLAB 21시간째 정지. `r5r6_chain.m`의 세 단계를 `runStep`(try/catch)으로 격리 — 1단계가
+  예외를 던져도 2단계 정상상태 106점(Q2·Q3 근거)과 R6가 돈다. 실패 단계가 있으면 마지막에 error → job status에 드러남.
+  MATLAB 없는 구문 점검 `m_static_check.py`(+ `test_m_static_check.py` ALL PASS) — **.m을 고치면 제출 전에 반드시 돌릴 것**.
+  RESULTS 0절의 R.4 평균을 진동 점 제외 11점 +0.13 A(+5.7 %)로 정정(12점 +0.22 A는 109.2 V 600 W 진동 점이 부풀림).)**
+  **(10-28 12:45, 반복 10: MATLAB 17시간째 정지. (1) `r5r6_chain.m`이 먼저 stair_i0/R6_smoke의
   `automation/state/jobs/*.done`을 최대 40분 기다린다(세 MATLAB이 같은 로그인에서 함께 풀리면 풀 2개가 6코어·31 GB를 나눠 쓰고
   1단계가 중복되므로; r5r6 MATLAB은 시작 단계에서 멈춰 아직 스크립트를 읽지 않았다). (2) **판정 규칙 사전 고정** `r8_verdict.py`
   (+ `test_r8_verdict.py` 5경우 ALL PASS) → r8_finalize 5단계가 `out/r8_verdict.md`(Q1 진짜 계단 저감 비 r ≥ 0.75 사용자 쪽 /
