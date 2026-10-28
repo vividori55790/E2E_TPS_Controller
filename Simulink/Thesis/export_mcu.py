@@ -12,8 +12,8 @@ int16 path    inputs in Q15; W stored as int16 in 2^-k TURNS, b as uint16 in 2^-
               cos from a 1025-entry Q15 table with linear interpolation (CMSIS arm_cos_q15 style); read-out M' as
               int16 * 2^-m with a 64-bit accumulator (SMLAL on Cortex-M4); the two softplus calls stay in float.
 SmoothRegHDCFixed below reproduces the int16 C code operation by operation (uint32 wrap, arithmetic shifts,
-int64 accumulation) -- it is what evaluate.py reports as the int16 controller. No C compiler is installed on this
-PC, so the C file itself is not compiled here; the emulation follows it line by line.
+int64 accumulation) -- it is what evaluate.py reports as the int16 controller. c_compile_check.py compiles the
+emitted C file with MATLAB's LCC-win64 and checks it against this emulation (int64 accumulators exact).
 """
 import argparse
 import os
@@ -177,7 +177,9 @@ void smooth_reghdc_f32(float p_abs, float v2, float *d1, float *d2)
 {
     const float u = clamp01(p_abs / SRHDC_P_MAX);
     const float v = clamp01((v2 - SRHDC_V2_LO) / (SRHDC_V2_HI - SRHDC_V2_LO));
-    float y[2] = {SRHDC_C[0], SRHDC_C[1]};
+    float y[2];
+    y[0] = SRHDC_C[0];          /* element-wise: C89-style compilers reject non-constant aggregate initialisers */
+    y[1] = SRHDC_C[1];
     for (int d = 0; d < SRHDC_D; ++d) {
         const float h = cosf(u * SRHDC_W[0][d] + v * SRHDC_W[1][d] + SRHDC_B[d]);   /* or arm_cos_f32 */
         y[0] += h * SRHDC_M[d][0];
@@ -210,15 +212,20 @@ void smooth_reghdc_q15(int16_t u_q15, int16_t v_q15, float *d1, float *d2)
                     + ((uint32_t)SRHDC_BQ[d] << (SRHDC_WQ_SHIFT - 1));
         const uint32_t frac = ph & frac_mask;
         const uint32_t idx = frac >> SH;
-        const int32_t fr = (SH >= 15) ? (int32_t)((frac >> (SH - 15)) & 0x7FFF)
-                                      : (int32_t)((frac << (15 - SH)) & 0x7FFF);
+#if SRHDC_WQ_SHIFT >= 10                                      /* SH = SRHDC_WQ_SHIFT + 5 >= 15 */
+        const int32_t fr = (int32_t)((frac >> (SH - 15)) & 0x7FFF);
+#else
+        const int32_t fr = (int32_t)((frac << (15 - SH)) & 0x7FFF);
+#endif
         const int32_t t0 = SRHDC_COS_Q15[idx], t1 = SRHDC_COS_Q15[idx + 1];
         const int32_t c = t0 + (((t1 - t0) * fr) >> 15);       /* arithmetic shift (ARM GCC / armclang) */
         acc0 += (int64_t)c * SRHDC_MQ[d][0];                    /* SMLAL */
         acc1 += (int64_t)c * SRHDC_MQ[d][1];
     }
     const float s = ldexpf(1.0f, -(15 + SRHDC_MQ_SHIFT));
-    float y[2] = {(float)acc0 * s + SRHDC_C[0], (float)acc1 * s + SRHDC_C[1]};
+    float y[2];
+    y[0] = (float)acc0 * s + SRHDC_C[0];
+    y[1] = (float)acc1 * s + SRHDC_C[1];
     finish(y, d1, d2);
 }
 """

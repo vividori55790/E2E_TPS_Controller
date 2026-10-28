@@ -34,7 +34,9 @@
   워커 1회 ~180 s → 44 ms ≈ 4–5 h). **재시작 안전하게**: 배치(12개)마다 `out/dataset_fixed_part_XXX.csv`를 쓰고 이미 있는 조합은
   건너뛴다(재부팅·잡 종료 후 재제출 시 이어서). 잡은 `--interactive`(로그온 필요; 로그온이 없으면 대기 — PROGRESS에 기록).
   먼저 2조합 스모크로 시간·신호를 확인한 뒤 전체 제출.
-- [~] R7 **(10-28 16:50, 반복 11: MATLAB 21시간째 정지. `r5r6_chain.m`의 세 단계를 `runStep`(try/catch)으로 격리 — 1단계가
+- [~] R7 **(10-28 21:00, 반복 12: MATLAB 25시간째 정지(세 MATLAB dcpu 0, 산출물 변화 없음). 이번 턴은 막히지 않은 T9 C 컴파일
+  검증을 끝냈다. 로그인 후 할 일은 반복 11과 같다(r8_finalize 한 번 → r8_verdict.md를 0절·R.8에).)**
+  **(10-28 16:50, 반복 11: MATLAB 21시간째 정지. `r5r6_chain.m`의 세 단계를 `runStep`(try/catch)으로 격리 — 1단계가
   예외를 던져도 2단계 정상상태 106점(Q2·Q3 근거)과 R6가 돈다. 실패 단계가 있으면 마지막에 error → job status에 드러남.
   MATLAB 없는 구문 점검 `m_static_check.py`(+ `test_m_static_check.py` ALL PASS) — **.m을 고치면 제출 전에 반드시 돌릴 것**.
   RESULTS 0절의 R.4 평균을 진동 점 제외 11점 +0.13 A(+5.7 %)로 정정(12점 +0.22 A는 109.2 V 600 W 진동 점이 부풀림).)**
@@ -113,7 +115,7 @@
   (D 0.01–0.5, D0 전 분기) 결과도 같다는 것을 근거로 적는다(2026-10-26 대화형 세션 확인: 84 V 100 W −29 %, 1000 W −1.9 %;
   109.2 V 100 W −39 %, 1000 W −2.8 %; 95 V ≈ 0). 논문 장 구성 초안 갱신.
 - [x] R4 (2026-10-26) 최종 모델 M-B = b3 그대로 → 재생성 불필요(`out/SmoothRegHDC_STM32.h`, `smooth_reghdc_params.m`는 b3 기준).
-  C 컴파일 시험은 선택(컴파일러 없음).
+  C 컴파일 시험은 10-28에 MATLAB 동봉 LCC로 완료(T9).
   (원 명세) 최종 모델(M-B)의 MCU/MATLAB 내보내기 재생성(모델이 b3에서 바뀐 경우만). C 컴파일 시험은 선택.
 - 중단(범위 밖): T7 나머지(b8–b11 선택, pv_* 후속), T8의 별도 계단 응답, T12. 이미 얻은 결과는 부록으로만.
 
@@ -211,8 +213,12 @@
   **2026-10-24 준비**: `smooth_reghdc_infer.m`(P*, V2[, V1] → D1, D2; V1 물리 정규화, codegen용 persistent),
   `smooth_reghdc_params.m`(export_matlab.py 생성, 가중치 리터럴), `test_smooth_reghdc_infer.m`(시험벡터 208개,
   `out/smooth_reghdc_testvec.csv`). Python 왕복 검사 `test_export_matlab.py` PASS(5e-16). MATLAB 실행은 미검증.
-- [x] T9 **완료(C 컴파일은 선택, 2026-10-26 범위 변경 R4)**: 내보내기와 비트 단위 Python 에뮬레이션까지. 컴파일러가 없어 C 컴파일
-  시험은 하지 않음(한계로 RESULTS에 기록). 아래는 이전 기록.
+- [x] T9 **C 컴파일 시험 완료(2026-10-28 21:00, 반복 12)**: MATLAB에 딸린 LCC-win64(`C:\Program Files\MATLAB\R2025b\sys\lcc64`,
+  MATLAB·라이선스 불필요)를 찾아 `c_compile_check.py`(+ `test_c_compile_check.py` ALL PASS: 연산 하나 바꾼 변이체를 int64/y 검사가 잡음)
+  → `out/c_compile_check.{log,csv}` ALL PASS. 20,253점에서 int64 누산값·float32 y 비트가 SmoothRegHDCFixed와 전부 같음. 첫 컴파일에서
+  C89식 비상수 집합체 초기화 2곳(오류)과 죽은 분기 음수 시프트(경고)를 `export_mcu.py`에서 고쳐 .c만 재생성(헤더 SHA1 불변, -A 경고 0).
+  LCC libc에 `log1pf` 구현이 없어 하네스가 채움. ARM 툴체인·실기는 미검증. (이전: 2026-10-26 범위 변경 R4로 선택 처리)
+  아래는 이전 기록.
   (2026-10-24: V1 등가 입력 함수 `smooth_reghdc_v1_equiv()` 추가, 수치 불변) `export_mcu.py` 작성: float32 + int16(위상을 2^-k 회전 단위 uint32로 → 랩어라운드 = mod 2π, Q15 cos 표 선형보간,
   int64 MAC) C 코드와 비트 단위 Python 에뮬레이션(`SmoothRegHDCFixed`, evaluate의 int16 행). b3 기준으로 내보냄:
   int16 max|ΔD| 2.7e-4(성능 동일, 4618 B), float32 5.6e-7(5128 B). **남은 것: C 컴파일 시험** — gcc/clang/cl 없음.

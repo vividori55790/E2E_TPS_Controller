@@ -2,6 +2,28 @@
 
 <!-- 새 항목은 이 줄 바로 아래에 -->
 
+## 2026-10-28 20:47–21:10 (반복 12, 마감일 저녁) — MATLAB 25시간째 정지 / T9 C 컴파일 검증 완료(MATLAB 동봉 LCC-win64)
+- MATLAB: `matlab_stall_probe.py`(20:47, 20:58) — 세 MATLAB.exe 누적 CPU 182/35.7/32.7 s, dcpu5s 0, ServiceHostWindow 21개,
+  산출물 변화 없음(staircase_check.csv interp=1 195행뿐). 로그인 대기 그대로.
+- **막히지 않은 남은 한계 하나를 닫았다: "C 코드 미컴파일".** 이 PC에 gcc/clang/cl은 없지만 MATLAB에 LCC-win64가 딸려 있다
+  (`C:\Program Files\MATLAB\R2025b\sys\lcc64\lcc64\bin\lcc64.exe`, lcclnk64; MATLAB을 띄우지 않고 라이선스도 쓰지 않는다).
+  `c_compile_check.py`: 전달물 3파일을 임시 폴더에 복사해 (A) 그대로, (B) MAC 루프 뒤에 acc0/acc1/y 저장 한 줄만 끼운 탐침 사본으로
+  빌드한다. 입출력은 float32 비트 패턴(16진)이라 십진 반올림이 끼지 않는다.
+  - 첫 컴파일 결과(원래 .c): **오류 4** — `float y[2] = {SRHDC_C[0], …}`, `float y[2] = {(float)acc0 * s + …}`의 비상수 집합체
+    초기화(C89 규칙; C99 이상 ARM 컴파일러는 받음), **경고 1** — 죽은 분기의 `frac << (15 - SH)`(SH = 17 → 음수 시프트). `-O`는 LCC
+    최적화기가 softplus 줄에서 잘못된 SSE 어셈블리를 내는 컴파일러 버그(쓰지 않음; MATLAB의 lcc64 mex 옵션도 -O 없음).
+  - `export_mcu.py` C_SOURCE 수정: 원소별 대입 2곳, `#if SRHDC_WQ_SHIFT >= 10`으로 분기 선택. `export_mcu.py --model
+    Simulink/Thesis/out/model_smooth_reghdc_b3.json`로 재생성 → `SmoothRegHDC_STM32.h`(614035cf554a)·`smooth_reghdc.h`(921ea673d552)
+    SHA1 불변, `smooth_reghdc.c`만 ee53da196d7c → 3930c9fd7131, export_mcu.log 수치 동일.
+  - 링크: LCC libc64.lib에 `log1pf` 구현이 없다(math.h 선언만) → 하네스에 `(float)log1p((double)x)` 보충(전달물 불변).
+  - **결과 ALL PASS**(`out/c_compile_check.{log,csv}`): 20,253점(무작위 2만 seed 2026 + 경계 45 + MATLAB 시험 벡터 208) 전부에서
+    int64 누산값과 float32 y 비트가 `SmoothRegHDCFixed`(evaluate의 int16 행)와 같음. -A 경고 0. 플랫폼: int/long 4 B, int64 8 B,
+    (int32)−3 >> 1 = −2(산술). Q15 입력 변환(C float32 lrintf vs Python float64 round) 54점 1 LSB 차 → max|ΔD| 3.9e-5, 같은 입력이면
+    softplus float32/64 차 2.0e-8. float64 모델 대비 C q15 2.6e-4, C f32 5.0e-7(내보내기 로그와 같음).
+  - `test_c_compile_check.py` ALL PASS: 깨끗한 빌드 통과, `>> 15 → >> 14` 변이체는 컴파일되지만 int64·y 검사가 FAIL, out/ 파일 불변.
+- RESULTS: 3절 T9 단락에 "C 컴파일 검증" 문단, 0절 구조·한계, 10절 4장·6장(6장은 결론 수치를 Simulink 우선 23–24 %/0.8–3.4 %로 고치고
+  R.8 (d) 85 %, 데드타임 미학습 몫, D0≈0 0.3 A, Simulink 대기 항목 추가), 미해결/한계 마지막 항목, 정지 시각 20:58·25시간째.
+
 ## 2026-10-28 16:35–17:05 (반복 11, 마감일) — MATLAB 21시간째 정지 / 체인 단계 격리, MATLAB 없는 구문 점검, 0절 평균 정정
 - MATLAB: `matlab_stall_probe.py` — 세 MATLAB.exe 누적 CPU 157.5/30.8/27.8 s(4시간 동안 stair_i0만 +24 s, dcpu 0.05 = 배경 틱),
   ServiceHostWindow 21개, 산출물 변화 없음(staircase_check.csv interp=1 195행뿐). r5r6 로그는 시작 줄뿐 = 아직 스크립트를 읽지 않음.
