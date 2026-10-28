@@ -2,6 +2,17 @@
 
 <!-- 새 항목은 이 줄 바로 아래에 -->
 
+## 2026-10-29 01:02–01:08 (반복 13, 마감 다음 날) — MATLAB 30시간째 정지 / 대기 턴 짧게
+- MATLAB: `matlab_stall_probe.py`(01:02) — 세 MATLAB.exe 누적 CPU 205.2/40.2/37.5 s, dcpu5s 0.03/0/0(배경 틱), ServiceHostWindow 21개,
+  산출물 변화 없음(staircase_check.csv interp=1 195행뿐, stair_steady_part·dataset_fixed_part 없음). 잡 세 개 log idle 1779–1791분.
+- 로그인 후 경로 회귀 확인: `test_r8_verdict.py` ALL PASS, `test_ipk_decompose.py` PASS, `m_static_check.py r5r6_chain.m` OK.
+  r8_finalize가 부르는 스크립트들은 반복 11–12에서 바뀐 파일(simulink_sweep, export_mcu, c_compile_check)을 import하지 않는다.
+  시험 후 추적 파일 변화 없음.
+- RESULTS: 정지 시각 세 곳을 10-29 01:03·30시간째로 바꾸고, 맨 위 상자에 "이후의 정지 확인은 PROGRESS 맨 위에만"을 넣었다.
+  한계 항목 제목을 "마감까지 없을 수 있다" → "마감(10-28)까지 나오지 않았다"로 사실에 맞췄다. 이제 대기 턴은 이 파일만 쓰면 된다.
+- 러너의 잡 대기 상한은 240분(`loop_runner.CFG.job_wait_max_min`)이라 로그인이 없으면 4시간마다 턴이 열린다. 사용자가 정한 설정이라
+  바꾸지 않았다.
+
 ## 2026-10-28 20:47–21:10 (반복 12, 마감일 저녁) — MATLAB 25시간째 정지 / T9 C 컴파일 검증 완료(MATLAB 동봉 LCC-win64)
 - MATLAB: `matlab_stall_probe.py`(20:47, 20:58) — 세 MATLAB.exe 누적 CPU 182/35.7/32.7 s, dcpu5s 0, ServiceHostWindow 21개,
   산출물 변화 없음(staircase_check.csv interp=1 195행뿐). 로그인 대기 그대로.
