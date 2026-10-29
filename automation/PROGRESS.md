@@ -2,6 +2,13 @@
 
 <!-- 새 항목은 이 줄 바로 아래에 -->
 
+## 2026-10-29 17:10–17:14 (반복 17, 마감 다음 날) — MATLAB 46시간째 정지 / 대기 턴 짧게
+- MATLAB: `matlab_stall_probe.py`(17:11) — 세 MATLAB.exe 누적 CPU 301.6/62.5/58.6 s(4시간 동안 +24.4/+5.1/+5.2 s = 배경 틱),
+  dcpu5s 0/0/0, ServiceHostWindow 21개, 산출물 변화 없음(staircase_check.csv interp=1 195행뿐; staircase_check_interp0·
+  stair_steady_part·dataset_fixed_part 없음). `automation/state/jobs/`에 stair_i0/R6_smoke/r5r6의 .done 없음, 로그 파일은
+  10-27 19:11/19:16/19:23 그대로(log idle 2747–2759분).
+- Thesis·automation 추적 파일 변화 없음(이 항목 제외). 코드·RESULTS·TASKS 수정 없음. 로그인 후 절차는 반복 13 항목과 같다.
+
 ## 2026-10-29 13:08–13:12 (반복 16, 마감 다음 날) — MATLAB 42시간째 정지 / 대기 턴 짧게
 - MATLAB: `matlab_stall_probe.py`(13:09) — 세 MATLAB.exe 누적 CPU 277.2/57.4/53.4 s(4시간 동안 +22.7/+5.5/+5.5 s = 배경 틱),
   dcpu5s 0.03/0/0, ServiceHostWindow 21개, 산출물 변화 없음(staircase_check.csv interp=1 195행뿐; staircase_check_interp0·
