@@ -1,5 +1,16 @@
 # 작업 큐 (상태: [ ] 미착수, [~] 진행 중, [x] 완료, [!] 막힘)
 
+## ★★★ 2026-10-29 18:30 재부팅 (사용자) — 재부팅 후 첫 턴에 할 일
+- 사용자가 PC를 재부팅했다. 로그인 대기로 멈춰 있던 MATLAB 잡 `stair_i0`, `R6_smoke`, `r5r6`는 재부팅으로 죽었고(job.py가 부팅 이전 시작
+  잡을 `died`로 표시하고 .done = −2를 쓴다), 그 셋의 로그온 트리거 작업(DABJob-*)은 로그온 때 세 MATLAB이 한꺼번에 뜨지 않도록
+  대화형 세션에서 지웠다(DABJob-matlab_smoke도).
+- **`r5r6` 하나만 다시 제출**한다(3단계가 stair_i0·R6_smoke를 포함한다; `waitForJobs`는 그 둘의 .done(−2)을 보고 바로 통과):
+  `python automation/job.py submit r5r6 --interactive -- matlab -batch "<이전 r5r6과 같은 명령; automation/state/jobs/r5r6.json의 cmd>"`.
+  제출 전에 `job.py status`로 셋이 died인지, MATLAB.exe가 남아 있지 않은지 확인. 사용자는 재부팅 후 Windows 로그온과 MATLAB 로그인을 한다.
+  로그인 전이면 대화형 작업은 로그온 트리거로 대기한다 — 그동안 4시간마다 확인만 하고 사용량을 아낀다.
+- 끝나면 `python -I -X utf8 Simulink/Thesis/r8_finalize.py` → `out/r8_verdict.md`(판정 규칙은 10-28 사전 등록, 바꾸지 말 것).
+- [~] (반복 18) 확인 완료(셋 died/failed, MATLAB.exe 0개) → **`r5r6` 10-29 18:32:55 재제출**, 18:33 현재 로그온 트리거 대기.
+
 ## ★★ 2026-10-27 추가 (최우선) — 사용자: "전류 피크 저감이 그 정도일 리가 없다", 자기 데이터셋으로 확인하라
 배경(대화형 세션 10-27 확인, PROGRESS 10-27 항목): `Simulink/Data/TPS_Checkpoint_done_20260316_021229.mat` = CSV와 행 단위로 동일
 (`inspect_checkpoint.m` → `out/checkpoint_20260316_021229.csv`). 데이터셋은 같은 전력에서 TPS가 SPS보다 0.5–3.4 A 낮다고 말하지만,

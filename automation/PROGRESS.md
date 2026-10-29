@@ -2,6 +2,17 @@
 
 <!-- 새 항목은 이 줄 바로 아래에 -->
 
+## 2026-10-29 18:31–18:34 (반복 18, 재부팅 후 첫 턴) — 멈춘 MATLAB 정리됨 / `r5r6` 재제출
+- 사용자 재부팅(TASKS ★★★): `job.py status` — stair_i0 died(.done −2), R6_smoke·r5r6 failed(rc 1073807364 = 0x40010004,
+  18:26:39 강제 종료; 로그 "MATLAB error Exit Status: 0x40010004"). `matlab_stall_probe.py`(18:31, 18:33): MATLAB.exe 0개,
+  새 winlogon(18:29:39)만 있음. 산출물은 그대로(staircase_check.csv interp=1 195행, stair_steady_points.csv 10-28 04:08).
+- 스모크 잡 `smoke1029`(disp(version))을 냈다가 TASKS의 "r5r6 하나만" 지시를 보고 시작 전에 kill(rc −9, MATLAB 미기동).
+- **`r5r6` 재제출 18:32:55**(같은 명령 `matlab -batch "cd('Simulink/Thesis'); r5r6_chain"`, --interactive). job.py가 이전
+  r5r6.done/.log를 지웠다. stair_i0.done·R6_smoke.done이 있으므로 `waitForJobs`는 바로 통과한다. 18:33 현재 로그 없음
+  = Windows 로그온 트리거 대기(사용자 로그온 전). 코드·RESULTS 수정 없음.
+- 다음: 체인이 끝나면 `python -I -X utf8 Simulink/Thesis/r8_finalize.py` 한 번 → `out/r8_verdict.md`를 RESULTS 0절·R.8에(문턱 재조정 금지).
+  로그가 "r5r6_chain: start" 뒤 오래 진전이 없으면 다시 로그인 대기(matlab_stall_probe로 dcpu 확인).
+
 ## 2026-10-29 17:10–17:14 (반복 17, 마감 다음 날) — MATLAB 46시간째 정지 / 대기 턴 짧게
 - MATLAB: `matlab_stall_probe.py`(17:11) — 세 MATLAB.exe 누적 CPU 301.6/62.5/58.6 s(4시간 동안 +24.4/+5.1/+5.2 s = 배경 틱),
   dcpu5s 0/0/0, ServiceHostWindow 21개, 산출물 변화 없음(staircase_check.csv interp=1 195행뿐; staircase_check_interp0·
