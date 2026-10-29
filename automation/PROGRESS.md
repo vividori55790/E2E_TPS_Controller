@@ -2,6 +2,11 @@
 
 <!-- 새 항목은 이 줄 바로 아래에 -->
 
+## 2026-10-29 18:35 (반복 19) — `r5r6` 로그온 대기 확인만
+- `job.py status`: r5r6 running(18:32:55 제출), 로그 없음. `job.py diag r5r6`(18:35:09): 작업 \DABJob-r5r6 상태 "준비",
+  로그온 모드 "대화형만", 마지막 결과 267011(한 번도 실행 안 됨), explorer.exe 0개(= 아직 아무도 로그온 안 함), MATLAB.exe 0개.
+- 사용자 Windows 로그온 → 작업 시작 → MATLAB 로그인 순서로 풀린다. 코드·RESULTS·TASKS 수정 없음. 다음 절차는 반복 18 항목과 같다.
+
 ## 2026-10-29 18:31–18:34 (반복 18, 재부팅 후 첫 턴) — 멈춘 MATLAB 정리됨 / `r5r6` 재제출
 - 사용자 재부팅(TASKS ★★★): `job.py status` — stair_i0 died(.done −2), R6_smoke·r5r6 failed(rc 1073807364 = 0x40010004,
   18:26:39 강제 종료; 로그 "MATLAB error Exit Status: 0x40010004"). `matlab_stall_probe.py`(18:31, 18:33): MATLAB.exe 0개,
