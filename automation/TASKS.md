@@ -20,6 +20,12 @@
   커밋돼 있어 이번에 지웠다). (3) `verify_steady_state.m`: 매 1 ms 창(15 ms–끝) 피크 열 추가 + i_L 마지막 한 주기 400점을
   `out/iL_wave/<결과 파일 이름>.csv`로 저장(R9용, try/catch로 본 출력에 영향 없음). m_static_check ALL PASS. **opt1이 첫 실행이다** —
   opt1 첫 묶음 로그에 'i_L waveform not written'이나 오류가 있으면 확인. (4) R9 준비 완료(아래 R9 줄).
+- **진행(반복 24, 10-30 01:52–02:50)**: r5r6 끝(01:50, R6 363/363). opt1이 01:50부터 돈다 — 24회 묶음당 931 s, mb 5묶음 → k1 3묶음(40 ms)
+  → grid 5묶음, **05:30쯤 끝**. 첫 묶음에서 수정된 verify_steady_state.m 확인: 오류 0, 매 ms 창 열(Ipk_at_15…30ms), `out/iL_wave/` 파형
+  (24 × 400, NaN 0). **`out/opt_points_grid_r1.csv` 만들었다**(80구성 101회, 22구성은 기존 실행으로 이미 감쌈; R6 84/109.2 V 121/121).
+  계단 상위 조합은 대부분 M-B와 같은 쪽(84 V D1 ≤ D2, 109.2 V D2 < D1). r8_finalize → Q4 판정(아래 R7 줄). 다음: opt1 끝나면
+  `surface_opt_check.py next` → (감싸지 못한 구성이 있으면 `opt_chain(2)`를 `--after rob1`이 아니라 **가장 먼저** 돌도록 제출 — 사용자
+  최우선) → `compare` → OPT4.
 - [x] OPT0 **판정 규칙 먼저 등록**(결과를 보기 전에): `Simulink/Thesis/surface_opt_verdict.py`에 규칙과 가짜 입력 시험(`test_surface_opt_verdict.py`).
   (반복 22: 19항목 ALL PASS. 후보 = 2.88° 두 계단 정상상태만, 진동(|mean i_L| > 20 mA) 후보 제외, M-B/SPS 진동이면 판정 불가,
   (ii)는 min(D1, D2) < 0.45, (iii)은 같은 쪽 = s(D2*−D1*) ≥ 0 비율 ≥ 75 %·SPS만 최적이면 불일치, 상승 = Spearman ≥ 0.8 & 최대 전력 d* ≥ 0.45.)
@@ -44,6 +50,12 @@
 - MATLAB 순서: 지금 `r5r6`(10-29 19:03 재시작; 19:02 시스템 충돌 — 버그체크 0xa0000001, 그래픽/가상 디스플레이 드라이버 계열로 추정) → OPT2+OPT3를
   한 잡으로(약 200 실행, 1–2 h) → 아래 R8 이후. 충돌로 잡이 죽으면(`job.py`가 died 표시) 같은 이름으로 다시 제출하고 이미 있는 출력은 건너뛰게 한다.
   (반복 23: 대기열 = r5r6 → opt1 → eff1 → zvs1(70회, 약 45분).)
+  (반복 24: 대기열 = opt1(05:30쯤 끝) → eff1(약 25분) → zvs1(약 46분) → **rob1**(R10 111회, 약 75분) → **optR**(`opt_rounds(2, 4)`:
+  `surface_opt_check.py next` → `opt_chain(rnd)`를 감쌀 것이 없을 때까지 MATLAB 안에서 반복). OPT 2라운드를 eff1 앞에 넣으려면 대기
+  잡을 죽여야 하는데 **`job.py kill`은 대화형 대기 잡을 멈추지 못한다**. rob1로 시험해 보니 작업 스케줄러 작업만 지워지고, 세션 1의
+  wscript → cmd → `python job.py wait`가 살아남았다(.done = −9만 써서 뒤에 줄 선 잡이 바로 풀릴 뻔했다). taskkill은 사용자 승인이
+  필요해 루프에서 못 쓴다. 그래서 rob1.json을 running으로 되돌리고 .done을 지웠다. rob1은 원래 자리(zvs1 뒤)에서 돈다.
+  **대기 중인 대화형 잡을 kill하지 말 것.** 순서를 바꾸려면 사용자가 데스크톱에서 해당 cmd.exe를 끝내야 한다.)
   (반복 22: `opt1` = OPT3+OPT2(+grid)로 r5r6 뒤 대기 중. 재부팅 주의: 두 잡의 로그온 트리거가 남아 로그온 때 둘 다 다시 뜰 수 있다 —
   r5r6가 died(.done −2)면 opt1의 대기가 바로 풀려 MATLAB 둘이 함께 돈다. 재부팅 뒤에는 `job.py status`로 보고 하나를 kill/재제출.)
 
@@ -83,6 +95,13 @@ MATLAB은 한 번에 잡 하나(병렬 풀 6워커)만. 지금 `r5r6` 실행 중
   zvs1이 끝나면 `python -I -X utf8 Simulink/Thesis/zvs_check.py compare` → `out/zvs_check.{csv,log}` → RESULTS·REPORT에 표를 넣는다.
 - [ ] R9 (개선 6) **ZVS 범위(Simulink)**: 정상상태 실행의 i_L 파형에서 각 레그의 스위칭 순간 전류 부호로 ZVS 여부 판정(엣지 시각은 D0/D1/D2와
   제어기 PWM 타이밍에서 계산, 데드타임 고려). SPS, M-A, M-B 비교 표.
+- [~] (반복 24) R10 준비 완료. 규칙을 결과 전에 `robust_check.py` 머리말에 등록했다(selftest ALL PASS). 변형은 L 81/99 µH, td 200 ns,
+  V1 361/399 V(하나씩)이고, 점은 V2 84/109.2 × |P| 100/300/1000 W × {SPS, M-B(R.4 듀티)}다. 공칭은 R.4다. 점마다 허용오차 max(0.03 A, SPS 2 %)를
+  넘게 나쁘면 "열화"다. 진동(|mean i_L| > 20 mA)이나 감싸지 못한 경우는 "판정 불가"다. 75 % 이상 판정 가능하고 열화가 없으면 "견고"다.
+  MATLAB 쪽은 `verify_steady_param.m`이다(verify_steady_state의 복사본 + 열 L_uH/td_ns/V1 → setBlockParameter Inductor3 'l', UCC0–3
+  tdLH/tdHL, Ref_VH; 묶음·재시작 안전, m_static_check OK). opt1이 원본을 쓰는 중이라 복사본으로 만들었다 — 대기열이 빈 뒤에 합칠 것.
+  `make` → `out/robust_points_r1.csv`, 잡 **`rob1`**(`--after zvs1`). 끝나면 `robust_check.py next`(감싸지 못한 구성이 있으면 r2) → `compare` →
+  `out/robust_verdict.md` → RESULTS·REPORT. **첫 실행이다 — 로그에서 setBlockParameter 오류가 있는지 먼저 확인**(Simscape compiletime 파라미터).
 - [ ] R10 (개선 5) **파라미터 견고성(Simulink)**: L ±10 %, 데드타임 100→200 ns, V1 ±5 %(블록/변수 값을 시뮬레이션 입력으로만 바꿈, 모델 저장 금지)
   × 대표 6점 × {SPS, M-B}(가능하면 M-A) — 상수 D0 두 계단 보간. M-B가 어디서도 SPS보다 의미 있게 나빠지지 않는지.
 - [ ] R11 (개선 4) **동특성: PI 폐루프 계단 응답**: `dataset_era/`의 DAB_Controller_System.m **복사본**에서 위상 분해능 문제(100 ns, 2.88°)를
@@ -144,7 +163,11 @@ MATLAB은 한 번에 잡 하나(병렬 풀 6워커)만. 지금 `r5r6` 실행 중
   워커 1회 ~180 s → 44 ms ≈ 4–5 h). **재시작 안전하게**: 배치(12개)마다 `out/dataset_fixed_part_XXX.csv`를 쓰고 이미 있는 조합은
   건너뛴다(재부팅·잡 종료 후 재제출 시 이어서). 잡은 `--interactive`(로그온 필요; 로그온이 없으면 대기 — PROGRESS에 기록).
   먼저 2조합 스모크로 시간·신호를 확인한 뒤 전체 제출.
-- [~] R7 **(10-29 01:05, 반복 13, 마감 후: MATLAB 30시간째 정지(dcpu ≈ 0.03 배경 틱, 산출물 변화 없음). 로그인 후 경로 자체 시험
+- [x] (반복 24, 10-30) **R5·R6·R7 Simulink 완료.** R6 363/363(`out/dataset_fixed_part_001…021.csv`), `r8_finalize.py` → `out/r8_verdict.md`
+  Q4: 규칙 1 r = 0.51 "일부만 보간 산물", 규칙 2 "수정 데이터셋 최선이 M-B보다 평균 0.40 A 더 줄인다"(최대 +1.88 A, 109.2 V 300 W).
+  분해 `q4_decompose.py`(판정 아님): 0.40 = 진짜 계단 SPS 과대 0.35(87 %, 거의 109.2 V 300 W 4.62 대 2.82 A) + 같은 전력 Ipk 차 0.05 A
+  (최대 0.30 A @ 109.2 V 100 W). RESULTS 0절·R.8 "R7 Simulink" 표, REPORT 0절 표·6.4b절·8절 반영. 최저 조합의 정상상태 = OPT1 격자 묶음.
+- [x] R7 **(10-29 01:05, 반복 13, 마감 후: MATLAB 30시간째 정지(dcpu ≈ 0.03 배경 틱, 산출물 변화 없음). 로그인 후 경로 자체 시험
   재확인 ALL PASS. RESULTS의 정지 시각은 01:03으로 고정하고 "이후 확인은 PROGRESS에만"으로 바꿨다 → **대기 턴은 PROGRESS 한 항목만
   쓰고 짧게 끝낸다**(RESULTS·TASKS 수정 불필요). 로그인 후 할 일은 아래와 같다.)**
   **(10-28 21:00, 반복 12: MATLAB 25시간째 정지(세 MATLAB dcpu 0, 산출물 변화 없음). 이번 턴은 막히지 않은 T9 C 컴파일

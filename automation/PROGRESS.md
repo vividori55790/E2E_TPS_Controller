@@ -2,6 +2,33 @@
 
 <!-- 새 항목은 이 줄 바로 아래에 -->
 
+## 2026-10-30 01:52–02:35 (반복 24) — r5r6 완료 → Q4 판정·분해 / opt1 실행 중 / R10 준비·rob1·optR 대기열
+- **r5r6 끝(01:50:46, exit 0)**: 3단계 R6 363/363조합, 19,588 s(`out/dataset_fixed_part_001…021.csv`). 러너가 이것으로 깨웠다.
+- **맨 먼저 `surface_opt_check.py make --fams grid`** → `out/opt_points_grid_r1.csv` 80구성 101회(22구성은 R.4/eff 실행으로 이미 감쌈).
+  R6 84/109.2 V 둘 다 121/121이다. 계단 상위 3조합은 대부분 M-B와 같은 쪽이다(84 V D1 ≤ D2, 109.2 V D2 < D1; 예외 84 V 600 W (0.484, 0.453)).
+  109.2 V 경부하는 M-B보다 D1이 크다((0.263, 0.200)).
+- **opt1**: 01:50:53 시작, mb 1묶음 24회 931 s, 오류 0. 수정된 `verify_steady_state.m` 첫 실행을 확인했다. 열이 50개이고(Ipk_at_10, 15…30 ms
+  17개), `out/iL_wave/opt_sweep_mb_r1_part001.csv`(24 × 400, NaN 0, 한 주기 최대 ≈ Ipk)도 나왔다. 일정: mb 5묶음 → k1 3묶음(40 ms) → grid 5묶음, 05:30쯤 끝.
+- **`r8_finalize.py`(R6 전체)** → `out/r8_verdict.md` Q4(규칙 불변): 규칙 1 r = 0.51(13칸 +1.60 → +0.81 A) "일부만 보간 산물", 규칙 2 "수정
+  데이터셋 최선이 M-B보다 평균 0.40 A 더 줄인다"(최대 +1.88 A @ 109.2 V 300 W). Q1–Q3은 그대로다. 8단계 평균 저감은 84 V +0.82 → +0.23 A,
+  109.2 V +1.95 → +1.11 A다(`out/dataset_fixed_compare.log`).
+- **`q4_decompose.py`(새로 씀, 판정 아님)** → `out/q4_decompose.log`: (수정 − M-B) = (진짜 계단 SPS − 정상상태 SPS) + (M-B 정상상태 − 격자 최저
+  계단 Ipk). 7점 평균 +0.398 = +0.346(87 %) + +0.052 A다. 첫 항은 거의 109.2 V 300 W 한 칸이다(SPS 4.62 대 2.82 A). 둘째 항의 최대는 +0.297 A
+  (109.2 V 100 W, Q2의 깜빡이는 점)이고, 0.1 A 초과는 84 V 300 W(+0.11)와 그 점뿐이다. 둘째 항도 계단 대 정상상태 비교라 OPT1이 판정한다.
+- RESULTS: 머리말, 0절 새 항목(수정 데이터셋), R.8에 "R7 Simulink" 표·판정·분해. REPORT: 0절 표 한 줄·남은 것, **6.4b절 새로 씀**(표 6-1b,
+  규칙 판정 둘, 분해 표), 8절 표(R6 완료, OPT 실행 중, R10), 9절 명령, 11절 격자 행.
+- **R10 준비**: `robust_check.py`(규칙을 결과 전에 머리말에 등록, selftest ALL PASS — 첫 시도의 가짜 데이터가 SPS 계단을 전력끼리 겹쳐 FAIL,
+  데이터만 고침) + `verify_steady_param.m`(verify_steady_state 복사본 + 실행별 L_uH/td_ns/V1 → setBlockParameter Inductor3 'l', UCC0–3
+  tdLH/tdHL(ns), Ref_VH; 묶음·재시작 안전; m_static_check OK). 블록 경로·단위는 .slx XML에서 확인했다(루트 블록, l_unit H, td_unit ns,
+  compiletime). `make`(Python 플랜트, 변형별 계단 선택, 10분 50초) → `out/robust_points_r1.csv` 111회. 잡 **`rob1`**(`--after zvs1`).
+- **`opt_rounds.m`**(새로 씀): `surface_opt_check.py next` → `opt_chain(rnd)`를 rnd = 2…4에서 감쌀 것이 없을 때까지 반복한다(m_static_check OK).
+  잡 **`optR`**(`--after rob1`). opt1이 중간에 죽어도 next가 실행 없는 구성을 다시 계획하므로 복구된다.
+- **job.py kill 한계(TASKS MATLAB 순서 줄)**: OPT 2라운드를 eff1 앞에 넣으려고 rob1을 kill해 시험했다. 작업만 지워지고 세션 1의 wscript/cmd/
+  `python job.py wait zvs1`는 살아남았다. taskkill은 승인이 필요해 쓰지 않았다. rob1.json을 running으로 되돌리고 rob1.done(−9)을 지웠다
+  (rob1은 zvs1 뒤에 그대로 돈다). 단, DABJob-rob1 작업이 지워져서 재부팅 후 로그온 때 다시 뜨지 않는다. 재부팅되면 rob1은 died가 되고 다시 제출해야 한다.
+- 다음 턴(opt1 끝, 05:30쯤): `surface_opt_check.py compare`로 1라운드 판정(감싸지 못한 구성은 "판정 불가"; optR가 나중에 채움) → 결과를
+  RESULTS R.10·REPORT 11절에 "1라운드" 표시와 함께 넣고, 규칙 (i)이 깨진 점이 있으면 OPT4 재학습 설계를 시작한다.
+
 ## 2026-10-30 01:12–01:55 (반복 23) — Q2 0.20 A는 측정 창 산물일 수 있음 / OPT4 판정문·그림 도구 / R9 ZVS 준비·zvs1 제출
 - **러너가 240분 대기 만료로 깨웠다**(r5r6는 아직 실행 중). r5r6 3단계 R6는 묶음 17/21이 끝났고(01:00), 20번째 묶음이 01:32에 시작했다.
   02:05쯤 끝난다. 그동안 MATLAB 없이 할 수 있는 일을 했다.
