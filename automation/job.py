@@ -1,7 +1,8 @@
 """
 automation/job.py -- background compute jobs that run WITHOUT Claude (the loop overlaps them with agent turns).
 
-  python automation/job.py submit NAME [--interactive] [--cwd DIR] -- CMD [ARGS...]
+  python automation/job.py submit NAME [--interactive] [--cwd DIR] [--after JOB[,JOB]] -- CMD [ARGS...]
+      --after: start CMD only when those jobs have ended (queue; e.g. one MATLAB at a time)
   python automation/job.py status
   python automation/job.py tail NAME [-n 40]
   python automation/job.py kill NAME
@@ -46,8 +47,12 @@ def _quote(a):
     return '"' + a.replace('"', '\\"') + '"' if (" " in a or "\t" in a or '"' in a) else a
 
 
-def submit(name, cmd, cwd, interactive):
+def submit(name, cmd, cwd, interactive, after=()):
     os.makedirs(JOBS, exist_ok=True)
+    for n in after:
+        if not os.path.exists(_p(n, "json")):
+            print(f"REFUSED: --after {n}: no such job")
+            return 2
     old = _refresh(name)
     if old.get("status") == "running" and not os.path.exists(_p(name, "done")):
         print(f"REFUSED: job {name} is still running (pid {old.get('pid')})")
@@ -63,13 +68,19 @@ def submit(name, cmd, cwd, interactive):
         cmd.insert(1, "-softwareopengl")
     line = " ".join(_quote(c) for c in cmd)
     body = ["@echo off", f'cd /d "{cwd}"',
-            f'echo ==== job {name} start %DATE% %TIME% >> "{_p(name, "log")}"',
-            f'{line} >> "{_p(name, "log")}" 2>&1',
+            f'echo ==== job {name} start %DATE% %TIME% >> "{_p(name, "log")}"']
+    if after:
+        # --after (10-29): queue behind other jobs (one MATLAB at a time) -- this job's process waits in job.py wait,
+        # then runs; the runner counts it as running meanwhile. A job that died (reboot) also counts as ended.
+        body += [f'echo ==== waiting for {" ".join(after)} %DATE% %TIME% >> "{_p(name, "log")}"',
+                 f'"{sys.executable}" -I "{os.path.abspath(__file__)}" wait {" ".join(after)} >> "{_p(name, "log")}" 2>&1',
+                 f'echo ==== wait over, running %DATE% %TIME% >> "{_p(name, "log")}"']
+    body += [f'{line} >> "{_p(name, "log")}" 2>&1',
             f'echo %ERRORLEVEL% > "{_p(name, "done")}"',
             f'echo ==== job {name} exit %ERRORLEVEL% %DATE% %TIME% >> "{_p(name, "log")}"']
     task = f"DABJob-{name}"
     meta = dict(name=name, cmd=line, argv=list(cmd), cwd=cwd, interactive=interactive, status="running",
-                start=dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), start_ts=time.time())
+                start=dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), start_ts=time.time(), after=list(after))
     if interactive:
         body.append(f'schtasks /Delete /TN "{task}" /F >nul 2>&1')
         io.open(_p(name, "cmd"), "w", encoding="ascii", errors="replace").write("\r\n".join(body) + "\r\n")
@@ -123,6 +134,10 @@ def _run(name):
     stamp = lambda: dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-4]   # noqa: E731
     with open(_p(name, "log"), "ab", buffering=0) as logf:
         logf.write(f"==== job {name} start {stamp()}\n".encode())
+        if d.get("after"):
+            logf.write(f"==== waiting for {' '.join(d['after'])} {stamp()}\n".encode())
+            wait(d["after"])
+            logf.write(f"==== wait over, running {stamp()}\n".encode())
         try:
             rc = subprocess.call(argv, cwd=d["cwd"], stdin=subprocess.DEVNULL, stdout=logf, stderr=subprocess.STDOUT,
                                  creationflags=0x08000000)                     # CREATE_NO_WINDOW
@@ -287,6 +302,7 @@ def main():
     s.add_argument("name")
     s.add_argument("--interactive", action="store_true")
     s.add_argument("--cwd", default=None)
+    s.add_argument("--after", type=lambda x: x.split(","), default=None)
     s.add_argument("rest", nargs=argparse.REMAINDER)
     sub.add_parser("status")
     t = sub.add_parser("tail")
@@ -309,6 +325,7 @@ def main():
         return diag(a.name)
     if a.cmd == "submit":
         rest = list(a.rest)
+        after = list(a.after or [])
         # argparse.REMAINDER after NAME swallows options given as "NAME --interactive -- CMD"; peel them off
         while rest and rest[0] != "--" and rest[0].startswith("--"):
             opt = rest.pop(0)
@@ -318,14 +335,18 @@ def main():
                 a.cwd = rest.pop(0)
             elif opt.startswith("--cwd="):
                 a.cwd = opt.split("=", 1)[1]
+            elif opt == "--after" and rest:
+                after = rest.pop(0).split(",")
+            elif opt.startswith("--after="):
+                after = opt.split("=", 1)[1].split(",")
             else:
                 print(f"unknown option before '--': {opt}")
                 return 1
         rest = rest[1:] if rest and rest[0] == "--" else rest
         if not rest:
-            print("usage: job.py submit NAME [--interactive] -- CMD ...")
+            print("usage: job.py submit NAME [--interactive] [--after JOB[,JOB]] -- CMD ...")
             return 1
-        return submit(a.name, rest, a.cwd, a.interactive)
+        return submit(a.name, rest, a.cwd, a.interactive, [x for x in after if x])
     if a.cmd == "status":
         return status()
     if a.cmd == "tail":

@@ -2,6 +2,29 @@
 
 <!-- 새 항목은 이 줄 바로 아래에 -->
 
+## 2026-10-29 20:42–21:15 (반복 22) — r5r6 2단계 완료 → Q2/Q3 판정 / OPT0 규칙 등록 / OPT 잡 대기열
+- **r5r6**: 2단계(같은 라벨 정상상태 106점)가 20:23에 끝났다(`out/stair_steady_part{001,037,073}.csv`). 3단계 R6는 20:24부터 돈다.
+  묶음 1/21(18조합)은 982 s, 묶음당 약 16분이라 10-30 02시쯤 끝난다.
+- `r8_finalize.py` → `out/r8_verdict.md`. 판정 결과는 다음과 같다. **Q2 "실재하는 차"**: 109.2 V 100 W에서 데이터셋 조합 (0.247, 0.200)의
+  정상상태가 1.568 A이고 M-B는 1.764 A다(D − B_st +0.197 A; 84 V 두 점은 +0.053, +0.039). **Q3 "이득 없음"**: 94.61 V 100–200 W에서 TPS
+  0.453 / 0.326이 SPS보다 0.011–0.468 A 나쁘다. 30 vs 20 ms 차는 최대 0.20 A다. Q1은 그대로다(r = 0.33). 같은 라벨에서 1 ms 창과
+  정상상태의 차는 진짜 계단 평균 0.08 A, 최대 1.17 A다. **Q4는 R6 18/363조합으로 낸 값이라 판정으로 쓰지 않는다**(격자 최저가 D2 = 0.2 몇
+  조합뿐). B_st의 불확도: 라벨 간격이 넓은 보간(15.6° → 74 W, 18.5° → 146 W)이고, 15.6° 실행은 30 ms에서도 정착 중이었다(20 ms 1.68 → 30 ms 1.26 A).
+- **OPT0 완료(커밋 fd95a30, OPT 결과 전)**: `surface_opt_verdict.py` + `test_surface_opt_verdict.py` 19항목 ALL PASS. 세부 결정은 TASKS
+  OPT0 줄에 있다(후보 = 2.88° 두 계단 정상상태만, 진동 제외, (ii) min(D) < 0.45, (iii) 같은 쪽 ≥ 75 %·Spearman ≥ 0.8·끝 ≥ 0.45).
+- **`surface_opt_check.py`**(make/next/compare; mb = OPT3 십자 + 두 듀티 동시 +0.04/+0.08 + BT, k1 = OPT2 40 ms, grid = OPT1 R6 상위 3 + SPS
+  + M-B, R6가 V2마다 121조합이 다 있어야 만든다) + **`opt_chain.m`**(묶음별 try/catch, 점 파일이 없으면 건너뜀; m_static_check ALL PASS).
+  `make --fams mb,k1` → `out/opt_points_mb_r1.csv` 118회(M-B·SPS 12구성은 R.4 재사용), `out/opt_points_k1_r1.csv` 71회. 이상 모델로
+  닿지 못하는 구성은 없었다. compare는 기존 실행으로 연기 시험만 했고, 그 출력은 지웠다.
+- **job.py `--after JOB[,JOB]`**(대기열): interactive는 .cmd에서 `job.py wait`, detached는 `_run`에서 기다린다. qtest_a/b로 시험했다(b가 a
+  종료 30 s 뒤 실행). 시험 파일은 지웠다. **잡 `opt1`**(`opt_chain(1)`, `--after r5r6`), **`eff1`**(R8 38회, `--after opt1`)을 제출했다.
+  셋 다 running이고, 두 잡은 "waiting for" 상태다. 재부팅 위험은 TASKS MATLAB 순서 줄에 적었다(로그온 트리거가 둘 다 다시 뜰 수 있음).
+- 다음 턴(r5r6 종료 = 러너가 잡 하나 끝나면 깨움): **맨 먼저** `surface_opt_check.py make --fams grid`를 돌린다(opt_chain이 약 2.2 h 뒤 grid 차례에
+  파일을 확인). 그다음 `r8_finalize.py`(R6 전체 → Q4 확정), RESULTS R.8 R7 표·REPORT 6절 갱신. opt1이 끝나면 next → compare → OPT4.
+- Python 플랜트 E2E 재학습은 막혔다(`plant_full.operating_point` 512점이 10분을 넘겨 중단). 수정 경로는 Simulink 데이터 기반으로 한다(TASKS OPT4 메모).
+- RESULTS: 머리말, 0절(Q2·Q3·OPT 항목), R.8 (d) 표·k ≈ 1 표·같은 라벨 정상상태 문단, 새 R.10. REPORT: 0절 표 두 줄·남은 것, 6.4·6.6절
+  [S] 결과, 8절 표, 9절 명령, 새 11절.
+
 ## 2026-10-29 19:08–19:27 (반복 21) — r5r6 재부팅 사망 → 재제출(19:21부터 실행 중) / REPORT.md 초판 / R8 효율 부분 결과
 - **r5r6 경위**: 18:38 로그온으로 시작해 1단계 interp=0(5회, 358 s) → `out/staircase_check_interp0.csv` 195행(18:49). 2단계 part001
   18/36회(19:00:32)에서 PC가 재부팅됐다(GetTickCount 부팅 19:05:39). job.py가 died(.done −2) 처리. 옛 로그는

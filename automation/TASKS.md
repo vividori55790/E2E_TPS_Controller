@@ -3,7 +3,17 @@
 ## ★★★★★ 2026-10-29 19:10 사용자 지시 — 모든 것보다 먼저: "저렇게 생긴 게 정말 최적 곡면이 맞는지부터 검증해"
 대상: 제안 곡면 M-B(`out/model_smooth_reghdc_b3.json`, 그림 `out/fig_surface3d.png`). **판정은 Simulink 수치로만**(해석 모델·Python 플랜트는
 운전점·D0 계단 선택에만 쓴다). 사용자는 레퍼런스 [1]처럼 k = 1 중앙이 깊게 파여야 한다고 의심한다 — 그 가설도 Simulink로 직접 시험한다.
-- [ ] OPT0 **판정 규칙 먼저 등록**(결과를 보기 전에): `Simulink/Thesis/surface_opt_verdict.py`에 규칙과 가짜 입력 시험(`test_surface_opt_verdict.py`).
+- **진행(반복 22, 10-29 21:00)**: OPT0 완료(커밋 fd95a30, 결과 전). `surface_opt_check.py`(make/next/compare; 묶음 mb = OPT3, k1 = OPT2,
+  grid = OPT1)와 `opt_chain.m`(m_static_check ALL PASS) 작성. mb 118회 + k1 71회를 잡 **`opt1`**(`--after r5r6`, job.py에 새로 넣은 대기열
+  옵션)로 제출 → r5r6 끝나면 MATLAB이 바로 이어 돈다(mb 약 75분 → k1 약 60분 → grid). **r5r6가 끝난 턴에 맨 먼저**
+  `python -I -X utf8 Simulink/Thesis/surface_opt_check.py make --fams grid`를 돌려 `out/opt_points_grid_r1.csv`를 만든다(opt_chain이
+  grid 차례(r5r6 종료 약 2.2 h 뒤)에 파일을 확인한다; 늦으면 `opt_chain(1)`을 `opt1b`로 다시 제출 — 끝난 묶음은 건너뜀). 그다음
+  `r8_finalize.py`(R6 전체로 Q4 확정). opt1이 끝나면 `surface_opt_check.py next`(감싸지 못한 구성 → `opt_chain(2)`) → `compare` →
+  OPT4(그림, `out/surface_opt_verdict.md`, REPORT 11절·RESULTS R.10). 2단계 증거: 109.2 V 100 W에서 데이터셋 조합 (0.247, 0.200)이
+  M-B보다 0.20 A 낮음(R.8 Q2 "실재하는 차") → 규칙 (i)이 깨질 가능성이 큼 → 그러면 OPT4 재학습 경로(Simulink 격자 최적 목표)를 바로 준비.
+- [x] OPT0 **판정 규칙 먼저 등록**(결과를 보기 전에): `Simulink/Thesis/surface_opt_verdict.py`에 규칙과 가짜 입력 시험(`test_surface_opt_verdict.py`).
+  (반복 22: 19항목 ALL PASS. 후보 = 2.88° 두 계단 정상상태만, 진동(|mean i_L| > 20 mA) 후보 제외, M-B/SPS 진동이면 판정 불가,
+  (ii)는 min(D1, D2) < 0.45, (iii)은 같은 쪽 = s(D2*−D1*) ≥ 0 비율 ≥ 75 %·SPS만 최적이면 불일치, 상승 = Spearman ≥ 0.8 & 최대 전력 d* ≥ 0.45.)
   (i) 한 점에서 "M-B가 Simulink 최적": Ipk(M-B) − min(그 점의 모든 Simulink 후보 Ipk) ≤ max(0.03 A, Ipk_SPS의 2 %). (ii) "k = 1 중앙의 깊은 골이
   실재": V2 = 95 V에서 D < 0.45인 후보 중 하나라도 같은 전력의 SPS보다 0.05 A 넘게 낮다(100/300/600 W 중 어디서든). (iii) 곡면 모양 판정:
   Simulink 격자 최적 (D1*, D2*)가 M-B와 같은 쪽(84 V는 D1 < D2, 109.2 V는 D2 < D1)이고 |P|가 커질수록 0.5로 오르는지. 규칙은 이후 바꾸지 않는다.
@@ -19,8 +29,13 @@
 - [ ] OPT4 정리: `surface_opt_check.py` → `out/surface_opt_check.{csv,log}`, 그림 `out/fig_surface_opt_check.png`(V2별 |P|–D1/D2 단면: M-B 곡선, Simulink
   격자 최적 점, 허용오차 안 후보 범위 막대; 아래 행 Ipk(M-B) − Ipk(최적)). 판정문 `out/surface_opt_verdict.md`. REPORT.md·RESULTS.md에 절 추가.
   규칙 (i)이 깨지는 점이 있으면 곡면을 고치는 방법(Simulink 격자 최적을 목표로 재학습 = R13 앞당김)을 제안하고 바로 진행.
+  (반복 22 메모: Python 플랜트를 E2E 학습 루프에 넣는 길은 막혔다 — `plant_full.operating_point` 512점이 10분을 넘겨 중단(배치 4096 ×
+  1200 step 불가). 남는 길은 Simulink 데이터 기반이다. OPT1 격자 최적 + OPT3 국소 탐색으로 M-B 곡면에 매끄러운 보정 (ΔD1, ΔD2)(|P|, V2)를
+  맞추거나, R13(V2 7값) 데이터로 Simulink 정상상태 최적 곡면을 직접 만든다. V2 84/95/109.2 세 값만으로는 V2 방향 보간 근거가 약하다.)
 - MATLAB 순서: 지금 `r5r6`(10-29 19:03 재시작; 19:02 시스템 충돌 — 버그체크 0xa0000001, 그래픽/가상 디스플레이 드라이버 계열로 추정) → OPT2+OPT3를
   한 잡으로(약 200 실행, 1–2 h) → 아래 R8 이후. 충돌로 잡이 죽으면(`job.py`가 died 표시) 같은 이름으로 다시 제출하고 이미 있는 출력은 건너뛰게 한다.
+  (반복 22: `opt1` = OPT3+OPT2(+grid)로 r5r6 뒤 대기 중. 재부팅 주의: 두 잡의 로그온 트리거가 남아 로그온 때 둘 다 다시 뜰 수 있다 —
+  r5r6가 died(.done −2)면 opt1의 대기가 바로 풀려 MATLAB 둘이 함께 돈다. 재부팅 뒤에는 `job.py status`로 보고 하나를 kill/재제출.)
 
 ## ★★★★ 2026-10-29 19:00 사용자 지시 — 최우선 (위에서부터 순서대로)
 검증 원칙: LOOP_PROMPT "검증 원칙" — Simulink로 검증한 수치만 결론에 쓴다(해석 모델·Python 플랜트 = 참고, 표시 필수).
@@ -44,7 +59,7 @@ MATLAB은 한 번에 잡 하나(병렬 풀 6워커)만. 지금 `r5r6` 실행 중
 - [~] (반복 21) R8 부분 완료: `efficiency_sweep.py compare`가 기존 R.4 실행을 재사용해 43/63구성의 η·손실을 낸다
   (`out/efficiency_compare.log`, RESULTS R.9, REPORT 5절). 남은 20구성 38회는 `out/eff_points_r1.csv`에 있다. **r5r6가 끝나면**
   `python automation/job.py submit eff1 --interactive -- matlab -batch "cd('Simulink/Thesis'); verify_steady_batch('out/eff_points_r1.csv', 'out/eff_sweep_r1.csv', 24, 0.030)"`
-  (약 25 min)를 실행한다. 그 뒤 `efficiency_sweep.py next`로 감싸지지 않은 구성이 있으면 r2를 돌리고, `compare`와 그림(Fig. 26–28 형식, 아직 없음)을 만든다.
+  (약 25 min)를 실행한다(반복 22: OPT가 최우선이므로 `opt1` 뒤로 — `--after opt1`). 그 뒤 `efficiency_sweep.py next`로 감싸지지 않은 구성이 있으면 r2를 돌리고, `compare`와 그림(Fig. 26–28 형식, 아직 없음)을 만든다.
   (r5r6_chain.m에 2b단계로도 넣었지만, 실행 중인 r5r6은 수정 전 파일을 읽었다.)
 - R8 (개선 1) **효율·손실 곡선**: 기존 Simulink 정상상태 결과(R.4 스윕 출력, t6)의 P_LV·P_HV로 η = |P_LV|/|P_HV|(HV→LV)를
   같은 전력 보간으로 계산. 부족한 점은 추가 실행(SPS, M-A, M-B × V2 84/95/109.2 × |P| 100/200/300/400/600/800/1000 W). 그림: 레퍼런스
