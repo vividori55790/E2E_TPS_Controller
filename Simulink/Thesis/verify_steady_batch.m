@@ -5,6 +5,8 @@ function verify_steady_batch(pointsCsv, outCsv, chunk, simTime)
 % the peak near chunk x 94 MB; the parallel pool is reused between chunks. Paths are relative to the caller's folder.
 % Output: one file per chunk, <outCsv without .csv>_partNNN.csv (simulink_sweep.py reads them with the same glob);
 % they are not concatenated here (the error column's type can differ between chunks).
+% Restart-safe (2026-10-29, after a reboot stopped r5r6 mid-chunk): a chunk whose output file already exists is skipped,
+% so a resubmitted job with the same points file and chunk size continues where it stopped.
 %
 %   python automation/job.py submit NAME --interactive -- matlab -batch "cd('Simulink/Thesis'); verify_steady_batch('out/sweep_points_r2.csv', 'out/simulink_sweep_r2.csv')"
 
@@ -20,6 +22,10 @@ function verify_steady_batch(pointsCsv, outCsv, chunk, simTime)
         e = min(N, s + chunk - 1);
         pin = fullfile(d, sprintf('%s_part%03d_in.csv', b, s));
         pout = fullfile(d, sprintf('%s_part%03d.csv', b, s));
+        if isfile(pout)
+            fprintf('verify_steady_batch: runs %d-%d of %d already in %s, skipped\n', s, e, N, pout);
+            continue;
+        end
         writetable(pts(s:e, :), pin);
         fprintf('verify_steady_batch: runs %d-%d of %d -> %s\n', s, e, N, pout);
         verify_steady_state(pin, pout, simTime);

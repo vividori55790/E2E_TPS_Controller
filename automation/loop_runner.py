@@ -566,6 +566,7 @@ def main():
                 continue
             log(f"pacing ok: {why}")
             effort = CFG["boost_effort"] if (behind and CFG["boost_effort"]) else CFG["effort"]
+            t_turn = time.time()
             try:
                 rep = run_turn(state, a.dry_run, effort)
             except Exception as e:
@@ -600,9 +601,11 @@ def main():
                 break
             if a.once:
                 break
-            # wait whenever a job is still pending, even if the report forgot to ask: a turn that only re-checks a job
-            # costs usage, the wait does not (capped by job_wait_max_min / the report's wait_minutes)
-            if running_jobs():
+            # wait for pending jobs when the agent asks, or when the turn was a short re-check (< 5 min: nothing to do
+            # without the jobs; 10-29 18:34 such turns came every minute). A real working turn (MATLAB-free preparation
+            # while a long Simulink job runs) is followed by the next turn at once. The wait costs no Claude usage.
+            short = (time.time() - t_turn) < 300
+            if running_jobs() and (rep.get("wait_for_jobs") or short):
                 wait_for_jobs(min(CFG["job_wait_max_min"], int(rep.get("wait_minutes") or CFG["job_wait_max_min"])))
             else:
                 sleep_checked(CFG["min_gap_s"], "gap between turns")

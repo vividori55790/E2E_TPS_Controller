@@ -4,6 +4,7 @@ function r5r6_chain()
 %   1. staircase_check interp = 0           -> out/staircase_check_interp0.csv   (5 runs, 44 ms)
 %   2. steady state at the same D0 labels   -> out/stair_steady_part*.csv       (106 runs: 65 staircase labels + 18 K1_
 %                                                                                 + 23 BT_, constant D0, 30 ms)
+%  2b. efficiency runs (R8, 10-29)          -> out/eff_sweep_r1_part*.csv       (38 runs, 30 ms)
 %   3. gen_dataset_fixed (R6, restart-safe) -> out/dataset_fixed_part_*.csv     (363 runs, 44 ms)
 % Written 2026-10-27 after stair_i0 / R6_smoke stalled at 0 % CPU (MathWorks Service Host restarted at 19:11 and
 % opened its window; online licensing presumably waits for a sign-in in the desktop session). 10-28: first waits
@@ -28,14 +29,18 @@ function r5r6_chain()
         fprintf('--- step 1: %s exists, skipped\n', f0);
     end
 
-    parts = dir(fullfile(out, 'stair_steady_part*.csv'));
-    parts = parts(~endsWith({parts.name}, '_in.csv'));
-    if isempty(parts)
-        fprintf('--- step 2: steady state at the staircase D0 labels\n');
-        failed = runStep(failed, 'step 2', @() verify_steady_batch(fullfile(out, 'stair_steady_points.csv'), ...
-                                                                fullfile(out, 'stair_steady.csv'), 36, 0.030));
-    else
-        fprintf('--- step 2: %d stair_steady part file(s) exist, skipped\n', numel(parts));
+    % 10-29: always called -- verify_steady_batch skips the chunks whose part file exists (a reboot at 19:05 stopped
+    % this step inside its first chunk; before, any existing part file skipped the whole step)
+    fprintf('--- step 2: steady state at the staircase D0 labels\n');
+    failed = runStep(failed, 'step 2', @() verify_steady_batch(fullfile(out, 'stair_steady_points.csv'), ...
+                                                            fullfile(out, 'stair_steady.csv'), 36, 0.030));
+
+    % 10-29 (R8, user list): efficiency curve -- the 200/400/800 W configurations R.4 did not run (38 runs x 30 ms,
+    % ~25 min; efficiency_sweep.py next). Before step 3 because it is short; restart-safe per 24-run chunk.
+    fe = fullfile(out, 'eff_points_r1.csv');
+    if isfile(fe)
+        fprintf('--- step 2b: efficiency runs (R8)\n');
+        failed = runStep(failed, 'step 2b', @() verify_steady_batch(fe, fullfile(out, 'eff_sweep_r1.csv'), 24, 0.030));
     end
 
     fprintf('--- step 3: gen_dataset_fixed (R6)\n');

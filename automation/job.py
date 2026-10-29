@@ -56,6 +56,11 @@ def submit(name, cmd, cwd, interactive):
         if os.path.exists(_p(name, ext)):
             os.remove(_p(name, ext))
     cwd = os.path.abspath(cwd or ROOT)
+    # MATLAB without GPU rendering: on 10-29 the PC bug-checked twice (0xa0000001, display watchdog dumps after the
+    # virtual display driver MttVDD.dll crashed), the second time ~2 min after a MATLAB job started
+    cmd = list(cmd)
+    if cmd and os.path.basename(cmd[0]).lower() in ("matlab", "matlab.exe") and "-softwareopengl" not in cmd:
+        cmd.insert(1, "-softwareopengl")
     line = " ".join(_quote(c) for c in cmd)
     body = ["@echo off", f'cd /d "{cwd}"',
             f'echo ==== job {name} start %DATE% %TIME% >> "{_p(name, "log")}"',

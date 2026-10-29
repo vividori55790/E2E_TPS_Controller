@@ -2,6 +2,35 @@
 
 <!-- 새 항목은 이 줄 바로 아래에 -->
 
+## 2026-10-29 19:08–19:27 (반복 21) — r5r6 재부팅 사망 → 재제출(19:21부터 실행 중) / REPORT.md 초판 / R8 효율 부분 결과
+- **r5r6 경위**: 18:38 로그온으로 시작해 1단계 interp=0(5회, 358 s) → `out/staircase_check_interp0.csv` 195행(18:49). 2단계 part001
+  18/36회(19:00:32)에서 PC가 재부팅됐다(GetTickCount 부팅 19:05:39). job.py가 died(.done −2) 처리. 옛 로그는
+  `automation/state/jobs/r5r6_run1_1029_1838.log.bak`(state/, gitignore). **19:09:56 재제출** → 19:16:46 로그온으로 작업 시작,
+  `r5r6_chain: start 19:20:59`, 1단계 건너뜀, 2단계 19:22:32 시뮬레이션 시작. 남은 시간 약 1 h(2단계) + 4–5 h(3단계).
+- 앞선 반복 21 시도(18:58, 19:04 러너 재시작으로 끊김; PROGRESS 항목 없음)가 `staircase_compare.py` + `r8_verdict.py`(18:59)와
+  `selection_bias.py`(19:00)를 돌려 두었다. 확인 결과 Q1 판정은 r = 0.33(13칸 평균 +1.42 → +0.47 A)이고, 규칙상 "대부분 보간 산물"이다.
+  진짜 계단에서도 SPS가 튀는 칸이 있다: 109.2 V HV→LV 300 W 4.62 A(정상 2.82 A), 84 V LV→HV 300 W 4.16 A. 2단계에서 확인한다(규칙은 안 바꿈).
+- **R0 `Simulink/Thesis/REPORT.md` 초판**(0–10절, 모든 수치에 [S]/[참고]/[대기] + 출처). RESULTS 머리말·0절·R.8 (ii)를 오늘 결과로 고쳤다.
+- **`ref1_compare.py`** → `out/ref1_compare.{log,csv}`(해석 모델, 참고). [1] 사양(200 V, 160–230 V, n 1, 20 kHz, 140 µH)의 상대 저감은
+  가장자리 경부하 31–35 %, 1 kW 0.5–2.4 %, k = 1에서 0이다. 이 설계 값은 tps_limit.log와 같다(29.3 %, 39.0 %). k = 1·100 W에서는
+  D1 = D2 = 0.42–0.425(문헌 0.84–0.85)가 SPS보다 17–19 % 높아 이상 모델에 골이 없다. → Fig. 14(a)의 골은 원문 확인 필요.
+- **`efficiency_sweep.py`**(R8): R.4 실행을 재사용해 compare → 43/63구성. M-B는 진동 없는 12구성에서 손실 −2.70 W, Δη +0.36 pp,
+  최악 84 V 100 W −1.31 pp다(Ipk·RMS가 낮은데 손실 +1.44 W, 원인 미상). M-A는 95 V 100 W −4.0 pp. `next` → `out/eff_points_r1.csv` 38회.
+- **MATLAB 파일 수정**(m_static_check ALL PASS): `verify_steady_batch.m`은 part 출력이 있으면 그 묶음을 건너뛴다. `r5r6_chain.m`은 2단계를
+  항상 호출하고(이전: part 하나라도 있으면 2단계 전체 건너뜀 → 재부팅 시 점 누락 위험), 2b단계(eff_points_r1)를 3단계 앞에 넣었다.
+  다만 실행 중인 MATLAB은 19:20:59에 수정 전 체인을 읽었으므로 이번 실행에서 2b는 돌지 않는다 → r5r6 뒤 잡 `eff1`로 따로 돌린다.
+- 다음 턴: r5r6 진행 확인(2단계 part001/037/073). 끝나면 r8_finalize.py → REPORT/RESULTS 갱신, 그다음 eff1 제출.
+  기다리는 동안 MATLAB 없이 할 일은 R9 ZVS 판정 코드 준비다(verify_steady_state의 i_L 파형 저장 여부 확인 필요).
+
+## 2026-10-29 19:15 (대화형 세션) — 시스템 충돌 2회, MATLAB 소프트웨어 렌더링, 최적성 검증 최우선
+- **19:02, 19:05 시스템 버그체크 0xa0000001 두 번**(Kernel-Power 41, 미니덤프 `C:\Windows\Minidump\102926-*.dmp`).
+  직전 19:01:07 가상 디스플레이 드라이버 `MttVDD.dll` 런타임 오류(10121) → 장치 오프라인, `C:\Windows\LiveKernelReports\WATCHDOG\`
+  덤프가 19:01–19:05 매분. 두 번째는 r5r6 MATLAB 시작(19:03:27) 약 2분 뒤. 그래픽/가상 디스플레이 스택 문제로 추정(사용자에게 HDMI 더미
+  플러그·AMD 드라이버 재설치 권고). 그 사이 r5r6가 2단계에서 두 번 끊김.
+- 대응: `job.py`가 MATLAB 잡에 `-softwareopengl`을 자동으로 붙인다(GPU 렌더링 회피). 이미 제출된 `state/jobs/r5r6.cmd`도 같은 옵션으로 고침.
+  MATLAB이 이 옵션을 거부하면(로그에 오류) 옵션을 빼고 다시 제출하고 기록할 것.
+- **사용자 지시: 제안 곡면이 정말 최적인지 Simulink로 먼저 검증** → TASKS.md "★★★★★" OPT0–OPT4가 최우선.
+
 ## 2026-10-29 18:36–18:41 (반복 20) — `r5r6` 여전히 로그온 대기 / 1분 간격 턴 반복 멈춤
 - `job.py diag r5r6`(18:37): 작업 "준비", 마지막 결과 267011(한 번도 실행 안 됨), explorer.exe 0개, MATLAB.exe 0개 — 반복 19와 같음.
 - 반복 18–20이 1분 간격으로 열린 원인: `loop_runner.running_jobs()`(355–368행)는 `.log`가 없는 --interactive 잡을 "시작 안 됨"으로
