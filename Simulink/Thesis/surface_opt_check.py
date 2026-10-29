@@ -51,6 +51,11 @@ R6_PER_V2 = 121
 BT = {(109.2, 100.0): (0.247368421, 0.2), (84.0, 300.0): (0.373684211, 0.389473684),
       (84.0, 100.0): (0.215789474, 0.231578947)}                    # R.8 Q2: dataset best-TPS combos (BT_ labels)
 
+# window sensitivity (flicker_check.py, 10-30): a few clean runs jump between two peak levels from one 1 ms window to the
+# next. The verdict uses the end window (registered); these two only show how robust it is -- same bracket, other Ipk.
+SENS = {"Ipk_at_25ms": "25 ms 창", "Ipk_max": "최대 15 ms–끝"}
+FLICKER = 0.05                                                      # [A] window-peak span counted as flicker
+
 
 def _mb():
     return ct.SmoothRegHDC.from_json(os.path.join(OUT, "model_smooth_reghdc_b3.json"))
@@ -194,7 +199,19 @@ def results(fam):
         d = d[d["error"].isna() | (d["error"].astype(str).str.strip() == "")]
     d["Pd"] = -d["P_LV"]
     d["level"] = np.round((d["D0"] + 0.5 * sw.G) / sw.G).astype(int)
+    d["Ipk_max"] = d[win_cols(d.columns) + ["Ipk_sim"]].max(axis=1)   # worst 1 ms window, 15 ms .. end
     return d.drop_duplicates(subset=["V2", "D0", "D1", "D2"], keep="last")
+
+
+def win_cols(cols):
+    """the 1 ms window peaks from 15 ms on: 15/20/25 ms in runs before 10-30, every ms since (verify_steady_state.m);
+    older rows are NaN in the newer columns and max/min skip them"""
+    out = []
+    for c in cols:
+        m = re.fullmatch(r"Ipk_at_(\d+(?:\.\d+)?)ms", c)
+        if m and float(m.group(1)) >= 15:
+            out.append(c)
+    return out
 
 
 def round_no(fam):
@@ -236,24 +253,27 @@ def plan(fams, partial):
             print(f"[{fam}] nothing to run")
 
 
-def measure(fams=FAMS, partial=False):
-    """one row per configuration: Simulink steady Ipk at |P| (NaN if not bracketed), osc, settle"""
+def measure(fams=FAMS, partial=False, col="Ipk_sim", cf=None):
+    """one row per configuration: Simulink steady Ipk at |P| (NaN if not bracketed), osc, settle, flicker.
+    col: which 1 ms window gives Ipk (the bracket is always the end-window power); only Ipk_sim enters a verdict."""
     import pandas as pd
     rows = []
-    cf = configs(fams, partial, verbose=False)
+    cf = configs(fams, partial, verbose=False) if cf is None else cf
     for fam in fams:
         d = results(fam)
         for c in (c for c in cf if c["fam"] == fam):
-            rec = dict(c, Ipk=np.nan, osc=np.nan, settle=np.nan, src=fam)
+            rec = dict(c, Ipk=np.nan, osc=np.nan, settle=np.nan, flicker=np.nan, src=fam)
             g = sw.runs_of(d, c) if d is not None else None
             b = sw.bracket(g, c["P"])[0] if g is not None and not g.empty else None
             if b is not None:
                 lo, hi = b
                 t = (c["P"] - lo["Pd"]) / max(hi["Pd"] - lo["Pd"], 1e-9)
-                rec.update(Ipk=lo["Ipk_sim"] + t * (hi["Ipk_sim"] - lo["Ipk_sim"]),
+                wc = ["Ipk_sim"] + win_cols(lo.index)
+                span = [r[wc].max() - r[wc].min() for r in (lo, hi)]
+                rec.update(Ipk=lo[col] + t * (hi[col] - lo[col]),
                            osc=max(abs(lo["iL_mean"]), abs(hi["iL_mean"])),
                            settle=max(abs(lo["Ipk_sim"] - lo["Ipk_at_25ms"]), abs(hi["Ipk_sim"] - hi["Ipk_at_25ms"])),
-                           P_lo=lo["Pd"], P_hi=hi["Pd"])
+                           flicker=max(span), P_lo=lo["Pd"], P_hi=hi["Pd"])
             rows.append(rec)
     return pd.DataFrame(rows)
 
@@ -270,8 +290,14 @@ def grid_optimum(T):
     return pd.DataFrame(rows).reset_index(drop=True) if rows else pd.DataFrame(columns=["V2", "P", "D1", "D2", "Ipk"])
 
 
+def _c30(T):
+    """rule (i) candidates: every 30 ms candidate (mb + grid) at each (V2, P); the same (V2, P, D1, D2) once"""
+    return T[T["fam"].isin(["mb", "grid"])].sort_values("fam").drop_duplicates(["V2", "P", "D1", "D2"], keep="first")
+
+
 def compare(partial=False):
-    T = measure(FAMS, partial)
+    cf = configs(FAMS, partial, verbose=False)
+    T = measure(FAMS, partial, cf=cf)
     T.to_csv(os.path.join(OUT, "surface_opt_check.csv"), index=False, float_format="%.6g")
     lines = []
 
@@ -279,8 +305,7 @@ def compare(partial=False):
         print(x, flush=True)
         lines.append(x)
 
-    # rule (i) over every 30 ms candidate (mb + grid) at each (V2, P); the same (V2, P, D1, D2) once
-    c30 = T[T["fam"].isin(["mb", "grid"])].sort_values("fam").drop_duplicates(["V2", "P", "D1", "D2"], keep="first")
+    c30 = _c30(T)
     P1, code1 = sv.judge_points(c30)
     out("OPT rule (i): Ipk(M-B) - min over the Simulink candidates at the same power (steady, HV->LV) <= "
         "max(0.03 A, 2 % Ipk_SPS)")
@@ -296,6 +321,19 @@ def compare(partial=False):
             f"{r['within_D2'][0]:.3f}-{r['within_D2'][1]:.3f} | {r['verdict']}"
             + (f" ({int(r['unsettled'])} unsettled)" if r["unsettled"] else ""))
     out(f"=> rule (i): {code1}")
+
+    # robustness only (not a verdict): the same rule with the peak read from another 1 ms window
+    sens = {}
+    for col, name in SENS.items():
+        Ps, code_s = sv.judge_points(_c30(measure(FAMS, partial, col, cf)))
+        sens[col] = (code_s, Ps)
+        flips = [f"{r['V2']:g} V {r['P']:.0f} W {r['verdict']} (gap {r['gap']:+.3f})" for (_, r), (_, r0)
+                 in zip(Ps.iterrows(), P1.iterrows()) if r["verdict"] != r0["verdict"]] if len(Ps) == len(P1) else ["?"]
+        out(f"   window check ({col}): rule (i) {code_s}; points that change: " + ("; ".join(flips) or "none"))
+    fl = c30[c30["flicker"] > FLICKER]
+    out(f"   candidates bracketed by a run whose window peaks span > {FLICKER} A: {len(fl)}"
+        + "".join(f"\n     {r['V2']:g} V {r['P']:.0f} W {r['ctrl']} ({r['D1']:.3f}, {r['D2']:.3f}) span {r['flicker']:.2f}"
+                  for _, r in fl.iterrows()))
 
     code2, V = sv.valley(T[T["fam"] == "k1"])
     out("\nOPT rule (ii): V2 95 V, some clean candidate with min(D1, D2) < 0.45 more than 0.05 A below SPS (40 ms runs)")
@@ -319,8 +357,176 @@ def compare(partial=False):
         dd = (st["Ipk_stair"] - st["Ipk"]).abs()
         out(f"\nOPT1 check: R6 1 ms staircase vs steady state, same combination and power: |diff| mean {dd.mean():.3f}, "
             f"max {dd.max():.3f} A over {len(st)}")
+    miss = T[~np.isfinite(T["Ipk"])]
+    out(f"\nnot bracketed yet: {len(miss)}/{len(T)} configurations ("
+        + ", ".join(f"{f} {int((miss['fam'] == f).sum())}/{int((T['fam'] == f).sum())}" for f in FAMS) + ")")
     open(os.path.join(OUT, "surface_opt_check.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
-    return T, (code1, P1), (code2, V), (code3, G, info)
+    res = dict(T=T, partial=partial, i=(code1, P1), sens=sens, ii=(code2, V), iii=(code3, G, info), stair=st)
+    verdict_md(res)
+    fig(res)
+    print("wrote out/surface_opt_check.{csv,log}, out/surface_opt_verdict.md, out/fig_surface_opt_check.png")
+    return res
+
+
+VERDICT_KO = {"optimal": "M-B가 Simulink 최적(허용오차 안)", "not_optimal": "M-B는 Simulink 최적이 아님",
+              "undecidable": "판정 불가", "real": "k = 1 골 실재", "not_real": "k = 1 골 없음",
+              "match": "곡면 모양 일치", "mismatch": "곡면 모양 불일치"}
+
+
+def verdict_md(res):
+    """out/surface_opt_verdict.md (Korean, for REPORT.md 11절 / RESULTS.md R.10)"""
+    import datetime
+    T, (code1, P1), (code2, V), (code3, G, info) = res["T"], res["i"], res["ii"], res["iii"]
+    n_meas = {f: (int(np.isfinite(T.loc[T["fam"] == f, "Ipk"]).sum()), int((T["fam"] == f).sum())) for f in FAMS}
+    complete = all(a == b and b > 0 for a, b in n_meas.values())
+    md = ["# OPT 판정: 제안 곡면 M-B는 Simulink 최적인가? (자동 생성)", "",
+          f"생성 {datetime.datetime.now():%Y-%m-%d %H:%M}, `surface_opt_check.py compare`. 판정 규칙은 `surface_opt_verdict.py`"
+          "(OPT0, 커밋 fd95a30, OPT 결과 전 등록)이며 바꾸지 않았다. 수치는 모두 Simulink(데이터셋 시기 모델) 정상상태다. 각 값은"
+          " 상수 D0 30 ms(k = 1 시험은 40 ms)를 돌리고 마지막 1 ms의 max|i_L|을 쓴다. 측정 전력이 목표를 감싸는 2.88° 두 계단 사이에서"
+          " 전력으로 보간하며, 방향은 HV→LV다.",
+          "", "측정된 구성: " + ", ".join(f"{f} {a}/{b}" for f, (a, b) in n_meas.items())
+          + ("" if complete else " — **미완료: 아래 판정은 잠정이다**(감싸지 못한 구성은 `surface_opt_check.py next`로 다음 라운드)."
+             + (" grid는 R6 미완료로 부분 데이터(--partial, 시험용)다." if res["partial"] else "")), ""]
+
+    md += ["## 규칙 (i) 점마다 M-B가 Simulink 최적인가", "",
+           "차 = Ipk(M-B) − 그 점 모든 깨끗한 후보의 최저 Ipk. 허용오차 = max(0.03 A, Ipk(SPS)의 2 %). 차가 허용오차 이하면 그 점에서 최적이다.", "",
+           "| V2 | \\|P\\| | SPS | M-B | 최저 | 최저 후보 (D1, D2) | 차 | 허용 | 측정 후보 · 허용 안 후보 수 · D1 범위 · D2 범위 | 판정 |",
+           "|---|---|---|---|---|---|---|---|---|---|"]
+    for _, r in P1.iterrows():
+        if r["verdict"] == "undecidable":
+            md.append(f"| {r['V2']:g} V | {r['P']:.0f} W | – | – | – | – | – | – | {int(r['n_clean'])}/{int(r['n'])} 측정 | "
+                      f"판정 불가({r['why']}) |")
+            continue
+        md.append(f"| {r['V2']:g} V | {r['P']:.0f} W | {r['Ipk_SPS']:.3f} | {r['Ipk_MB']:.3f} | {r['Ipk_min']:.3f} | "
+                  f"({r['best_D1']:.3f}, {r['best_D2']:.3f}) {r['best_ctrl']} | {r['gap']:+.3f} | {r['tol']:.3f} | "
+                  f"{int(r['n_clean'])}/{int(r['n'])} · {int(r['n_within'])} · {r['within_D1'][0]:.3f}–{r['within_D1'][1]:.3f} · "
+                  f"{r['within_D2'][0]:.3f}–{r['within_D2'][1]:.3f} | "
+                  + ("**최적 아님**" if r["verdict"] == "not_optimal" else "최적") + " |")
+    fails = P1[P1["verdict"] == "not_optimal"]
+    md += ["", f"단위 A. **판정 (i): {VERDICT_KO[code1]}**"
+           + (f" — 깨지는 점 {len(fails)}개: " + ", ".join(f"{r['V2']:g} V {r['P']:.0f} W(차 {r['gap']:+.3f} A)"
+                                                       for _, r in fails.iterrows()) if len(fails) else "") + "."]
+    md += ["", "창 민감도(판정 아님, `flicker_check.py`): 일부 실행은 1 ms 창마다 피크가 두 값 사이를 오간다. 같은 두 계단을 쓰고 피크만"
+           " 다른 창에서 읽어 규칙 (i)을 다시 적용하면 아래와 같다.", ""]
+    for col, (code_s, Ps) in res["sens"].items():
+        diff = [f"{r['V2']:g} V {r['P']:.0f} W → {VERDICT_KO.get(r['verdict'], r['verdict'])}(차 {r['gap']:+.3f})"
+                for (_, r), (_, r0) in zip(Ps.iterrows(), P1.iterrows()) if r["verdict"] != r0["verdict"]] \
+            if len(Ps) == len(P1) else ["점 목록이 달라 비교 불가"]
+        md.append(f"- {SENS[col]}: {VERDICT_KO[code_s]}; 판정이 바뀌는 점 " + ("; ".join(diff) if diff else "없음"))
+    c30 = _c30(T)
+    fl = c30[c30["flicker"] > FLICKER]
+    if len(fl):
+        md.append(f"- 창마다 피크가 {FLICKER} A 넘게 달라지는 실행에 기댄 후보: " + "; ".join(
+            f"{r['V2']:g} V {r['P']:.0f} W {r['ctrl']} ({r['D1']:.3f}, {r['D2']:.3f}) 폭 {r['flicker']:.2f} A"
+            for _, r in fl.iterrows()))
+
+    md += ["", "## 규칙 (ii) k = 1(95 V) 중앙의 깊은 골", "",
+           "min(D1, D2) < 0.45인 깨끗한 후보 중 하나라도 같은 전력의 SPS보다 0.05 A 넘게 낮으면 골이 실재한다(40 ms 실행).", "",
+           "| \\|P\\| | (D1, D2) | Ipk | SPS | 이득 |", "|---|---|---|---|---|"]
+    for _, r in V.sort_values(["P", "D1", "D2"]).iterrows():
+        md.append(f"| {r['P']:.0f} W | ({r['D1']:.2f}, {r['D2']:.2f}) | {r['Ipk']:.3f} | {r['Ipk_SPS']:.3f} | {r['gain']:+.3f} |")
+    md += ["", f"**판정 (ii): {VERDICT_KO[code2]}**" + (f" — 최대 이득 {V['gain'].max():+.3f} A." if len(V) else ".")]
+
+    md += ["", "## 규칙 (iii) 곡면 모양", "",
+           "Simulink 격자 최적(R6 1 ms 계단 상위 3조합 + SPS를 정상상태로 잰 것 중 최저)이 M-B와 같은 쪽(84 V는 D1 < D2, 109.2 V는"
+           " D2 < D1)에 있는지(75 % 이상) 본다. 또 |P|가 커질수록 0.5로 오르는지 본다(Spearman ≥ 0.8, 최대 전력의 min(D) ≥ 0.45).", "",
+           "| V2 | \\|P\\| | 격자 최적 (D1, D2) | 후보 | Ipk |", "|---|---|---|---|---|"]
+    for _, r in G.iterrows():
+        md.append(f"| {r['V2']:g} V | {r['P']:.0f} W | ({r['D1']:.3f}, {r['D2']:.3f}) | {r['ctrl']} | {r['Ipk']:.3f} |")
+    for v, o in info.items():
+        md.append(f"- {v:g} V: 점 {o['n']}개, TPS 최적 {o['n_tps']}개 중 같은 쪽 비율 "
+                  + (f"{o['side_frac'] * 100:.0f} %" if np.isfinite(o["side_frac"]) else "–")
+                  + f", Spearman {o['rho']:.2f}, 최대 전력 min(D) {o['d_end']:.3f}" if o["n"] >= 3 else
+                  f"- {v:g} V: 점 {o['n']}개 — 3개 미만이라 판정 불가")
+    md += ["", f"**판정 (iii): {VERDICT_KO[code3]}**."]
+    st = res["stair"]
+    if len(st):
+        dd = (st["Ipk_stair"] - st["Ipk"]).abs()
+        md += ["", f"OPT1 확인: 같은 조합·같은 전력에서 R6 1 ms 계단 값과 정상상태의 |차|는 평균 {dd.mean():.3f} A, 최대 {dd.max():.3f} A다"
+               f"({len(st)}개). 계단 값은 후보를 고르는 데만 썼다."]
+    md += ["", "그림: `out/fig_surface_opt_check.png`. 표 원본: `out/surface_opt_check.csv`, 로그: `out/surface_opt_check.log`."]
+    open(os.path.join(OUT, "surface_opt_verdict.md"), "w", encoding="utf-8").write("\n".join(md) + "\n")
+
+
+def fig(res):
+    """top: M-B's D1/D2 against |P| with the Simulink-best candidate and the within-tolerance ranges; bottom: Ipk(M-B) -
+    Ipk(best) against the tolerance; right: the k = 1 test (Ipk against D1 = D2 at 95 V, SPS dashed)"""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from evaluate import AQUA, BLUE, INK2, MUTED, ORANGE, YELLOW, _style
+    _style(plt)
+    T, (code1, P1), (code2, V), (code3, G, info) = res["T"], res["i"], res["ii"], res["iii"]
+    f, ax = plt.subplots(2, 3, figsize=(14.5, 7.8), constrained_layout=True, gridspec_kw=dict(height_ratios=[1.5, 1]))
+    Pc = np.linspace(50, 1000, 200)
+    for j, V2 in enumerate((84.0, 109.2)):
+        a, b = ax[0, j], ax[1, j]
+        d1, d2 = _mb().predict(Pc, np.full_like(Pc, V2))
+        a.plot(Pc, np.ravel(d1), color=BLUE, lw=1.8, label="M-B D1")
+        a.plot(Pc, np.ravel(d2), color=ORANGE, lw=1.8, label="M-B D2")
+        p = P1[np.isclose(P1["V2"], V2) & (P1["verdict"] != "undecidable")] if len(P1) else P1
+        for _, r in p.iterrows():
+            for k, (col, dx) in enumerate(((BLUE, -6), (ORANGE, 6))):
+                lo, hi = r["within_D1"] if k == 0 else r["within_D2"]
+                a.plot([r["P"] + dx] * 2, [lo, hi], color=col, lw=5, alpha=0.25, solid_capstyle="butt")
+            a.plot(r["P"] - 6, r["best_D1"], "o", color=BLUE, ms=6, mec="white", mew=0.8)
+            a.plot(r["P"] + 6, r["best_D2"], "s", color=ORANGE, ms=6, mec="white", mew=0.8)
+        a.plot([], [], "o", color=MUTED, label="Simulink best candidate (D1 o, D2 s)")
+        a.plot([], [], color=MUTED, lw=5, alpha=0.3, label="candidates within tolerance")
+        a.set_ylim(0.1, 0.52)
+        a.set_xlim(0, 1050)
+        a.set_title(f"V2 = {V2:g} V (k = {4 * V2 / 380:.3f}): duty vs |P|, HV -> LV")
+        a.set_ylabel("duty")
+        if len(p):
+            ok = (p["verdict"] == "optimal").to_numpy()
+            b.vlines(p["P"], 0, p["gap"], color=np.where(ok, AQUA, ORANGE), lw=2.5)
+            b.scatter(p["P"], p["gap"], c=np.where(ok, AQUA, ORANGE), s=28, zorder=3)
+            b.plot(p["P"], p["tol"], "_", color=INK2, ms=16, mew=2, label="tolerance max(0.03 A, 2 % SPS)")
+        u = P1[np.isclose(P1["V2"], V2) & (P1["verdict"] == "undecidable")] if len(P1) else P1
+        if len(u):
+            b.plot(u["P"], np.zeros(len(u)), "x", color=MUTED, ms=7, label="not decidable (yet)")
+        b.axhline(0, color=MUTED, lw=0.8)
+        b.set_xlim(0, 1050)
+        b.set_xlabel("|P| [W]")
+        b.set_ylabel("Ipk(M-B) - Ipk(best) [A]")
+        b.set_title("rule (i): stem above the tick = M-B not optimal there")
+        if j == 0:
+            a.legend(fontsize=7.5, frameon=False, loc="lower right")
+            b.legend(fontsize=7.5, frameon=False, loc="upper left")
+    k1 = T[(T["fam"] == "k1") & np.isfinite(T["Ipk"])]
+    a = ax[0, 2]
+    for P, col in zip(K1_P, (BLUE, ORANGE, AQUA)):
+        g = k1[np.isclose(k1["P"], P)]
+        eq = g[np.isclose(g["D1"], g["D2"]) & g["ctrl"].str.startswith(("D=", "SPS"))].sort_values("D1")
+        if len(eq):
+            a.plot(eq["D1"], eq["Ipk"], "-o", color=col, ms=4, lw=1.6, label=f"{P:.0f} W, D1 = D2")
+        sp = g[g["ctrl"] == "SPS"]
+        if len(sp):
+            a.axhline(float(sp["Ipk"].iloc[0]), color=col, ls="--", lw=0.9)
+        mb = g[g["ctrl"] == "M-B"]
+        if len(mb):
+            a.plot(mb["D1"], mb["Ipk"], "*", color=col, ms=11, mec="white")
+    a.plot([], [], "*", color=MUTED, ms=10, label="M-B")
+    a.plot([], [], "--", color=MUTED, lw=0.9, label="SPS level")
+    a.set_xlabel("D1 = D2")
+    a.set_ylabel("Ipk [A]")
+    a.set_title("rule (ii): k = 1 (V2 = 95 V), 40 ms runs")
+    a.legend(fontsize=7.5, frameon=False, loc="upper right")
+    t = ax[1, 2]
+    t.axis("off")
+    meas = ", ".join(f"{fm} {int(np.isfinite(T.loc[T['fam'] == fm, 'Ipk']).sum())}/{int((T['fam'] == fm).sum())}"
+                     for fm in FAMS)
+    t.text(0.0, 0.95, "\n".join([f"rule (i)   M-B optimal at every point: {code1}",
+                                 f"rule (ii)  deep k = 1 valley: {code2}",
+                                 f"rule (iii) surface shape: {code3}", "",
+                                 f"measured configurations: {meas}",
+                                 "rules: surface_opt_verdict.py (registered before the runs)",
+                                 "Simulink only (dataset-era model), steady state,",
+                                 "two 2.88-deg D0 levels interpolated in power"]
+                                + (["PARTIAL R6 (--partial): test output"] if res["partial"] else [])),
+           va="top", ha="left", fontsize=9, color=INK2, family="monospace")
+    f.savefig(os.path.join(OUT, "fig_surface_opt_check.png"), dpi=130)
+    plt.close(f)
 
 
 def main():

@@ -5,7 +5,7 @@ function verify_steady_state(pointsCsv, outCsv, simTime)
 % Control_Logic_dataset_era.slx + its DAB_Controller_System.m) with the SAME variables as Scripts/Generate_TPS_Dataset.m
 % (manual phase mode) but with a CONSTANT D0 for simTime (default 30 ms) instead of the 1 ms staircase, and measures
 % the last 1 ms: Ipk = max|i_L|, mean(i_L) (DC offset), rms(i_L), P_LV, P_HV, V_LV, V_HV.
-% Settling is checked with Ipk / P_LV in 1 ms windows ending at 10, 15, 20, 25 ms as well.
+% Settling is checked with Ipk / P_LV in 1 ms windows ending at 10 ms and at every ms from 15 ms on as well.
 % Points come from make_verify_points.py (out/verify_points.csv); the comparison is done in Python.
 % HEAD's Modules/Control_Logic.slx is NOT usable: its From Workspace inputs are commented out (constants Phi 70 deg,
 % D1 = D2 = 0.5, V2 96 V) and the logged names differ (out/plant_params.md section 0).
@@ -91,9 +91,16 @@ function verify_steady_state(pointsCsv, outCsv, simTime)
     end
     fprintf('simulations done in %.0f s\n', toc(t0));
 
-    winEnds = [0.010, 0.015, 0.020, 0.025, simTime];
+    % 10-30: every 1 ms window from 15 ms to the end (was 10/15/20/25/end) -- some clean runs flicker between two peak
+    % levels from window to window (flicker_check.py); the same columns as before plus the windows in between
+    winEnds = [0.010, 0.015:0.001:simTime];
     R = nan(N, 7 + 2 * numel(winEnds));
     err = strings(N, 1);
+    % 10-30 (R9 ZVS): i_L over the last switching period (400 samples) -> out/iL_wave/<outCsv name>.csv, one row per
+    % run. A subfolder so the result globs (*_sweep_r*.csv, stair_steady_part*.csv) never read it; never fatal.
+    Tsw = 1 / spec.fs; nW = 400;
+    tW = simTime - Tsw + (0:nW - 1) * (Tsw / nW);
+    Wv = nan(N, nW);
     for k = 1:N
         o = out(k);
         if ~isempty(o.ErrorMessage), err(k) = string(o.ErrorMessage); continue; end
@@ -125,6 +132,13 @@ function verify_steady_state(pointsCsv, outCsv, simTime)
             R(k, 7 + j) = max(abs(iL(w(tI, winEnds(j)))));
             if ~isempty(pLV), R(k, 7 + numel(winEnds) + j) = mean(pLV(w(tP, winEnds(j)))); end
         end
+        try
+            mW = tI >= simTime - Tsw - 2e-7;
+            [tu, iu] = unique(tI(mW));
+            xW = iL(mW);
+            Wv(k, :) = interp1(tu, xW(iu), tW, 'linear', NaN);
+        catch
+        end
     end
     names = [{'Ipk_sim', 'iL_mean', 'iL_rms', 'P_LV', 'P_HV', 'V_LV', 'V_HV'}, ...
              arrayfun(@(t) sprintf('Ipk_at_%gms', t * 1e3), winEnds, 'UniformOutput', false), ...
@@ -132,6 +146,14 @@ function verify_steady_state(pointsCsv, outCsv, simTime)
     T = [pts, array2table(R, 'VariableNames', names), table(err, 'VariableNames', {'error'})];
     writetable(T, outCsv);
     fprintf('wrote %s (%d points, %d errors)\n', outCsv, N, sum(err ~= ""));
+    try
+        [pDir, fName] = fileparts(outCsv);
+        wDir = fullfile(pDir, 'iL_wave');
+        if ~isfolder(wDir), mkdir(wDir); end
+        writetable([pts, array2table(Wv)], fullfile(wDir, [fName '.csv']));
+    catch ME
+        fprintf('i_L waveform not written: %s\n', ME.message);
+    end
 end
 
 function p = absPath(p)

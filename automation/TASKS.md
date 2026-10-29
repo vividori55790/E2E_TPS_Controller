@@ -11,6 +11,15 @@
   `r8_finalize.py`(R6 전체로 Q4 확정). opt1이 끝나면 `surface_opt_check.py next`(감싸지 못한 구성 → `opt_chain(2)`) → `compare` →
   OPT4(그림, `out/surface_opt_verdict.md`, REPORT 11절·RESULTS R.10). 2단계 증거: 109.2 V 100 W에서 데이터셋 조합 (0.247, 0.200)이
   M-B보다 0.20 A 낮음(R.8 Q2 "실재하는 차") → 규칙 (i)이 깨질 가능성이 큼 → 그러면 OPT4 재학습 경로(Simulink 격자 최적 목표)를 바로 준비.
+- **진행(반복 23, 10-30 01:10–01:50)**: r5r6 3단계 묶음 20/21(02:05쯤 끝). 그사이 MATLAB 없이 할 일을 했다.
+  (1) **Q2 창 민감도**(`flicker_check.py` → `out/flicker_check.{log,csv}`): 109.2 V 100 W의 "실재하는 차" 0.20 A는 끝 창에서만 나온다
+  (15 / 20 / 25 ms / 창 최대: +0.13 / −0.13 / −0.08 / −0.07 A). 비교한 두 실행이 1 ms 창마다 피크가 오간다(폭 0.42–0.47 A, 진동 판정 아래).
+  규칙은 그대로 두고 RESULTS 0절·R.8 (d)·R.10과 REPORT 0·6.6·8·11절에 "미확립"으로 고쳤다. **규칙 (i)이 그 점에서 깨진다고 미리 가정하지 말 것.**
+  (2) `surface_opt_check.py compare`가 이제 `out/surface_opt_verdict.md`(규칙 (i)–(iii) 표, 측정 후보 수, 창 민감도: 25 ms 창·15 ms–끝 최대
+  — 판정 아님)와 `out/fig_surface_opt_check.png`도 쓴다(부분 데이터로 시험 후 출력 삭제; 반복 22 시험의 `out/surface_opt_check.csv`가
+  커밋돼 있어 이번에 지웠다). (3) `verify_steady_state.m`: 매 1 ms 창(15 ms–끝) 피크 열 추가 + i_L 마지막 한 주기 400점을
+  `out/iL_wave/<결과 파일 이름>.csv`로 저장(R9용, try/catch로 본 출력에 영향 없음). m_static_check ALL PASS. **opt1이 첫 실행이다** —
+  opt1 첫 묶음 로그에 'i_L waveform not written'이나 오류가 있으면 확인. (4) R9 준비 완료(아래 R9 줄).
 - [x] OPT0 **판정 규칙 먼저 등록**(결과를 보기 전에): `Simulink/Thesis/surface_opt_verdict.py`에 규칙과 가짜 입력 시험(`test_surface_opt_verdict.py`).
   (반복 22: 19항목 ALL PASS. 후보 = 2.88° 두 계단 정상상태만, 진동(|mean i_L| > 20 mA) 후보 제외, M-B/SPS 진동이면 판정 불가,
   (ii)는 min(D1, D2) < 0.45, (iii)은 같은 쪽 = s(D2*−D1*) ≥ 0 비율 ≥ 75 %·SPS만 최적이면 불일치, 상승 = Spearman ≥ 0.8 & 최대 전력 d* ≥ 0.45.)
@@ -34,6 +43,7 @@
   맞추거나, R13(V2 7값) 데이터로 Simulink 정상상태 최적 곡면을 직접 만든다. V2 84/95/109.2 세 값만으로는 V2 방향 보간 근거가 약하다.)
 - MATLAB 순서: 지금 `r5r6`(10-29 19:03 재시작; 19:02 시스템 충돌 — 버그체크 0xa0000001, 그래픽/가상 디스플레이 드라이버 계열로 추정) → OPT2+OPT3를
   한 잡으로(약 200 실행, 1–2 h) → 아래 R8 이후. 충돌로 잡이 죽으면(`job.py`가 died 표시) 같은 이름으로 다시 제출하고 이미 있는 출력은 건너뛰게 한다.
+  (반복 23: 대기열 = r5r6 → opt1 → eff1 → zvs1(70회, 약 45분).)
   (반복 22: `opt1` = OPT3+OPT2(+grid)로 r5r6 뒤 대기 중. 재부팅 주의: 두 잡의 로그온 트리거가 남아 로그온 때 둘 다 다시 뜰 수 있다 —
   r5r6가 died(.done −2)면 opt1의 대기가 바로 풀려 MATLAB 둘이 함께 돈다. 재부팅 뒤에는 `job.py status`로 보고 하나를 kill/재제출.)
 
@@ -64,6 +74,13 @@ MATLAB은 한 번에 잡 하나(병렬 풀 6워커)만. 지금 `r5r6` 실행 중
 - R8 (개선 1) **효율·손실 곡선**: 기존 Simulink 정상상태 결과(R.4 스윕 출력, t6)의 P_LV·P_HV로 η = |P_LV|/|P_HV|(HV→LV)를
   같은 전력 보간으로 계산. 부족한 점은 추가 실행(SPS, M-A, M-B × V2 84/95/109.2 × |P| 100/200/300/400/600/800/1000 W). 그림: 레퍼런스
   Fig. 26–28 형식(ipk, η 대 P, V2별). 전력 손실도 표로.
+- [~] (반복 23) R9 준비 완료: `zvs_check.py`(make / compare / selftest). 파형 = `verify_steady_state.m`이 10-30부터 저장하는 i_L 한 주기.
+  판정은 Coss = 0 모델에 맞춰 "데드타임 100 ns 동안 들어오는 소자의 바디 다이오드가 전류를 나르는가"로 한다(끄는 순간·켜는 순간
+  부호가 둘 다 맞으면 ZVS, 하나만이면 marginal). 변압기 방향·i_L 부호·시간 오프셋은 모든 실행에 공통인 하나로 di/dt에 맞춘다.
+  selftest(Python 플랜트 파형, 참고)에서는 공통 프레임 σ = ρ = +1을 찾았고, 교과서 SPS 패턴(84 V 경부하 2차 hard, 109.2 V 경부하 1차 hard,
+  84 V 1 kW 전부 ZVS)이 나와 PASS다. 잡 **`zvs1`**(`--after eff1`) = `out/zvs_points_r1.csv` 70회(R.4 괄호 계단을 그대로 재실행해
+  파형을 얻는다. 결정적이므로 `flicker_check.py` 3절이 재현성도 확인한다). 나머지 20구성은 eff1이 파형과 함께 돈다.
+  zvs1이 끝나면 `python -I -X utf8 Simulink/Thesis/zvs_check.py compare` → `out/zvs_check.{csv,log}` → RESULTS·REPORT에 표를 넣는다.
 - [ ] R9 (개선 6) **ZVS 범위(Simulink)**: 정상상태 실행의 i_L 파형에서 각 레그의 스위칭 순간 전류 부호로 ZVS 여부 판정(엣지 시각은 D0/D1/D2와
   제어기 PWM 타이밍에서 계산, 데드타임 고려). SPS, M-A, M-B 비교 표.
 - [ ] R10 (개선 5) **파라미터 견고성(Simulink)**: L ±10 %, 데드타임 100→200 ns, V1 ±5 %(블록/변수 값을 시뮬레이션 입력으로만 바꿈, 모델 저장 금지)
