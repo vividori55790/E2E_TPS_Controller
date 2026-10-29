@@ -2,6 +2,52 @@
 
 <!-- 새 항목은 이 줄 바로 아래에 -->
 
+## 2026-10-30 07:53–08:25 (반복 27) — k1map 지도(k = 1 띠 = 95–97 V 간헐 SPS 스파이크) / 보정 곡면 M-S 학습 / M-S 판정 규칙 결과 전 등록 / msR·rob4 대기열
+- **k1map 끝(07:52, exit 0, 79회 오류 0)**. 러너가 이것으로 깨웠다. `k1_map.py compare` → `out/k1_map.{csv,log}`, `out/fig_k1_map.png`(이번에 그림에
+  주기 피크 중앙값 마커 추가 — 1 ms 최대가 중앙값보다 0.05 A 넘게 높은 실행 = 간헐 스파이크).
+  - SPS 간헐 스파이크 띠: **95–97 V(k 1.000–1.021) × 둘째·셋째 계단(65–180 W)만**. 95 V 73 W 0.738(중앙값 0.41, 80주기 중 3), 96 V 65 W 0.856(0.57, 4),
+    178 W 1.621(0.84, 2), 97 V 68 W 1.104(0.90, 12), 167 W 1.907(0.96, 3). 93·94·100 V의 SPS는 네 계단 모두 80/80 주기적.
+  - 띠 안의 D1 = D2 = 0.40–0.475는 대개 주기적이고 낮다(97 V 70 W 0.496, 208 W 0.941). 100/150/200 W 보간 SPS − 최선: 93 V −0.01/−0.02/−0.02,
+    94 V −0.00/+0.01/−0.07, 95 V +0.20/−0.02/−0.24, 96 V +0.48/+0.65/+0.65, 97 V +0.77/+1.02/+0.90 A.
+  - 거꾸로 TPS가 튀는 곳: 93–95 V 셋째·넷째 계단(240–440 W), 96 V 0.45 L3, 97 V 0.40 L2. SPS 90 V L1(194 W)도 약간(중앙값 1.16 vs 1.352).
+  - 첫 계단(1.44°) 전력: 93 V +91, 94 V +46, 95 V 0, 96 V −47, 97 V −86, 100 V −94 W → k > 1이면 같은 양의 위상에서 전력이 거꾸로(데드타임 2.88°의 실효
+    위상 이동, 이상 모델에 없음).
+  - M-B는 94–96 V 100–300 W에서 SPS(0.500), 97 V 150–300 W 0.486–0.500, 97–98 V ≤ 100 W는 이미 TPS(0.40–0.47).
+- **k = 1 앵커 결정**: "set 0.475"면 97–98 V 100 W(M-B 0.40–0.47)를 SPS 쪽으로 되돌림 → `train_corrected.target()`에 **mode 열(cap)** 추가:
+  가중만큼 D를 앵커 값 아래로만 끌어내림. 시험(임시 스크립트 %TEMP%\k1cap_try.py, 저장소 밖): cap (96 V 120 W wV 1.5 wP 80)은 95 V를 못 움직임(0.499).
+  M-B 사전활성이 95 V 100–150 W에서 −0.032…−0.041(−6τ = −0.024보다 깊음) → 0.475(사전활성 +0.025)까지 0.06 올려야 하는데 σ 0.1 인코더의 릿지가
+  60 %만 가서 D는 0.498. `fit_delta(sample_w)`(앵커 가중 1 + k·w) 추가해 k 20/50 시험: 95 V 0.49–0.494까지만 가고 109.2 V 400/1000 W D2 +0.020…+0.024,
+  84 V 200 W D2 −0.009…−0.013 → **기각**(1 kW V자 바닥에서 0.02 ≈ 0.13 A). 최종: cap 두 개 (96 V 100 W wV 1.2 wP 70), (97 V 200 W wV 1.2 wP 80), 가중 없음.
+- **M-S 학습**: `train_corrected.py --anchors out/opt4_anchors_r3.csv --tag MS --delta` → `out/model_smooth_reghdc_MS.json`, `out/train_corrected_MS.log`,
+  `out/fig_train_corrected_MS.png`. 앵커 적중: 84 V 400 (0.446, 0.497), 800 (0.481, 0.500); 109.2 V 600 (0.499, 0.398), 800 (0.486, 0.401), 100 (0.255, 0.196),
+  150 (0.280, 0.223), 200 (0.295, 0.240); 96 V 100 W (0.485, 0.480), 97 V 200 W (0.484, 0.478). 앵커 밖(w < 0.01) 최대 0.026은 0 W 109.2 V(운전 범위 밖) →
+  로그에 "100–1000 W 최대 0.0107(93.2 V 110 W), 평균 0.0017" 줄 추가. M-B 최적 6점 ≤ 0.008. 기울기 2.93(M-B 2.82). 해석 평균 ΔI +0.0627(M-B +0.0651, 참고).
+- **검증 점**: `surface_opt_check.py`의 `MSK1_V2`에 98 V 추가(cap 번짐이 98 V 100–200 W에 0.006–0.019). `make --fams ms,msk1`(5분) →
+  `out/opt_points_ms_r1.csv` 84회(49구성 = M-S 25 + M-B 12 + SPS 12, 4구성은 기존 실행으로 감쌈), `out/opt_points_msk1_r1.csv` 86회(63구성, 18 감쌈). 08:05.
+- **M-S 판정 규칙(결과 전, 08:15)**: `ms_verdict.py` + `test_ms_verdict.py` 18항목 ALL PASS(첫 실행 1 FAIL은 시험 데이터의 SPS 값이 비현실적이라
+  M-S·M-B 둘 다 위반이었던 것 — 데이터만 고침). 규칙: 점마다 tol = max(0.03, SPS 2 %)(SPS 진동이면 M-B 2 %), gain = Ipk(M-B) − Ipk(M-S) →
+  better/same/worse, fixes_osc/new_osc. 앵커 영역 w ≥ 0.5. A: 앵커 판정 가능 ≥ 3, 평균 gain > 0.03, (better + fixes_osc) > (worse + new_osc).
+  B: 번짐 평균 gain ≥ −0.03(3점 미만이면 미시험). C: SPS 위반 수 M-S ≤ M-B. adopt / partial / no_gain / undecidable.
+  **git add/commit이 이 세션에서 승인 필요로 막혔다**(PowerShell·Bash 둘 다) → 러너의 턴 끝 커밋이 등록이고, 파일 시각(08:15)이 M-S 첫 결과(opt5 ms 첫 묶음,
+  09:00 이후)보다 앞선다.
+- **`surface_opt_check.py ms_compare`**(+ `ms_points`, `ms_verdict_md`, `ms_fig`): M-S·M-B·SPS를 같은 묶음 결과 파일로 measure → 점별 표, 앵커 무리
+  (knee/ridge/k1/-), 창 민감도(Ipk_max). M-S 실행 없이 시험(전부 undecidable) 후 출력 4개 삭제. 시험에서 본 사실: 97 V SPS(k1map)는 |mean i_L| > 20 mA
+  (진동 판정)라 그 점들의 C 검사는 판정 불가가 된다. 109.2 V 500–800 W SPS도 진동.
+- **대기열 재배치**: `out/robust_points_r1q2.csv` → `out/robust_points_r1q3.csv`(os.rename; mv는 승인 필요). 새 잡 **msR**(`--after rob3`):
+  `opt_rounds(2, 4, '<python313>', {'ms','msk1'})` — `opt_rounds.m`에 4번째 인자 fams(`next --fams`, 해당 묶음 파일만 확인, `opt_chain(rnd, fams)`),
+  m_static_check OK. **rob4**(`--after msR`): verify_steady_param r1q3 → robust_sweep_r1. 순서: zvs2 → rob2(실패) → opt5 → rob3(실패) → msR → rob4.
+- RESULTS: 머리말, 0절 OPT 항목에 k1map·M-S 문단, R.10에 "k1map" 표(V2 × 계단, 주기 피크 중앙값)·불릿 5개·"OPT4 M-S" 앵커 표·규칙·검증 계획·MATLAB 순서.
+  "얕은 골" 표현을 "좁은 띠(95–97 V), 96–97 V에서 0.5–1.0 A"로 고침(RESULTS 0절·R.10, REPORT 0·7·11절). REPORT: 0절 표 두 줄(k ≈ 1, M-S)·남은 것,
+  7절 [1] 비대칭 대조 제안, 8절 표 4줄, 9절 명령(M-S, rob4), **11.2절(k = 1 지도) · 11.3절(M-S) 새로 씀**.
+- **그림 점검으로 찾은 것**: `fig_train_corrected_MS.png`(단면을 84/96/97/109.2 V로 바꿈 — 95 V는 M-B 그대로라 무의미; 재학습 json md5 동일
+  38c1c5c8…)에서 84 V D1이 0.44–0.48을 오르내린다(400·800 W 앵커 + 600 W·1 kW는 M-B 최적이라 목표가 M-B로 돌아감). 109.2 V D2도 600–800 W 0.39–0.40
+  → 1 kW 0.445. 1.0–1.2 kW 번짐 ≤ 0.0054(검증 점 밖). RESULTS·REPORT 11.3에 "모양의 대가"로 적음(이득이 없으면 M-B 유지가 목표 2에도 맞음).
+- **R8 eff2**: `efficiency_sweep.next_round()`에도 같은 빈칸 결함이 있어 `surface_opt_check.plan()`과 같은 빈칸 채우기를 넣었다. `next` → 57/63 감쌈,
+  `out/eff_points_r2.csv` 10회(84 V SPS L3/L4/L7, 95 V SPS L6, M-A 109.2 V 800 W L7/L8, M-B 95 V 400 W L5/L6·800 W L7/L8). 잡 **eff2**(`--after rob4`).
+  84 V SPS 3회는 opt5 grid r5와 겹친다 → opt5 끝난 턴에 점 파일을 다시 만들 것(TASKS MATLAB 순서 줄).
+- 다음 턴(zvs2 끝 약 08:40): `zvs_check.py compare` → R9 표. opt5 끝(약 11:10): `surface_opt_check.py compare`(5라운드) + `ms_compare`(1라운드 잠정)
+  + eff_points_r2 재생성.
+
 ## 2026-10-30 06:47–07:35 (반복 26) — OPT 2라운드 판정 / 판정 불가 점에 더 큰 차 / 플래너 결함 수정 / opt5·rob3 대기열 / OPT4 준비
 - **optR 끝(06:46, exit 0)**: 2라운드 90회 + 3라운드 4회 + 4라운드 4회, 오류 0. 4라운드 뒤에도 3구성(84 V SPS 400/800 W, 95 V D = 0.20 100 W)이
   남았다. 러너가 이것으로 깨웠다.

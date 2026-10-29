@@ -189,12 +189,20 @@ def fig(T):
     for a, v in zip(ax, vs):
         for name, g in T[T["V2"] == v].groupby("ctrl"):
             g = g.sort_values("Pd")
-            a.plot(g["Pd"], g["Ipk"], "-o", ms=4, lw=1.4, color=cols.get(name, AQUA), label=name)
+            c = cols.get(name, AQUA)
+            a.plot(g["Pd"], g["Ipk"], "-o", ms=4, lw=1.4, color=c, label=name)
+            # 10-30: where the 1 ms max sits well above the typical switching period (median of the 80 per-period
+            # peaks), the peak is an intermittent spike -- hollow marker at the median, thin line up to the 1 ms max
+            sp = g[np.isfinite(g["pp_median"]) & (g["Ipk"] - g["pp_median"] > 0.05)]
+            a.vlines(sp["Pd"], sp["pp_median"], sp["Ipk"], color=c, lw=0.8, ls=":")
+            a.plot(sp["Pd"], sp["pp_median"], "o", ms=5, mfc="white", mec=c, mew=1.2)
         a.set_title(f"V2 = {v:g} V (k = {4 * v / 380:.3f})", fontsize=9)
-        a.set_xlabel("delivered power [W] (one point per 2.88-deg D0 level)")
+        a.set_xlabel("delivered power [W]")
         a.set_xlim(0, 500)
     ax[0].set_ylabel("max |i_L| over the last 1 ms [A]")
+    ax[0].plot([], [], "o", ms=5, mfc="white", mec=MUTED, label="median of the 80 period peaks\n(shown where 0.05 A below)")
     ax[0].legend(fontsize=7.5, frameon=False)
+    f.suptitle("k = 1 light-load map, Simulink, constant D0 40 ms, one point per 2.88-deg D0 level (HV -> LV)", fontsize=9.5)
     f.savefig(os.path.join(OUT, "fig_k1_map.png"), dpi=130)
     plt.close(f)
 

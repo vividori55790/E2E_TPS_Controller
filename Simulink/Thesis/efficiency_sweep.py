@@ -82,7 +82,13 @@ def next_round():
         if g.empty:
             continue
         b, way = sw.bracket(g, c["P"])
-        if b is None:
+        below = g[(g["Pd"] > 0) & (g["Pd"] <= c["P"])]
+        if b is None and way < 0 and not below.empty:
+            # |P| in a gap between non-adjacent measured levels: fill from below (the same fix as surface_opt_check.plan,
+            # 10-30 -- bracket() would say "go below the lowest level", i.e. into the other power direction)
+            j = int(below["level"].max())
+            pts += [sw.point(c, j + 1), sw.point(c, j + 2)]
+        elif b is None:
             j = int(g["level"].max() + 1) if way > 0 else int(g["level"].min() - 1)
             pts += [sw.point(c, j), sw.point(c, j + way)]
     n_b = sum(1 for c in cf if not sw.runs_of(d, c).empty and sw.bracket(sw.runs_of(d, c), c["P"])[0] is not None)

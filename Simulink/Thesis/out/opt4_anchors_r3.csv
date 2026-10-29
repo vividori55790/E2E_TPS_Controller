@@ -1,0 +1,20 @@
+# OPT4 anchors after OPT round 2 (10-30 07:20, surface_opt_check.py compare -> out/surface_opt_verdict.md). Each row = the best
+# clean Simulink candidate (steady state, 30 ms, two 2.88-deg levels interpolated in power) where M-B is clearly worse.
+# k = 1 light-load anchors are added after k1map (k1_map.py compare). Widths: wP ~ half the gap to the next M-B-optimal power,
+# wV 5 V (no Simulink data between 84 / 95 / 109.2 V -> M-S is verified at intermediate V2 too).
+# r3 (10-30 08:00): + two k = 1 band anchors from k1map (k1_map.py compare -> out/k1_map.log), mode cap = only pulls a duty
+# DOWN to 0.475 where the target is above it (M-B is already TPS at 97-98 V 100 W). k1map: SPS 1 ms peaks are intermittent
+# spikes at 95-97 V light load (96 V L2 65 W 0.856 A, 3-4 of 80 periods; L3 178 W 1.621 A; 97 V L2 1.104, L3 1.907 A), D1 = D2 = 0.475
+# periodic and lower (96 V 77 W 0.543, 298 W 1.247; 97 V 70 W 0.496, 208 W 0.941 A); 93/94 V SPS = TPS within 0.07 A; 100 V SPS periodic.
+# 95 V is NOT corrected: M-B is saturated at SPS there (pre-activation -0.03...-0.04) and the encoder (sigma 0.1 = 2.5 V) cannot
+# bend 95 V alone; weighting the fit (anchor weight 20-50) reaches only 0.49 and moves M-B-optimal points by up to 0.024.
+V2,P,D1,D2,wV,wP,source,mode
+84.0,400,0.452632,0.5,5,90,grid G2 2.495 A vs M-B 2.607 A (opt_sweep_grid_r1; SPS not bracketed yet -> opt5),set
+84.0,800,0.484211,0.5,5,90,grid G1 3.764 A vs M-B 3.881 A (opt_sweep_grid_r1/r2; SPS not bracketed yet -> opt5),set
+109.2,600,0.5,0.389474,5,90,grid G1 3.525 A vs M-B 3.966 A (SPS oscillates),set
+109.2,800,0.484211,0.389474,5,90,grid G1 4.189 A vs M-B 4.519 A (SPS oscillates),set
+109.2,100,0.263158,0.2,5,40,grid G1 1.534 A vs M-B 1.764 A (M-B peak flickers 0.47 A),set
+109.2,150,0.294737,0.231579,5,40,grid G2 1.808 A vs M-B 1.873 A,set
+109.2,200,0.294737,0.231579,5,40,grid G1 2.038 A vs M-B 2.446 A (M-B oscillates),set
+96.0,100,0.475,0.475,1.2,70,k1map 96 V L2: SPS 65 W 0.856 A (intermittent) vs D 0.475 77 W 0.543 A (k1map_sweep_r1),cap
+97.0,200,0.475,0.475,1.2,80,k1map 97 V L3: SPS 167 W 1.907 A (intermittent) vs D 0.475 208 W 0.941 A (k1map_sweep_r1),cap

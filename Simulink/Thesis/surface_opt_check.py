@@ -24,6 +24,10 @@ Combinations a 2.88-deg grid cannot reach (ideal model: |P| above the combinatio
     python -I -X utf8 Simulink/Thesis/surface_opt_check.py next       (configurations not bracketed -> round k+1)
     python -I -X utf8 Simulink/Thesis/surface_opt_check.py compare    -> out/surface_opt_check.{csv,log},
                                                                          out/surface_opt_verdict.md
+OPT4 (10-30): the corrected surface M-S (train_corrected.py --tag MS), families ms / msk1, rules in ms_verdict.py:
+    python -I -X utf8 Simulink/Thesis/surface_opt_check.py make --fams ms,msk1    (round 1; next --fams ms,msk1 after)
+    python -I -X utf8 Simulink/Thesis/surface_opt_check.py ms_compare -> out/ms_check.{csv,log}, out/ms_verdict.md,
+                                                                         out/fig_ms_check.png
 """
 import argparse
 import glob
@@ -54,7 +58,7 @@ MS_P = (100.0, 150.0, 200.0, 300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 10
 MS_V2_EDGE = (84.0, 109.2)
 MS_V2_MID = (89.0, 104.0)
 MS_P_MID = (100.0, 200.0, 400.0, 600.0, 800.0)
-MSK1_V2 = (93.0, 94.0, 95.0, 96.0, 97.0)
+MSK1_V2 = (93.0, 94.0, 95.0, 96.0, 97.0, 98.0)        # 98 V (10-30): the k = 1 cap anchors spill to 98 V 100-200 W
 MSK1_P = (70.0, 100.0, 150.0, 200.0, 300.0)
 MS_DIFF = 0.003
 MB_P = (100.0, 300.0, 1000.0)
@@ -722,15 +726,183 @@ def fig(res):
     plt.close(f)
 
 
+MS_VERDICT_KO = {"adopt": "M-S 채택(M-B 대체)", "partial": "부분(앵커 영역만 개선, 다른 곳 열화)",
+                 "no_gain": "보정 효과 없음(M-B 유지)", "undecidable": "판정 불가"}
+CLS_KO = {"better": "개선", "worse": "열화", "same": "같음", "fixes_osc": "M-B 진동 해소", "new_osc": "M-S 진동",
+          "undecidable": "판정 불가"}
+
+
+def ms_points(col="Ipk_sim"):
+    """OPT4: one row per M-S operating point -- M-S, M-B and SPS measured the OPT way (families ms / msk1, every reusable
+    run included), the anchor weight w of M-S's target there and the dominant anchor group (report only)"""
+    import json
+
+    import pandas as pd
+    import train_corrected as tc
+    ms, mb = _ms(), _mb()
+    meta = json.load(open(os.path.join(OUT, f"model_smooth_reghdc_{MS_TAG}.json"), encoding="utf-8")).get("meta", {})
+    A = pd.DataFrame(meta.get("anchors", []))
+    cf = []
+    for fam in MS_FAMS:
+        for c in configs_ms(fam):
+            if c["ctrl"] != "M-S":
+                continue
+            b1, b2 = mb_predict(c["P"], c["V2"])
+            cf += [c, _cfg(fam, "M-B", c["V2"], c["P"], b1, b2), _cfg(fam, "SPS", c["V2"], c["P"], 0.5, 0.5)]
+    cf = _dedupe(cf)
+    T = measure(MS_FAMS, cf=cf, col=col)
+    rows = []
+    for (fam, v, p), g in T.groupby(["fam", "V2", "P"], sort=True):
+        rec = dict(fam=fam, V2=v, P=p)
+        for ctrl, k in (("M-S", "MS"), ("M-B", "MB"), ("SPS", "SPS")):
+            r = g[g["ctrl"] == ctrl]
+            r = r.iloc[0] if len(r) else None
+            rec.update({f"Ipk_{k}": r["Ipk"] if r is not None else np.nan, f"osc_{k}": r["osc"] if r is not None else np.nan,
+                        f"D1_{k}": r["D1"] if r is not None else np.nan, f"D2_{k}": r["D2"] if r is not None else np.nan,
+                        f"flicker_{k}": r["flicker"] if r is not None else np.nan})
+        if len(A):
+            Wt = tc.weights(np.array([p]), np.array([v]), A)[0]
+            _, _, w = tc.target(mb, np.array([p]), np.array([v]), A)
+            a = A.iloc[int(np.argmax(Wt))]
+            grp = "-" if Wt.max() < 0.01 else "k1" if a.get("mode", "set") == "cap" else ("ridge" if a["P"] <= 200 else "knee")
+            rec.update(w=float(w[0]), group=grp)
+        else:
+            rec.update(w=0.0, group="")
+        rows.append(rec)
+    return pd.DataFrame(rows), A
+
+
+def ms_compare():
+    """OPT4 verdict on M-S (rules in ms_verdict.py, registered before the M-S runs) -> out/ms_check.{csv,log},
+    out/ms_verdict.md, out/fig_ms_check.png"""
+    import ms_verdict as mv
+    Pts, A = ms_points()
+    code, T, s = mv.judge(Pts)
+    T.to_csv(os.path.join(OUT, "ms_check.csv"), index=False, float_format="%.6g")
+    lines = []
+
+    def out(x=""):
+        print(x, flush=True)
+        lines.append(x)
+
+    out("OPT4: corrected surface M-S vs M-B (and SPS), Simulink steady state, HV -> LV (rules: ms_verdict.py)")
+    out(f"{'fam':>4} {'V2':>6} {'|P|':>5} {'w':>4} {'grp':>5} | {'M-S (D1, D2)':>15} {'Ipk':>6} | {'M-B (D1, D2)':>15} {'Ipk':>6} | "
+        f"{'SPS':>6} | {'gain':>6} {'tol':>5} | class")
+    for _, r in T.iterrows():
+        def ip(k):
+            i, o = r[f"Ipk_{k}"], r[f"osc_{k}"]
+            return f"{i:6.3f}{'~' if np.isfinite(o) and o > mv.OSC else ' '}" if np.isfinite(i) else f"{'–':>6} "
+        out(f"{r['fam']:>4} {r['V2']:6g} {r['P']:5.0f} {r['w']:4.2f} {r['group']:>5} | ({r['D1_MS']:.3f}, {r['D2_MS']:.3f}) "
+            f"{ip('MS')}| ({r['D1_MB']:.3f}, {r['D2_MB']:.3f}) {ip('MB')}| {ip('SPS')}| "
+            + (f"{r['gain']:+6.3f}" if np.isfinite(r["gain"]) else f"{'':>6}") + f" {r['tol']:5.3f} | {r['cls']}"
+            + (" [M-S > SPS]" if r["viol_MS"] is True else "") + (" [M-B > SPS]" if r["viol_MB"] is True else ""))
+    out("(~ = oscillating, |mean i_L| > 20 mA)")
+    for reg in ("anchor", "spill"):
+        o = s[reg]
+        out(f"{reg:>6}: {o['n']} points, {o['n_dec']} decidable, mean gain {o['mean_gain']:+.3f} A over {o['n_gain']}; "
+            f"better {o['better']}, fixes_osc {o['fixes_osc']}, same {o['same']}, worse {o['worse']}, new_osc {o['new_osc']}")
+    if s.get("A") is not None:
+        out(f"A (anchor gains) {s['A']}, B (spill no harm) {s['B']}{'' if s.get('B_tested') else ' (not tested)'}, "
+            f"C (SPS violations M-S {s['viol_MS']} <= M-B {s['viol_MB']} over {s['n_viol_checked']}) {s['C']}")
+    out(f"=> OPT4 verdict: {code}")
+    grp = {}
+    for gname, g in T.groupby("group"):                         # report only
+        gv = g["gain"].dropna()
+        grp[gname] = (len(g), len(gv), float(gv.mean()) if len(gv) else np.nan)
+        out(f"   group {gname} (report only): {len(g)} points, mean gain {grp[gname][2]:+.3f} A over {len(gv)}")
+    Tw, _ = ms_points(col="Ipk_max")                           # window sensitivity (report only)
+    code_w = mv.judge(Tw)[0]
+    out(f"   window check (worst 1 ms window 15 ms - end): verdict {code_w}")
+    open(os.path.join(OUT, "ms_check.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
+    ms_verdict_md(code, T, s, grp, code_w, A)
+    ms_fig(T, code)
+    print("wrote out/ms_check.{csv,log}, out/ms_verdict.md, out/fig_ms_check.png")
+    return code, T, s
+
+
+def ms_verdict_md(code, T, s, grp, code_w, A):
+    import datetime
+    n_meas = int(T["cls"].ne("undecidable").sum())
+    md = ["# OPT4 판정: 보정 곡면 M-S는 Simulink에서 M-B보다 나은가? (자동 생성)", "",
+          f"생성 {datetime.datetime.now():%Y-%m-%d %H:%M}, `surface_opt_check.py ms_compare`. 규칙은 `ms_verdict.py`(10-30 08:15, M-S"
+          " Simulink 실행 전 등록)이며 바꾸지 않았다. 수치는 모두 Simulink(데이터셋 시기 모델) 정상상태다. 상수 D0 30 ms(k = 1 띠는"
+          " 40 ms)를 돌리고 마지막 1 ms의 max|i_L|을 쓰며, 목표 전력을 감싸는 2.88° 두 계단 사이에서 전력으로 보간한다(HV→LV).",
+          "", f"M-S = M-B + 앵커 보정(`train_corrected.py --delta`, 앵커 {len(A)}개 `out/opt4_anchors_r3.csv`). M-S가 M-B와 듀티 0.003"
+          f" 넘게 다른 점만 돌렸다. 점 {len(T)}개 중 판정 가능 {n_meas}개."
+          + ("" if n_meas == len(T) else " **미완료 점이 있다 — 아래 판정은 잠정이다**(`surface_opt_check.py next --fams ms,msk1`)."),
+          "", "| 묶음 | V2 | \\|P\\| | w | 앵커 무리 | M-S (D1, D2) | M-S Ipk | M-B (D1, D2) | M-B Ipk | SPS | 이득 M-B − M-S | 허용 | 분류 |",
+          "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+
+    def ip(r, k):
+        i, o = r[f"Ipk_{k}"], r[f"osc_{k}"]
+        return (f"{i:.3f}" + (" (진동)" if np.isfinite(o) and o > 0.02 else "")) if np.isfinite(i) else "–"
+    for _, r in T.iterrows():
+        md.append(f"| {r['fam']} | {r['V2']:g} V | {r['P']:.0f} W | {r['w']:.2f} | {r['group']} | ({r['D1_MS']:.3f}, {r['D2_MS']:.3f}) | "
+                  f"{ip(r, 'MS')} | ({r['D1_MB']:.3f}, {r['D2_MB']:.3f}) | {ip(r, 'MB')} | {ip(r, 'SPS')} | "
+                  + (f"{r['gain']:+.3f}" if np.isfinite(r["gain"]) else "–") + f" | {r['tol']:.3f} | {CLS_KO[r['cls']]}"
+                  + (" · M-S > SPS" if r["viol_MS"] is True else "") + (" · M-B > SPS" if r["viol_MB"] is True else "") + " |")
+    md += ["", "단위 A. w = M-S 목표가 앵커 쪽으로 옮겨진 비율(0.5 이상 = 앵커 영역, 미만 = 번짐 영역)."]
+    for reg, ko in (("anchor", "앵커 영역"), ("spill", "번짐 영역")):
+        o = s[reg]
+        md.append(f"- {ko}: {o['n']}점(판정 가능 {o['n_dec']}), 평균 이득 {o['mean_gain']:+.3f} A({o['n_gain']}점), 개선 {o['better']} · "
+                  f"M-B 진동 해소 {o['fixes_osc']} · 같음 {o['same']} · 열화 {o['worse']} · M-S 진동 {o['new_osc']}")
+    if s.get("A") is not None:
+        md.append(f"- A(앵커 영역 이득 > 0.03 A, 개선 > 열화): {'성립' if s['A'] else '불성립'}; B(번짐 영역 평균 ≥ −0.03 A): "
+                  f"{'성립' if s['B'] else '불성립'}{'' if s.get('B_tested') else '(3점 미만이라 시험 안 됨)'}; C(SPS보다 나쁜 점 수 M-S "
+                  f"{s['viol_MS']} ≤ M-B {s['viol_MB']}, {s['n_viol_checked']}점에서): {'성립' if s['C'] else '불성립'}")
+    md += ["", f"**판정: {MS_VERDICT_KO[code]}**.", "",
+           "참고(판정 아님): 앵커 무리별 평균 이득 — " + "; ".join(
+               f"{ {'knee': 'SPS 무릎', 'ridge': '109.2 V 경부하 능선', 'k1': 'k = 1 띠'}.get(k, k)} {n}점 중 {m}점 평균 {g:+.3f} A"
+               for k, (n, m, g) in grp.items()) + f". 창 민감도(15 ms–끝 최대 창으로 같은 규칙): {MS_VERDICT_KO[code_w]}.",
+           "", "그림: `out/fig_ms_check.png`. 표 원본: `out/ms_check.csv`, 로그: `out/ms_check.log`."]
+    open(os.path.join(OUT, "ms_verdict.md"), "w", encoding="utf-8").write("\n".join(md) + "\n")
+
+
+def ms_fig(T, code):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from evaluate import AQUA, BLUE, INK2, MUTED, ORANGE, _style
+    _style(plt)
+    f, ax = plt.subplots(1, 2, figsize=(12.5, 4.2), constrained_layout=True)
+    col = {"better": AQUA, "fixes_osc": AQUA, "same": MUTED, "worse": ORANGE, "new_osc": ORANGE, "undecidable": INK2}
+    for a, fam, xk in ((ax[0], "ms", "P"), (ax[1], "msk1", "V2")):
+        g = T[T["fam"] == fam]
+        if g.empty:
+            a.set_visible(False)
+            continue
+        y = g["gain"].fillna(0.0)
+        a.scatter(g[xk], y, c=[col[c] for c in g["cls"]], s=np.where(g["w"] >= 0.5, 46, 18), zorder=3,
+                  edgecolors="white", linewidths=0.6)
+        for _, r in g.iterrows():
+            a.annotate(f"{r['V2']:g}" if fam == "ms" else f"{r['P']:.0f}", (r[xk], 0.0 if not np.isfinite(r["gain"]) else r["gain"]),
+                       fontsize=6.5, color=INK2, xytext=(3, 2), textcoords="offset points")
+        a.axhline(0, color=MUTED, lw=0.8)
+        a.fill_between(sorted(g[xk]), -g["tol"].max(), g["tol"].max(), color=MUTED, alpha=0.12, lw=0)
+        a.set_xlabel("|P| [W] (label: V2)" if fam == "ms" else "V2 [V] (label: |P| W)")
+        a.set_ylabel("Ipk(M-B) - Ipk(M-S) [A]")
+        a.set_title(("knee / ridge anchors: V2 84, 89, 104, 109.2 V" if fam == "ms" else "k = 1 band (40 ms runs)")
+                    + "  (big dots: anchor region w >= 0.5)", fontsize=9)
+    ax[0].plot([], [], "o", color=AQUA, label="M-S better (or fixes M-B oscillation)")
+    ax[0].plot([], [], "o", color=ORANGE, label="M-S worse (or oscillates)")
+    ax[0].plot([], [], "o", color=MUTED, label="same within tolerance")
+    ax[0].legend(fontsize=7.5, frameon=False, loc="lower left")
+    f.suptitle(f"OPT4: M-S vs M-B in Simulink -- verdict {code} (rules: ms_verdict.py)", fontsize=10)
+    f.savefig(os.path.join(OUT, "fig_ms_check.png"), dpi=130)
+    plt.close(f)
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["make", "next", "compare"])
+    ap.add_argument("cmd", choices=["make", "next", "compare", "ms_compare"])
     ap.add_argument("--fams", default=",".join(FAMS))
     ap.add_argument("--partial", action="store_true", help="grid family from an incomplete R6 (testing only)")
     a = ap.parse_args()
     fams = tuple(f for f in a.fams.split(",") if f)
     if a.cmd in ("make", "next"):
         plan(fams, a.partial)
+    elif a.cmd == "ms_compare":
+        ms_compare()
     else:
         compare(a.partial)
 

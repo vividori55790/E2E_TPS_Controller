@@ -53,15 +53,29 @@ def weights(P, V, A):
 
 
 def target(mb, P, V, A):
+    """optional column mode: 'set' (default) blends towards the anchor's duties; 'cap' (10-30, k = 1 band of k1map) only
+    pulls a duty DOWN to the anchor's value where the target is above it -- k1map measured D1 = D2 = 0.475 better than
+    SPS at 95-97 V light load, but nothing below M-B's own duties where M-B is already TPS (97-98 V, 100 W: 0.40-0.47)"""
     d1, d2 = (np.ravel(x) for x in mb.predict(P, V))
+    w = np.zeros_like(d1)
     if A is None or len(A) == 0:
-        return d1, d2, np.zeros_like(d1)
-    Wt = weights(P, V, A)
-    w = Wt.max(axis=1)
-    s = np.maximum(Wt.sum(axis=1), 1e-300)
-    a1 = (Wt * A["D1"].to_numpy()).sum(axis=1) / s
-    a2 = (Wt * A["D2"].to_numpy()).sum(axis=1) / s
-    return (1 - w) * d1 + w * a1, (1 - w) * d2 + w * a2, w
+        return d1, d2, w
+    mode = A["mode"].fillna("set").to_numpy() if "mode" in A else np.full(len(A), "set")
+    S, C = A[mode == "set"], A[mode == "cap"]
+    if len(S):
+        Wt = weights(P, V, S)
+        w = Wt.max(axis=1)
+        s = np.maximum(Wt.sum(axis=1), 1e-300)
+        a1 = (Wt * S["D1"].to_numpy()).sum(axis=1) / s
+        a2 = (Wt * S["D2"].to_numpy()).sum(axis=1) / s
+        d1, d2 = (1 - w) * d1 + w * a1, (1 - w) * d2 + w * a2
+    if len(C):
+        Wc = weights(P, V, C)
+        for j, (c1, c2) in enumerate(zip(C["D1"].to_numpy(), C["D2"].to_numpy())):
+            d1 = d1 - Wc[:, j] * np.maximum(d1 - c1, 0.0)
+            d2 = d2 - Wc[:, j] * np.maximum(d2 - c2, 0.0)
+        w = np.maximum(w, Wc.max(axis=1))
+    return d1, d2, w
 
 
 def fit(mb, P, V, t1, t2, alpha=ALPHA, sample_w=None):
@@ -70,11 +84,13 @@ def fit(mb, P, V, t1, t2, alpha=ALPHA, sample_w=None):
     return m.fit_ridge(P, V, t1, t2, alpha=alpha, sample_w=sample_w)
 
 
-def fit_delta(mb, P, V, t1, t2, w, alpha=ALPHA, wmin=1e-3):
+def fit_delta(mb, P, V, t1, t2, w, alpha=ALPHA, wmin=1e-3, sample_w=None):
     """--delta (10-30, after OPT round 2): M-S = M-B's readout + a ridge-fitted correction of the pre-activation.
     The correction's target is exactly 0 where the anchor weight w <= wmin, so far from the anchors M-S stays on M-B up
     to the correction's own spill-over. The plain refit (fit) moves M-B by up to 0.007 everywhere -- e.g. off the
-    V-shaped Simulink optimum at 84 V 1 kW, where 0.02 in D1 costs 0.07-0.21 A."""
+    V-shaped Simulink optimum at 84 V 1 kW, where 0.02 in D1 costs 0.07-0.21 A.
+    sample_w (--anchor-weight with --delta): where M-B is saturated at SPS (k = 1 band), a duty change of 0.02 needs the
+    pre-activation to cross 0 by ~0.02; a fit that gets 60 % of the way leaves the duty at 0.498 -- weighting helps."""
     m = ct.SmoothRegHDC(D=mb.Dh, sigma=mb.sigma, tau=mb.tau, seed=0)
     assert np.allclose(m.W, mb.W) and np.allclose(m.b, mb.b), "encoder must be M-B's encoder"
     H = mb.features(P, V)
@@ -86,7 +102,8 @@ def fit_delta(mb, P, V, t1, t2, w, alpha=ALPHA, wmin=1e-3):
     r = r * (np.asarray(w) > wmin)[:, None]
     Hs = H / np.sqrt(mb.Dh)
     Ha = np.concatenate([Hs, np.ones((Hs.shape[0], 1))], axis=1)
-    sol = np.linalg.solve(Ha.T @ Ha + alpha * np.eye(Ha.shape[1]), Ha.T @ r)
+    sw_ = np.ones(Ha.shape[0]) if sample_w is None else np.asarray(sample_w, float)
+    sol = np.linalg.solve(Ha.T @ (Ha * sw_[:, None]) + alpha * np.eye(Ha.shape[1]), Ha.T @ (r * sw_[:, None]))
     m.M, m.c = mb.M + sol[:-1], mb.c + sol[-1]
     return m
 
@@ -120,7 +137,8 @@ def main():
 
     t1, t2, w = target(mb, P, V, A)
     if a.delta:
-        ms = fit_delta(mb, P, V, t1, t2, w, alpha=a.alpha)
+        ms = fit_delta(mb, P, V, t1, t2, w, alpha=a.alpha,
+                       sample_w=None if a.anchor_weight == 0 else 1.0 + a.anchor_weight * w)
     else:
         ms = fit(mb, P, V, t1, t2, alpha=a.alpha, sample_w=1.0 + a.anchor_weight * w)
     m1, m2 = (np.ravel(x) for x in ms.predict(P, V))
@@ -131,6 +149,10 @@ def main():
     far = w < 0.01
     out(f"  away from the anchors (w < 0.01, {far.mean() * 100:.0f} % of the grid): max |M-S - M-B| "
         f"{max(np.abs(m1 - b1)[far].max(), np.abs(m2 - b2)[far].max()):.4f} (baseline refit {max(np.abs(f1 - b1)[far].max(), np.abs(f2 - b2)[far].max()):.4f})")
+    op = far & (P >= 100) & (P <= 1000)                    # the max above sits at P = 0 (109.2 V); the operating range:
+    dd = np.maximum(np.abs(m1 - b1), np.abs(m2 - b2))
+    i = int(np.argmax(np.where(op, dd, -1)))
+    out(f"    of which at 100-1000 W: max {dd[op].max():.4f} (at {V[i]:.1f} V {P[i]:.0f} W), mean {dd[op].mean():.4f}")
     out("  at the anchors: anchor (D1, D2) -> M-S (D1, D2), M-B (D1, D2)")
     for _, r in A.iterrows():
         s1, s2 = (float(np.ravel(x)[0]) for x in ms.predict(np.array([r["P"]]), np.array([r["V2"]])))
@@ -171,7 +193,7 @@ def fig(mb, ms, A, tag):
     from evaluate import BLUE, MUTED, ORANGE, _style
     _style(plt)
     Pc = np.linspace(0, 1200, 241)
-    vs = (84.0, 95.0, 109.2)
+    vs = (84.0, 96.0, 97.0, 109.2)          # 96/97 V: the k = 1 cap anchors (95 V stays on M-B, see opt4_anchors_r3.csv)
     f, ax = plt.subplots(1, len(vs), figsize=(4.2 * len(vs), 3.6), sharey=True, constrained_layout=True)
     for a_, v in zip(ax, vs):
         Vc = np.full_like(Pc, v)
