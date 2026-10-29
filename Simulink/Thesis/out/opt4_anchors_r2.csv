@@ -1,0 +1,12 @@
+# OPT4 anchors after OPT round 2 (10-30 07:20, surface_opt_check.py compare -> out/surface_opt_verdict.md). Each row = the best
+# clean Simulink candidate (steady state, 30 ms, two 2.88-deg levels interpolated in power) where M-B is clearly worse.
+# k = 1 light-load anchors are added after k1map (k1_map.py compare). Widths: wP ~ half the gap to the next M-B-optimal power,
+# wV 5 V (no Simulink data between 84 / 95 / 109.2 V -> M-S is verified at intermediate V2 too).
+V2,P,D1,D2,wV,wP,source
+84.0,400,0.452632,0.5,5,90,grid G2 2.495 A vs M-B 2.607 A (opt_sweep_grid_r1; SPS not bracketed yet -> opt5)
+84.0,800,0.484211,0.5,5,90,grid G1 3.764 A vs M-B 3.881 A (opt_sweep_grid_r1/r2; SPS not bracketed yet -> opt5)
+109.2,600,0.5,0.389474,5,90,grid G1 3.525 A vs M-B 3.966 A (SPS oscillates)
+109.2,800,0.484211,0.389474,5,90,grid G1 4.189 A vs M-B 4.519 A (SPS oscillates)
+109.2,100,0.263158,0.2,5,40,grid G1 1.534 A vs M-B 1.764 A (M-B peak flickers 0.47 A)
+109.2,150,0.294737,0.231579,5,40,grid G2 1.808 A vs M-B 1.873 A
+109.2,200,0.294737,0.231579,5,40,grid G1 2.038 A vs M-B 2.446 A (M-B oscillates)

@@ -70,6 +70,27 @@ def fit(mb, P, V, t1, t2, alpha=ALPHA, sample_w=None):
     return m.fit_ridge(P, V, t1, t2, alpha=alpha, sample_w=sample_w)
 
 
+def fit_delta(mb, P, V, t1, t2, w, alpha=ALPHA, wmin=1e-3):
+    """--delta (10-30, after OPT round 2): M-S = M-B's readout + a ridge-fitted correction of the pre-activation.
+    The correction's target is exactly 0 where the anchor weight w <= wmin, so far from the anchors M-S stays on M-B up
+    to the correction's own spill-over. The plain refit (fit) moves M-B by up to 0.007 everywhere -- e.g. off the
+    V-shaped Simulink optimum at 84 V 1 kW, where 0.02 in D1 costs 0.07-0.21 A."""
+    m = ct.SmoothRegHDC(D=mb.Dh, sigma=mb.sigma, tau=mb.tau, seed=0)
+    assert np.allclose(m.W, mb.W) and np.allclose(m.b, mb.b), "encoder must be M-B's encoder"
+    H = mb.features(P, V)
+    y0, tau = mb.raw(H), mb.tau
+    delta = np.stack([0.5 - np.asarray(t1, float), 0.5 - np.asarray(t2, float)], axis=-1)
+    y = np.where(delta > 4 * tau, delta, tau * np.log(np.expm1(np.clip(delta, 1e-6, None) / tau)))
+    y = np.maximum(y, -6 * tau)                                  # the same softplus inverse and floor as fit_ridge
+    r = np.where((y <= -6 * tau + 1e-12) & (y0 <= -6 * tau), 0.0, y - y0)   # both saturated at SPS: no change
+    r = r * (np.asarray(w) > wmin)[:, None]
+    Hs = H / np.sqrt(mb.Dh)
+    Ha = np.concatenate([Hs, np.ones((Hs.shape[0], 1))], axis=1)
+    sol = np.linalg.solve(Ha.T @ Ha + alpha * np.eye(Ha.shape[1]), Ha.T @ r)
+    m.M, m.c = mb.M + sol[:-1], mb.c + sol[-1]
+    return m
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--anchors", default=os.path.join(OUT, "opt4_anchors.csv"))
@@ -77,6 +98,8 @@ def main():
     ap.add_argument("--alpha", type=float, default=ALPHA, help="ridge alpha (stage (a) used 1e-3)")
     ap.add_argument("--anchor-weight", type=float, default=0.0,
                     help="sample weight 1 + k * w(P, V2): makes the fit honour narrow anchors (0 = plain stage (a))")
+    ap.add_argument("--delta", action="store_true",
+                    help="fit only the correction on top of M-B's readout (M-S = M-B exactly far from the anchors)")
     a = ap.parse_args()
     lines = []
 
@@ -96,10 +119,13 @@ def main():
         f"max |dD| {max(np.abs(f1 - b1).max(), np.abs(f2 - b2).max()):.4f}")
 
     t1, t2, w = target(mb, P, V, A)
-    ms = fit(mb, P, V, t1, t2, alpha=a.alpha, sample_w=1.0 + a.anchor_weight * w)
+    if a.delta:
+        ms = fit_delta(mb, P, V, t1, t2, w, alpha=a.alpha)
+    else:
+        ms = fit(mb, P, V, t1, t2, alpha=a.alpha, sample_w=1.0 + a.anchor_weight * w)
     m1, m2 = (np.ravel(x) for x in ms.predict(P, V))
-    out(f"M-S = ridge fit of the corrected target, {len(A)} anchors from {os.path.relpath(a.anchors, HERE)} "
-        f"(alpha {a.alpha:g}, anchor weight {a.anchor_weight:g})")
+    out(f"M-S = {'M-B + ridge fit of the correction (--delta)' if a.delta else 'ridge fit of the corrected target'}, "
+        f"{len(A)} anchors from {os.path.relpath(a.anchors, HERE)} (alpha {a.alpha:g}, anchor weight {a.anchor_weight:g})")
     out(f"  RMSE to target {np.sqrt(np.mean((m1 - t1) ** 2 + (m2 - t2) ** 2) / 2):.4f}, max |dD| "
         f"{max(np.abs(m1 - t1).max(), np.abs(m2 - t2).max()):.4f}")
     far = w < 0.01
@@ -131,7 +157,8 @@ def main():
         out(f"  (analytic reference skipped: {e})")
 
     path = os.path.join(OUT, f"model_smooth_reghdc_{a.tag}.json")
-    ms.to_json(path, stage="OPT4", base="b3", alpha=a.alpha, anchor_weight=a.anchor_weight, anchors=A.to_dict("records"))
+    ms.to_json(path, stage="OPT4", base="b3", alpha=a.alpha, anchor_weight=a.anchor_weight, delta=a.delta,
+               anchors=A.to_dict("records"))
     out(f"wrote {os.path.relpath(path, HERE)}")
     fig(mb, ms, A, a.tag)
     open(os.path.join(OUT, f"train_corrected_{a.tag}.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")

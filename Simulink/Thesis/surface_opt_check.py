@@ -42,7 +42,21 @@ import surface_opt_verdict as sv  # noqa: E402
 
 OUT = os.path.join(HERE, "out")
 FAMS = ("mb", "k1", "grid")
-SIM_T = {"mb": 0.030, "k1": 0.040, "grid": 0.030}
+SIM_T = {"mb": 0.030, "k1": 0.040, "grid": 0.030, "ms": 0.030, "msk1": 0.040}
+# OPT4 (10-30, after round 2): verification runs of the corrected surface M-S (train_corrected.py --tag MS), only with
+# --fams ms,msk1 (never part of the M-B verdict above). ms: 30 ms at V2 84 / 109.2 V (+ two intermediate V2, where the
+# anchors' Gaussian tails reach and no OPT run exists); msk1: 40 ms in the k = 1 band (k1map's V2). M-S points whose
+# duties are within MS_DIFF of M-B are not run (M-B's runs stand for them). Where no OPT family has M-B / SPS, they are
+# run beside M-S.
+MS_FAMS = ("ms", "msk1")
+MS_TAG = "MS"
+MS_P = (100.0, 150.0, 200.0, 300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0)
+MS_V2_EDGE = (84.0, 109.2)
+MS_V2_MID = (89.0, 104.0)
+MS_P_MID = (100.0, 200.0, 400.0, 600.0, 800.0)
+MSK1_V2 = (93.0, 94.0, 95.0, 96.0, 97.0)
+MSK1_P = (70.0, 100.0, 150.0, 200.0, 300.0)
+MS_DIFF = 0.003
 MB_P = (100.0, 300.0, 1000.0)
 K1_P = (100.0, 300.0, 600.0)
 GRID_P = (100.0, 150.0, 200.0, 300.0, 400.0, 600.0, 800.0, 1000.0)
@@ -165,6 +179,32 @@ def configs_grid(partial=False, verbose=True):
     return cf
 
 
+def _ms():
+    p = os.path.join(OUT, f"model_smooth_reghdc_{MS_TAG}.json")
+    if not os.path.isfile(p):
+        sys.exit(f"{p} not found: train it first (train_corrected.py --tag {MS_TAG})")
+    return ct.SmoothRegHDC.from_json(p)
+
+
+def configs_ms(fam="ms"):
+    """OPT4: M-S where it differs from M-B; M-B and SPS beside it where no OPT family has them"""
+    ms, mb = _ms(), _mb()
+    if fam == "ms":
+        pts = [(v, p, p not in GRID_P) for v in MS_V2_EDGE for p in MS_P] + [(v, p, True) for v in MS_V2_MID for p in MS_P_MID]
+    else:
+        pts = [(v, p, True) for v in MSK1_V2 for p in MSK1_P]
+    cf = []
+    for v, p, new in pts:
+        s1, s2 = (float(np.ravel(x)[0]) for x in ms.predict(np.array([p]), np.array([v])))
+        b1, b2 = (float(np.ravel(x)[0]) for x in mb.predict(np.array([p]), np.array([v])))
+        if max(abs(s1 - b1), abs(s2 - b2)) < MS_DIFF:
+            continue
+        cf.append(_cfg(fam, "M-S", v, p, s1, s2))
+        if new:
+            cf += [_cfg(fam, "M-B", v, p, b1, b2), _cfg(fam, "SPS", v, p, 0.5, 0.5)]
+    return cf
+
+
 def configs(fams=FAMS, partial=False, verbose=True):
     cf = []
     if "mb" in fams:
@@ -173,6 +213,9 @@ def configs(fams=FAMS, partial=False, verbose=True):
         cf += configs_k1()
     if "grid" in fams:
         cf += configs_grid(partial, verbose)
+    for f in MS_FAMS:
+        if f in fams:
+            cf += configs_ms(f)
     cf, bad = _feasible(_dedupe(cf))
     if verbose and bad:
         print(f"{len(bad)} configurations out of reach (ideal model), dropped: "
@@ -183,9 +226,13 @@ def configs(fams=FAMS, partial=False, verbose=True):
 
 def result_files(fam):
     fs = glob.glob(os.path.join(OUT, f"opt_sweep_{fam}_r*.csv"))
-    if fam != "k1":                                           # same method and 30 ms: R.4 and R8 runs are reused
+    if fam == "msk1":                                         # same method and 40 ms: OPT2 and k1map runs are reused
+        fs += glob.glob(os.path.join(OUT, "opt_sweep_k1_r*.csv")) + glob.glob(os.path.join(OUT, "k1map_sweep_r*.csv"))
+    elif fam != "k1":                                         # same method and 30 ms: R.4 and R8 runs are reused
         fs += glob.glob(os.path.join(OUT, "simulink_sweep_r*.csv")) + glob.glob(os.path.join(OUT, "eff_sweep_r*.csv"))
         fs += glob.glob(os.path.join(OUT, f"opt_sweep_{'grid' if fam == 'mb' else 'mb'}_r*.csv"))
+        if fam == "ms":
+            fs += glob.glob(os.path.join(OUT, "opt_sweep_grid_r*.csv"))
     return [f for f in sorted(fs) if not f.endswith("_in.csv")]
 
 
@@ -240,7 +287,14 @@ def plan(fams, partial):
             if g.empty:
                 continue
             b, way = sw.bracket(g, c["P"])
-            if b is None:
+            below = g[(g["Pd"] > 0) & (g["Pd"] <= c["P"])]
+            if b is None and way < 0 and not below.empty:
+                # |P| falls in a gap between two measured levels that are not adjacent (10-30: SPS reused from R.4's
+                # 100/300/600/1000 W brackets left 84 V 400/800 W in such gaps, and bracket() said "go below the
+                # lowest level", i.e. into the other power direction, for 4 rounds) -> fill the gap from below
+                j = int(below["level"].max())
+                pts += [sw.point(c, j + 1), sw.point(c, j + 2)]
+            elif b is None:
                 j = int(g["level"].max() + 1) if way > 0 else int(g["level"].min() - 1)
                 pts += [sw.point(c, j), sw.point(c, j + way)]
             else:
@@ -311,7 +365,8 @@ def roughness(T):
     sigma * E[max of n normals] (minimum-selection bias)."""
     mb = T[(T["fam"] == "mb")]
     d2 = {"light": [], "heavy": []}
-    for (v, p), g in mb.groupby(["V2", "P"]):
+    centred = {"light": [], "heavy": []}       # (d2, centred on M-B?) -- a minimum of max(...) is a V-shaped kink, so
+    for (v, p), g in mb.groupby(["V2", "P"]):  # d2 centred on an optimal M-B is large and positive, not noise (10-30 r2)
         c = g[g["ctrl"] == "M-B"]
         if c.empty:
             continue
@@ -321,15 +376,44 @@ def roughness(T):
             m = dict(zip(np.round((s[ax] - c[ax]) / 0.02).astype(int), s["Ipk"]))
             for k in (-1, 0, 1):
                 if all(o in m for o in (k - 1, k, k + 1)):
-                    d2["light" if p <= 300 else "heavy"].append(m[k - 1] - 2 * m[k] + m[k + 1])
+                    w = "light" if p <= 300 else "heavy"
+                    d2[w].append(m[k - 1] - 2 * m[k] + m[k + 1])
+                    centred[w].append(k == 0)
     sig = {k: (float(np.sqrt(np.mean(np.square(x)) / 6)) if x else np.nan, len(x)) for k, x in d2.items()}
+    split = {}
+    for k, x in d2.items():
+        x, c = np.array(x), np.array(centred[k], bool)
+        split[k] = dict(centre_mean=float(x[c].mean()) if c.any() else np.nan, n_centre=int(c.sum()),
+                        sigma_off=float(np.sqrt(np.mean(np.square(x[~c])) / 6)) if (~c).any() else np.nan,
+                        n_off=int((~c).sum()))
+    sig["split"] = split
     rows = []
     for (v, p), g in _c30(T).groupby(["V2", "P"]):
         n = int(((g["ctrl"] != "SPS") & np.isfinite(g["Ipk"]) & (g["osc"] <= sv.OSC)).sum())
-        s = sig["light" if p <= 300 else "heavy"][0]
+        w = "light" if p <= 300 else "heavy"
+        s = np.nanmin([sig[w][0], split[w]["sigma_off"]])             # the smaller of the two: kinks at M-B are not
+        #                                                                 roughness, and a small sigma is the strict side
         rows.append(dict(V2=v, P=p, n=n, sigma=s, expected_gap=s * _e_max(n) if np.isfinite(s) else np.nan))
     import pandas as pd
     return sig, pd.DataFrame(rows)
+
+
+def undecided_gaps(c30, P1):
+    """NOT a verdict (added 10-30 after round 2): at the points rule (i) cannot judge (M-B or SPS oscillating / not
+    bracketed), M-B's own value and the best clean other candidate, so a large gap is not hidden by 'undecidable'"""
+    rows = []
+    for _, r in P1[P1["verdict"] == "undecidable"].iterrows():
+        g = c30[np.isclose(c30["V2"], r["V2"]) & np.isclose(c30["P"], r["P"])]
+        mb = g[(g["ctrl"] == "M-B") & np.isfinite(g["Ipk"])]
+        oth = g[(g["ctrl"] != "M-B") & np.isfinite(g["Ipk"]) & (g["osc"] <= sv.OSC)]
+        if mb.empty or oth.empty:
+            continue
+        m, b = mb.iloc[0], oth.loc[oth["Ipk"].idxmin()]
+        rows.append(dict(V2=r["V2"], P=r["P"], why=r["why"], Ipk_MB=m["Ipk"], MB_osc=m["osc"] > sv.OSC,
+                         MB_D1=m["D1"], MB_D2=m["D2"], best=b["ctrl"], best_D1=b["D1"], best_D2=b["D2"],
+                         Ipk_best=b["Ipk"], gap=m["Ipk"] - b["Ipk"]))
+    import pandas as pd
+    return pd.DataFrame(rows)
 
 
 def compare(partial=False):
@@ -358,6 +442,11 @@ def compare(partial=False):
             f"{r['within_D2'][0]:.3f}-{r['within_D2'][1]:.3f} | {r['verdict']}"
             + (f" ({int(r['unsettled'])} unsettled)" if r["unsettled"] else ""))
     out(f"=> rule (i): {code1}")
+    UG = undecided_gaps(_c30(T), P1)
+    for _, r in UG.iterrows():
+        out(f"   undecidable {r['V2']:g} V {r['P']:.0f} W ({r['why']}), NOT a verdict: M-B ({r['MB_D1']:.3f}, "
+            f"{r['MB_D2']:.3f}) {r['Ipk_MB']:.3f}{' (oscillating)' if r['MB_osc'] else ''} - best clean {r['best']} "
+            f"({r['best_D1']:.3f}, {r['best_D2']:.3f}) {r['Ipk_best']:.3f} = {r['gap']:+.3f} A")
 
     # robustness only (not a verdict): the same rule with the peak read from another 1 ms window
     sens = {}
@@ -373,7 +462,12 @@ def compare(partial=False):
                   for _, r in fl.iterrows()))
     sig, RG = roughness(T)
     out("   roughness (NOT a verdict): sigma from 2nd differences along the M-B cross, h = 0.02: "
-        + ", ".join(f"{k} (|P| {'<=' if k == 'light' else '>'} 300 W) {s:.3f} A from {n}" for k, (s, n) in sig.items()))
+        + ", ".join(f"{k} (|P| {'<=' if k == 'light' else '>'} 300 W) {sig[k][0]:.3f} A from {sig[k][1]}"
+                    for k in ("light", "heavy")))
+    for k, o in sig["split"].items():
+        out(f"     {k}: d2 centred on M-B mean {o['centre_mean']:+.3f} A ({o['n_centre']}; > 0 = M-B at the bottom of a "
+            f"V-shaped kink), sigma from the off-centre ones {o['sigma_off']:.3f} A ({o['n_off']})")
+    out("     yardstick below: sigma = the smaller of the two estimates (strict for M-B)")
     gp = P1.set_index(["V2", "P"])["gap"] if "gap" in P1 else None
     for _, r in RG.iterrows():
         g = gp.get((r["V2"], r["P"]), np.nan) if gp is not None else np.nan
@@ -408,7 +502,7 @@ def compare(partial=False):
         + ", ".join(f"{f} {int((miss['fam'] == f).sum())}/{int((T['fam'] == f).sum())}" for f in FAMS) + ")")
     open(os.path.join(OUT, "surface_opt_check.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
     res = dict(T=T, partial=partial, i=(code1, P1), sens=sens, ii=(code2, V), iii=(code3, G, info), stair=st,
-               rough=(sig, RG))
+               rough=(sig, RG), ug=UG)
     verdict_md(res)
     fig(res)
     print("wrote out/surface_opt_check.{csv,log}, out/surface_opt_verdict.md, out/fig_surface_opt_check.png")
@@ -471,6 +565,16 @@ def verdict_md(res):
     md += ["", f"단위 A. **판정 (i): {VERDICT_KO[code1]}**"
            + (f" — 깨지는 점 {len(fails)}개: " + ", ".join(f"{r['V2']:g} V {r['P']:.0f} W(차 {r['gap']:+.3f} A)"
                                                        for _, r in fails.iterrows()) if len(fails) else "") + "."]
+    UG = res.get("ug")
+    if UG is not None and len(UG):
+        md += ["", "판정 불가 점의 참고값(판정 아님, 10-30 2라운드 뒤 추가): 규칙은 M-B나 SPS가 진동하거나 미포착이면 그 점을 판정하지"
+               " 않는다. 그래도 큰 차가 '판정 불가'에 가려지지 않도록, M-B 값과 진동 없는 다른 후보 중 최저를 적는다.", "",
+               "| V2 | \\|P\\| | 판정 불가 이유 | M-B (D1, D2) | M-B Ipk | 최저 깨끗한 후보 (D1, D2) | 그 Ipk | M-B − 최저 |",
+               "|---|---|---|---|---|---|---|---|"]
+        for _, r in UG.iterrows():
+            md.append(f"| {r['V2']:g} V | {r['P']:.0f} W | {r['why']} | ({r['MB_D1']:.3f}, {r['MB_D2']:.3f}) | "
+                      f"{r['Ipk_MB']:.3f}{' (진동)' if r['MB_osc'] else ''} | {r['best']} ({r['best_D1']:.3f}, "
+                      f"{r['best_D2']:.3f}) | {r['Ipk_best']:.3f} | {r['gap']:+.3f} |")
     md += ["", "창 민감도(판정 아님, `flicker_check.py`): 일부 실행은 1 ms 창마다 피크가 두 값 사이를 오간다. 같은 두 계단을 쓰고 피크만"
            " 다른 창에서 읽어 규칙 (i)을 다시 적용하면 아래와 같다.", ""]
     for col, (code_s, Ps) in res["sens"].items():
@@ -488,9 +592,14 @@ def verdict_md(res):
     gp = P1.set_index(["V2", "P"])["gap"] if "gap" in P1 else None
     md += ["", "곡면의 들쭉날쭉함(판정 아님, 10-30 1라운드 뒤 추가; 규칙은 그대로): M-B 십자에서 0.02 듀티 간격 세 점의 2차 차분"
            " d2 = I(−h) − 2I(0) + I(+h)로 Simulink Ipk 곡면의 거칠기 σ = RMS(d2)/√6을 어림했다(매끄러운 곡률은 σ를 키우기만 한다). "
-           + ", ".join(f"{'경부하(≤ 300 W)' if k == 'light' else '중부하 이상(> 300 W)'} σ ≈ {s:.3f} A(차분 {n}개)"
-                       for k, (s, n) in sig.items()) + ". 후보 n개의 참값이 모두 같아도 Ipk(M-B) − 최저의 기댓값은"
-           " σ·E[n개 정규 최댓값]이다(최솟값 선택 편향). 점마다 견줄 값:", ""]
+           + ", ".join(f"{'경부하(≤ 300 W)' if k == 'light' else '중부하 이상(> 300 W)'} σ ≈ {sig[k][0]:.3f} A(차분 {sig[k][1]}개)"
+                       for k in ("light", "heavy")) + ". 후보 n개의 참값이 모두 같아도 Ipk(M-B) − 최저의 기댓값은"
+           " σ·E[n개 정규 최댓값]이다(최솟값 선택 편향). "
+           "(10-30 2라운드 뒤 추가) 최솟값이 max(…) 꼴이면 최적점은 V자 꺾임이라, M-B를 가운데 둔 d2는 잡음이 아니라 꺾임이다. "
+           + ", ".join(f"{'경부하' if k == 'light' else '중부하 이상'}: M-B 중심 d2 평균 {o['centre_mean']:+.3f} A({o['n_centre']}개, "
+                       f"양수 = M-B가 V자 바닥), 중심 밖 d2로 σ {o['sigma_off']:.3f} A({o['n_off']}개)"
+                       for k, o in sig["split"].items())
+           + ". 기댓값은 두 σ 어림 중 작은 쪽으로 계산한다(M-B에 엄격한 쪽). 점마다 견줄 값:", ""]
     for _, r in RG.iterrows():
         g = gp.get((r["V2"], r["P"]), np.nan) if gp is not None else np.nan
         if np.isfinite(g):

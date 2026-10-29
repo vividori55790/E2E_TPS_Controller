@@ -1,8 +1,11 @@
-function opt_chain(rnd)
-% opt_chain.m -- OPT1-OPT3 Simulink runs (surface_opt_check.py) in ONE MATLAB session, one family after another:
+function opt_chain(rnd, only)
+% opt_chain.m -- OPT1-OPT4 Simulink runs (surface_opt_check.py) in ONE MATLAB session, one family after another:
 %   mb   (OPT3, M-B local cross + SPS + BT)   out/opt_points_mb_r<rnd>.csv   -> out/opt_sweep_mb_r<rnd>_partNNN.csv   30 ms
 %   k1   (OPT2, k = 1 valley test, 95 V)      out/opt_points_k1_r<rnd>.csv   -> out/opt_sweep_k1_r<rnd>_partNNN.csv   40 ms
 %   grid (OPT1, R6 best combos in steady st.) out/opt_points_grid_r<rnd>.csv -> out/opt_sweep_grid_r<rnd>_partNNN.csv 30 ms
+%   ms   (OPT4, corrected surface M-S)        out/opt_points_ms_r<rnd>.csv   -> out/opt_sweep_ms_r<rnd>_partNNN.csv   30 ms
+%   msk1 (OPT4, M-S near k = 1, as k1)        out/opt_points_msk1_r<rnd>.csv -> out/opt_sweep_msk1_r<rnd>_partNNN.csv 40 ms
+% only: optional cell array of family names to run (default: all of the above).
 % A family whose points file does not exist is skipped. verify_steady_batch skips chunks already on disk, so the job can
 % be resubmitted after a reboot. An error in one family does not stop the others; the job ends with an error if any failed.
 %   python automation/job.py submit opt1 --interactive -- matlab -batch "cd('Simulink/Thesis'); opt_chain(1)"
@@ -10,7 +13,10 @@ function opt_chain(rnd)
     here = fileparts(mfilename('fullpath'));
     out = fullfile(here, 'out');
     fprintf('opt_chain: round %d start %s\n', rnd, datestr(now));
-    fams = {'mb', 0.030; 'k1', 0.040; 'grid', 0.030};
+    fams = {'mb', 0.030; 'k1', 0.040; 'grid', 0.030; 'ms', 0.030; 'msk1', 0.040};
+    if nargin >= 2 && ~isempty(only)
+        fams = fams(ismember(fams(:, 1), only), :);
+    end
     failed = {};
     for i = 1:size(fams, 1)
         fam = fams{i, 1};
