@@ -295,6 +295,43 @@ def _c30(T):
     return T[T["fam"].isin(["mb", "grid"])].sort_values("fam").drop_duplicates(["V2", "P", "D1", "D2"], keep="first")
 
 
+def _e_max(n, draws=200000, seed=0):
+    """E[max of n standard normals] = E[X_1 - min(X_1..X_n)] / sigma for iid X (Monte Carlo)"""
+    if n < 2:
+        return 0.0
+    z = np.random.default_rng(seed).standard_normal((draws, n))
+    return float(np.mean(z[:, 0] - z.min(axis=1)))
+
+
+def roughness(T):
+    """NOT a verdict (added 10-30 after round 1; the rules in surface_opt_verdict.py are unchanged): how rough is the
+    Simulink Ipk landscape at 0.02-duty steps? Second differences d2 = I(-h) - 2 I(0) + I(+h) along the mb cross axes
+    (clean candidates, h = 0.02); for iid roughness sigma, Var(d2) = 6 sigma^2 (a smooth curvature only adds to it).
+    Yardstick per point: if all n clean non-SPS candidates had the same true Ipk, the expected Ipk(M-B) - min would be
+    sigma * E[max of n normals] (minimum-selection bias)."""
+    mb = T[(T["fam"] == "mb")]
+    d2 = {"light": [], "heavy": []}
+    for (v, p), g in mb.groupby(["V2", "P"]):
+        c = g[g["ctrl"] == "M-B"]
+        if c.empty:
+            continue
+        c = c.iloc[0]
+        for ax, other in (("D1", "D2"), ("D2", "D1")):
+            s = g[np.isclose(g[other], c[other]) & np.isfinite(g["Ipk"]) & (g["osc"] <= sv.OSC)]
+            m = dict(zip(np.round((s[ax] - c[ax]) / 0.02).astype(int), s["Ipk"]))
+            for k in (-1, 0, 1):
+                if all(o in m for o in (k - 1, k, k + 1)):
+                    d2["light" if p <= 300 else "heavy"].append(m[k - 1] - 2 * m[k] + m[k + 1])
+    sig = {k: (float(np.sqrt(np.mean(np.square(x)) / 6)) if x else np.nan, len(x)) for k, x in d2.items()}
+    rows = []
+    for (v, p), g in _c30(T).groupby(["V2", "P"]):
+        n = int(((g["ctrl"] != "SPS") & np.isfinite(g["Ipk"]) & (g["osc"] <= sv.OSC)).sum())
+        s = sig["light" if p <= 300 else "heavy"][0]
+        rows.append(dict(V2=v, P=p, n=n, sigma=s, expected_gap=s * _e_max(n) if np.isfinite(s) else np.nan))
+    import pandas as pd
+    return sig, pd.DataFrame(rows)
+
+
 def compare(partial=False):
     cf = configs(FAMS, partial, verbose=False)
     T = measure(FAMS, partial, cf=cf)
@@ -334,6 +371,15 @@ def compare(partial=False):
     out(f"   candidates bracketed by a run whose window peaks span > {FLICKER} A: {len(fl)}"
         + "".join(f"\n     {r['V2']:g} V {r['P']:.0f} W {r['ctrl']} ({r['D1']:.3f}, {r['D2']:.3f}) span {r['flicker']:.2f}"
                   for _, r in fl.iterrows()))
+    sig, RG = roughness(T)
+    out("   roughness (NOT a verdict): sigma from 2nd differences along the M-B cross, h = 0.02: "
+        + ", ".join(f"{k} (|P| {'<=' if k == 'light' else '>'} 300 W) {s:.3f} A from {n}" for k, (s, n) in sig.items()))
+    gp = P1.set_index(["V2", "P"])["gap"] if "gap" in P1 else None
+    for _, r in RG.iterrows():
+        g = gp.get((r["V2"], r["P"]), np.nan) if gp is not None else np.nan
+        if np.isfinite(g):
+            out(f"     {r['V2']:g} V {r['P']:.0f} W: gap {g:+.3f} A vs 'all equal' expectation {r['expected_gap']:.3f} A "
+                f"({int(r['n'])} clean non-SPS candidates)")
 
     code2, V = sv.valley(T[T["fam"] == "k1"])
     out("\nOPT rule (ii): V2 95 V, some clean candidate with min(D1, D2) < 0.45 more than 0.05 A below SPS (40 ms runs)")
@@ -361,11 +407,30 @@ def compare(partial=False):
     out(f"\nnot bracketed yet: {len(miss)}/{len(T)} configurations ("
         + ", ".join(f"{f} {int((miss['fam'] == f).sum())}/{int((T['fam'] == f).sum())}" for f in FAMS) + ")")
     open(os.path.join(OUT, "surface_opt_check.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
-    res = dict(T=T, partial=partial, i=(code1, P1), sens=sens, ii=(code2, V), iii=(code3, G, info), stair=st)
+    res = dict(T=T, partial=partial, i=(code1, P1), sens=sens, ii=(code2, V), iii=(code3, G, info), stair=st,
+               rough=(sig, RG))
     verdict_md(res)
     fig(res)
     print("wrote out/surface_opt_check.{csv,log}, out/surface_opt_verdict.md, out/fig_surface_opt_check.png")
     return res
+
+
+def k1_levels(levels=(1, 2, 3, 4, 5)):
+    """95 V OPT2 runs per D0 level, no interpolation: [(level, [(name, 'P W / Ipk A'), ...]), ...]"""
+    d = results("k1")
+    if d is None:
+        return []
+    d = d[np.isclose(d["V2"], 95.0)]
+    cols = [("SPS", sw.D_SAFE, sw.D_SAFE)] + [(f"D1 = D2 = {x:.2f}", x, x) for x in (0.45, 0.40, 0.35, 0.30)]
+    out = []
+    for j in levels:
+        cells = []
+        for name, a, b in cols:
+            r = d[(d["level"] == j) & (np.abs(d["D1"] - a) <= 6e-7) & (np.abs(d["D2"] - b) <= 6e-7)]
+            cells.append((name, f"{round(r['Pd'].iloc[0]) or 0:.0f} / {r['Ipk_sim'].iloc[0]:.3f}" if len(r) else "–"))
+        if any(c != "–" for _, c in cells):
+            out.append((j, cells))
+    return out
 
 
 VERDICT_KO = {"optimal": "M-B가 Simulink 최적(허용오차 안)", "not_optimal": "M-B는 Simulink 최적이 아님",
@@ -419,6 +484,18 @@ def verdict_md(res):
         md.append(f"- 창마다 피크가 {FLICKER} A 넘게 달라지는 실행에 기댄 후보: " + "; ".join(
             f"{r['V2']:g} V {r['P']:.0f} W {r['ctrl']} ({r['D1']:.3f}, {r['D2']:.3f}) 폭 {r['flicker']:.2f} A"
             for _, r in fl.iterrows()))
+    sig, RG = res["rough"]
+    gp = P1.set_index(["V2", "P"])["gap"] if "gap" in P1 else None
+    md += ["", "곡면의 들쭉날쭉함(판정 아님, 10-30 1라운드 뒤 추가; 규칙은 그대로): M-B 십자에서 0.02 듀티 간격 세 점의 2차 차분"
+           " d2 = I(−h) − 2I(0) + I(+h)로 Simulink Ipk 곡면의 거칠기 σ = RMS(d2)/√6을 어림했다(매끄러운 곡률은 σ를 키우기만 한다). "
+           + ", ".join(f"{'경부하(≤ 300 W)' if k == 'light' else '중부하 이상(> 300 W)'} σ ≈ {s:.3f} A(차분 {n}개)"
+                       for k, (s, n) in sig.items()) + ". 후보 n개의 참값이 모두 같아도 Ipk(M-B) − 최저의 기댓값은"
+           " σ·E[n개 정규 최댓값]이다(최솟값 선택 편향). 점마다 견줄 값:", ""]
+    for _, r in RG.iterrows():
+        g = gp.get((r["V2"], r["P"]), np.nan) if gp is not None else np.nan
+        if np.isfinite(g):
+            md.append(f"- {r['V2']:g} V {r['P']:.0f} W: 차 {g:+.3f} A, '모두 같음' 기댓값 {r['expected_gap']:.3f} A"
+                      f"(깨끗한 비SPS 후보 {int(r['n'])}개)")
 
     md += ["", "## 규칙 (ii) k = 1(95 V) 중앙의 깊은 골", "",
            "min(D1, D2) < 0.45인 깨끗한 후보 중 하나라도 같은 전력의 SPS보다 0.05 A 넘게 낮으면 골이 실재한다(40 ms 실행).", "",
@@ -426,6 +503,13 @@ def verdict_md(res):
     for _, r in V.sort_values(["P", "D1", "D2"]).iterrows():
         md.append(f"| {r['P']:.0f} W | ({r['D1']:.2f}, {r['D2']:.2f}) | {r['Ipk']:.3f} | {r['Ipk_SPS']:.3f} | {r['gain']:+.3f} |")
     md += ["", f"**판정 (ii): {VERDICT_KO[code2]}**" + (f" — 최대 이득 {V['gain'].max():+.3f} A." if len(V) else ".")]
+    lv = k1_levels()
+    if lv:
+        md += ["", "같은 D0 계단에서 직접 비교(보간 없음, 판정 아님): 95 V에서 2.88° 계단마다 측정 전력[W] / 마지막 1 ms max|i_L|[A]."
+               " 이 전압에서는 한 계단이 70–230 W를 건너뛰므로, 규칙의 100 W 값은 두 계단 사이 직선 보간이다.", "",
+               "| 계단 (D0) | " + " | ".join(n for n, _ in lv[0][1]) + " |", "|---" * (1 + len(lv[0][1])) + "|"]
+        for j, cells in lv:
+            md.append(f"| {j} ({(j - 0.5) * sw.G:.2f}°) | " + " | ".join(c for _, c in cells) + " |")
 
     md += ["", "## 규칙 (iii) 곡면 모양", "",
            "Simulink 격자 최적(R6 1 ms 계단 상위 3조합 + SPS를 정상상태로 잰 것 중 최저)이 M-B와 같은 쪽(84 V는 D1 < D2, 109.2 V는"

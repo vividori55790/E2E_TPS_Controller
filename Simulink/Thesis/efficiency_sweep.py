@@ -45,7 +45,10 @@ def configs():
 
 
 def result_files():
+    """R.4 and R8 runs, plus the OPT check's 30 ms runs (same method; 10-30: they bracket some M-B / SPS configurations
+    here, so `next` does not plan them twice). Not the 40 ms k = 1 runs."""
     fs = glob.glob(os.path.join(OUT, "simulink_sweep_r*.csv")) + glob.glob(os.path.join(OUT, "eff_sweep_r*.csv"))
+    fs += glob.glob(os.path.join(OUT, "opt_sweep_mb_r*.csv")) + glob.glob(os.path.join(OUT, "opt_sweep_grid_r*.csv"))
     return [f for f in sorted(fs) if not f.endswith("_in.csv")]
 
 

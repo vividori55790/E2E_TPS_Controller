@@ -1,0 +1,5 @@
+# PROVISIONAL (OPT round 1 only, 2026-10-30) -- to test train_corrected.py; the real anchors wait for optR (round 2) and k1map.
+# k = 1 width wV is a guess until k1map; 109.2 V: steady flicker-free candidate G1 of out/surface_opt_verdict.md
+V2,P,D1,D2,wV,wP,source
+95.0,70,0.45,0.45,1.5,45,opt_sweep_k1_r1 L2 (4.32 deg): 0.415 vs SPS 0.738 A
+109.2,100,0.263,0.200,4.0,40,opt_sweep_grid_r1 G1 109.2 V 100 W 1.534 A (M-B 1.764 end window)

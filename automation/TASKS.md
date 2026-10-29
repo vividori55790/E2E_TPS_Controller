@@ -26,12 +26,26 @@
   계단 상위 조합은 대부분 M-B와 같은 쪽(84 V D1 ≤ D2, 109.2 V D2 < D1). r8_finalize → Q4 판정(아래 R7 줄). 다음: opt1 끝나면
   `surface_opt_check.py next` → (감싸지 못한 구성이 있으면 `opt_chain(2)`를 `--after rob1`이 아니라 **가장 먼저** 돌도록 제출 — 사용자
   최우선) → `compare` → OPT4.
+- **진행(반복 25, 10-30 05:05–05:40)**: opt1 끝(05:03, 290회 오류 0). `surface_opt_check.py compare` 1라운드(잠정, 46/187구성 미포착):
+  (i) "최적 아님" 9점 중 4점(84 V 100/150/300 W +0.067/+0.070/+0.089, 109.2 V 100 W +0.250 A; 최적 = 84 V 200/600/1000, 109.2 V 300/1000 W),
+  (ii) "k = 1 골 실재"(95 V 100 W D = 0.40 −0.149 A; 같은 계단 약 70 W에서 D 0.35–0.45 0.415 vs SPS 0.738 A; 300·600 W는 SPS 최선),
+  (iii) "불일치"(같은 쪽 100 %, 84 V ρ 0.798 < 0.8 하나). 판정 아닌 점검 셋을 compare에 넣었다: 곡면 거칠기 σ ≈ 0.067 A(경부하) →
+  최솟값 선택 편향 기댓값(84 V 100·300 W 0.110·0.107 A > 차), 95 V 같은 계단 표, SPS 4.32° 실행은 마지막 주기 0.41 A인데 1 ms 최대 0.738 A
+  (간헐 스파이크). `pwm_counter_check.py`: 제어기 위상 카운터 게이트 명령은 40 ms 내내 주기적 → 원인은 플랜트(데드타임·Coss 0).
+  **MATLAB 순서 바꿈**: zvs/robust 점 파일을 `*_r1q.csv`로 옮겨 대기 중인 zvs1·rob1이 시작하자마자 실패하게 했다(kill 아님). → eff1 → optR
+  → **k1map**(`k1_map.py`, 79회 40 ms, V2 90–100 V × 첫 네 계단 × {SPS, D 0.475/0.45/0.40} + 95 V 핵심 3실행 재실행(주기별 피크)) → zvs2 → rob2(같은 출력 이름).
+  `verify_steady_state.m`이 이제 마지막 1 ms 80주기의 주기별 최대·최소를 `out/iL_pp/`에 쓴다(m_static_check OK; optR 첫 실행).
+  주기별 피크 기록은 optR 첫 묶음(05:43)에서 확인했다(80주기 최대 = Ipk_sim, 오류 0).
+  **다음 턴**: optR가 끝나면(약 07:00) `surface_opt_check.py compare`(2라운드) → RESULTS R.10·REPORT 11.1 갱신(1라운드 표를 2라운드로).
+  `efficiency_sweep.py next` → eff2(`--after rob2`). k1map이 끝나면(약 08:05) `k1_map.py compare` → 앵커 폭을 정해 `train_corrected.py`
+  → M-S 검증 점 생성·제출(OPT4 줄).
 - [x] OPT0 **판정 규칙 먼저 등록**(결과를 보기 전에): `Simulink/Thesis/surface_opt_verdict.py`에 규칙과 가짜 입력 시험(`test_surface_opt_verdict.py`).
   (반복 22: 19항목 ALL PASS. 후보 = 2.88° 두 계단 정상상태만, 진동(|mean i_L| > 20 mA) 후보 제외, M-B/SPS 진동이면 판정 불가,
   (ii)는 min(D1, D2) < 0.45, (iii)은 같은 쪽 = s(D2*−D1*) ≥ 0 비율 ≥ 75 %·SPS만 최적이면 불일치, 상승 = Spearman ≥ 0.8 & 최대 전력 d* ≥ 0.45.)
   (i) 한 점에서 "M-B가 Simulink 최적": Ipk(M-B) − min(그 점의 모든 Simulink 후보 Ipk) ≤ max(0.03 A, Ipk_SPS의 2 %). (ii) "k = 1 중앙의 깊은 골이
   실재": V2 = 95 V에서 D < 0.45인 후보 중 하나라도 같은 전력의 SPS보다 0.05 A 넘게 낮다(100/300/600 W 중 어디서든). (iii) 곡면 모양 판정:
   Simulink 격자 최적 (D1*, D2*)가 M-B와 같은 쪽(84 V는 D1 < D2, 109.2 V는 D2 < D1)이고 |P|가 커질수록 0.5로 오르는지. 규칙은 이후 바꾸지 않는다.
+- [~] OPT1–OPT3 1라운드 완료(10-30, 위 반복 25). 2라운드 = 잡 optR. 끝나면 `surface_opt_check.py compare` 다시 → 판정문·RESULTS R.10·REPORT 11.1 갱신.
 - [ ] OPT1 **Simulink 격자 최적(= r5r6 3단계 R6 결과 활용)**: R6 = 사용자 생성기 실험 그대로 + D0 보간 끔, V2 {84.0, 94.61, 109.2} × D1, D2 ∈ 11값(0.2–0.5).
   r5r6 2단계(계단 D0 라벨에서의 30 ms 정상상태)로 **1 ms 계단 값이 정상상태와 같은지 먼저 확인**(같지 않으면 그 차를 표로 보고하고 격자 판정은
   정상상태 보정 후에). 각 (V2, |P| ∈ {100, 150, 200, 300, 400, 600, 800, 1000} W, 두 방향)에서 조합마다 첫 분기에서 목표 전력을 감싸는 인접 D0
@@ -44,12 +58,26 @@
 - [ ] OPT4 정리: `surface_opt_check.py` → `out/surface_opt_check.{csv,log}`, 그림 `out/fig_surface_opt_check.png`(V2별 |P|–D1/D2 단면: M-B 곡선, Simulink
   격자 최적 점, 허용오차 안 후보 범위 막대; 아래 행 Ipk(M-B) − Ipk(최적)). 판정문 `out/surface_opt_verdict.md`. REPORT.md·RESULTS.md에 절 추가.
   규칙 (i)이 깨지는 점이 있으면 곡면을 고치는 방법(Simulink 격자 최적을 목표로 재학습 = R13 앞당김)을 제안하고 바로 진행.
+  (반복 25 설계안, 1라운드 근거): 보정은 경부하 두 곳만. (a) k ≈ 1 경부하 → D1 = D2 ≈ 0.45(범위는 k1map: V2 폭, 어느 계단까지 SPS보다
+  나은지; 300 W 이상은 SPS 유지). (b) 109.2 V 100 W 부근 → 흔들리지 않는 후보 쪽((0.263, 0.200) 또는 (0.199, 0.127); 2라운드로 150/200 W 확인).
+  84 V 경부하는 거칠기 범위 안이라 M-B 그대로. 방법: 목표 = M-B 곡면 + 매끄러운 보정 (ΔD1, ΔD2)(|P|, V2)(가우스 범프, 폭은 측정 간격),
+  같은 Smooth RegHDC로 지도학습(해석 모델 E2E 미세조정은 하지 않음 — 보정을 되돌림) → M-S. Simulink 검증 = R.4 12점 + OPT 점들에서
+  같은 규칙. k = 1 골은 Coss 0 모델의 데드타임 현상일 수 있다는 단서를 함께 적는다.
+  **도구 완료: `train_corrected.py`**(--anchors CSV[V2, P, D1, D2, wV, wP, source], --alpha, --anchor-weight, --tag) → model json, log, 그림.
+  임시 앵커(`out/opt4_anchors_r1test.csv`, PROVISIONAL)로 시험: M-B 인코더(σ 0.1)로는 ±1.5 V·±45 W 폭의 k = 1 앵커 0.45가 0.484까지만
+  표현된다(α 1e-3). α 1e-5 + 앵커 가중 50이면 0.467이지만, 앵커 밖 최대 변화가 0.033(기준 0.007)으로 커지고 야코비안 최대가 3.64(M-B 2.82)다.
+  109.2 V 앵커 (0.263, 0.200)은 (0.238, 0.186) → (0.254, 0.195)다. → **k1map으로 k = 1 효과의 V2 폭을 먼저 확인**한다. ±3 V 이상이면 지금
+  인코더로 되고, 더 좁으면 인코더(σ)를 바꿔야 한다. 그러면 구조가 바뀌므로 그 사실을 보고서에 적는다.
   (반복 22 메모: Python 플랜트를 E2E 학습 루프에 넣는 길은 막혔다 — `plant_full.operating_point` 512점이 10분을 넘겨 중단(배치 4096 ×
   1200 step 불가). 남는 길은 Simulink 데이터 기반이다. OPT1 격자 최적 + OPT3 국소 탐색으로 M-B 곡면에 매끄러운 보정 (ΔD1, ΔD2)(|P|, V2)를
   맞추거나, R13(V2 7값) 데이터로 Simulink 정상상태 최적 곡면을 직접 만든다. V2 84/95/109.2 세 값만으로는 V2 방향 보간 근거가 약하다.)
 - MATLAB 순서: 지금 `r5r6`(10-29 19:03 재시작; 19:02 시스템 충돌 — 버그체크 0xa0000001, 그래픽/가상 디스플레이 드라이버 계열로 추정) → OPT2+OPT3를
   한 잡으로(약 200 실행, 1–2 h) → 아래 R8 이후. 충돌로 잡이 죽으면(`job.py`가 died 표시) 같은 이름으로 다시 제출하고 이미 있는 출력은 건너뛰게 한다.
   (반복 23: 대기열 = r5r6 → opt1 → eff1 → zvs1(70회, 약 45분).)
+  (반복 25: 대기열 = eff1(실행 중, 05:30쯤 끝) → zvs1·rob1(점 파일을 옮겨 둬서 MATLAB 시작 직후 실패 = 의도) → optR(2–4라운드, 약 1–2 h)
+  → k1map(약 1 h) → zvs2(R9 70회, 약 46분) → rob2(R10 111회, 약 75분). zvs2/rob2는 `out/zvs_points_r1q.csv`/`out/robust_points_r1q.csv`를
+  읽고 출력 이름은 원래와 같다(zvs_sweep_r1, robust_sweep_r1). 대기 잡 순서를 바꾸는 방법 = 그 잡이 읽을 입력 파일을 치워 곧바로 실패시키고
+  새 이름으로 다시 내기(kill은 대화형 대기 잡을 못 멈춤).)
   (반복 24: 대기열 = opt1(05:30쯤 끝) → eff1(약 25분) → zvs1(약 46분) → **rob1**(R10 111회, 약 75분) → **optR**(`opt_rounds(2, 4)`:
   `surface_opt_check.py next` → `opt_chain(rnd)`를 감쌀 것이 없을 때까지 MATLAB 안에서 반복). OPT 2라운드를 eff1 앞에 넣으려면 대기
   잡을 죽여야 하는데 **`job.py kill`은 대화형 대기 잡을 멈추지 못한다**. rob1로 시험해 보니 작업 스케줄러 작업만 지워지고, 세션 1의
@@ -82,6 +110,8 @@ MATLAB은 한 번에 잡 하나(병렬 풀 6워커)만. 지금 `r5r6` 실행 중
   (`out/efficiency_compare.log`, RESULTS R.9, REPORT 5절). 남은 20구성 38회는 `out/eff_points_r1.csv`에 있다. **r5r6가 끝나면**
   `python automation/job.py submit eff1 --interactive -- matlab -batch "cd('Simulink/Thesis'); verify_steady_batch('out/eff_points_r1.csv', 'out/eff_sweep_r1.csv', 24, 0.030)"`
   (약 25 min)를 실행한다(반복 22: OPT가 최우선이므로 `opt1` 뒤로 — `--after opt1`). 그 뒤 `efficiency_sweep.py next`로 감싸지지 않은 구성이 있으면 r2를 돌리고, `compare`와 그림(Fig. 26–28 형식, 아직 없음)을 만든다.
+  (반복 25: eff1 끝(05:27, 38회 오류 0) → compare 52/63, M-B 깨끗한 13구성 손실 −2.52 W, Δη +0.34 pp. `result_files()`가 opt_sweep_mb/grid
+  30 ms 실행도 읽게 했다. **optR가 끝난 뒤** `efficiency_sweep.py next` → eff_points_r2 → 잡 eff2를 대기열 끝(`--after rob2`)에 낸다.)
   (r5r6_chain.m에 2b단계로도 넣었지만, 실행 중인 r5r6은 수정 전 파일을 읽었다.)
 - R8 (개선 1) **효율·손실 곡선**: 기존 Simulink 정상상태 결과(R.4 스윕 출력, t6)의 P_LV·P_HV로 η = |P_LV|/|P_HV|(HV→LV)를
   같은 전력 보간으로 계산. 부족한 점은 추가 실행(SPS, M-A, M-B × V2 84/95/109.2 × |P| 100/200/300/400/600/800/1000 W). 그림: 레퍼런스
@@ -93,6 +123,7 @@ MATLAB은 한 번에 잡 하나(병렬 풀 6워커)만. 지금 `r5r6` 실행 중
   84 V 1 kW 전부 ZVS)이 나와 PASS다. 잡 **`zvs1`**(`--after eff1`) = `out/zvs_points_r1.csv` 70회(R.4 괄호 계단을 그대로 재실행해
   파형을 얻는다. 결정적이므로 `flicker_check.py` 3절이 재현성도 확인한다). 나머지 20구성은 eff1이 파형과 함께 돈다.
   zvs1이 끝나면 `python -I -X utf8 Simulink/Thesis/zvs_check.py compare` → `out/zvs_check.{csv,log}` → RESULTS·REPORT에 표를 넣는다.
+  (반복 25: zvs1은 의도적으로 실패시키고 같은 점을 **zvs2**(`--after k1map`, `out/zvs_points_r1q.csv`)로 다시 냈다. 끝나는 것은 zvs2다.)
 - [ ] R9 (개선 6) **ZVS 범위(Simulink)**: 정상상태 실행의 i_L 파형에서 각 레그의 스위칭 순간 전류 부호로 ZVS 여부 판정(엣지 시각은 D0/D1/D2와
   제어기 PWM 타이밍에서 계산, 데드타임 고려). SPS, M-A, M-B 비교 표.
 - [~] (반복 24) R10 준비 완료. 규칙을 결과 전에 `robust_check.py` 머리말에 등록했다(selftest ALL PASS). 변형은 L 81/99 µH, td 200 ns,
@@ -102,6 +133,7 @@ MATLAB은 한 번에 잡 하나(병렬 풀 6워커)만. 지금 `r5r6` 실행 중
   tdLH/tdHL, Ref_VH; 묶음·재시작 안전, m_static_check OK). opt1이 원본을 쓰는 중이라 복사본으로 만들었다 — 대기열이 빈 뒤에 합칠 것.
   `make` → `out/robust_points_r1.csv`, 잡 **`rob1`**(`--after zvs1`). 끝나면 `robust_check.py next`(감싸지 못한 구성이 있으면 r2) → `compare` →
   `out/robust_verdict.md` → RESULTS·REPORT. **첫 실행이다 — 로그에서 setBlockParameter 오류가 있는지 먼저 확인**(Simscape compiletime 파라미터).
+  (반복 25: rob1은 의도적으로 실패시키고 **rob2**(`--after zvs2`, `out/robust_points_r1q.csv`)로 다시 냈다.)
 - [ ] R10 (개선 5) **파라미터 견고성(Simulink)**: L ±10 %, 데드타임 100→200 ns, V1 ±5 %(블록/변수 값을 시뮬레이션 입력으로만 바꿈, 모델 저장 금지)
   × 대표 6점 × {SPS, M-B}(가능하면 M-A) — 상수 D0 두 계단 보간. M-B가 어디서도 SPS보다 의미 있게 나빠지지 않는지.
 - [ ] R11 (개선 4) **동특성: PI 폐루프 계단 응답**: `dataset_era/`의 DAB_Controller_System.m **복사본**에서 위상 분해능 문제(100 ns, 2.88°)를

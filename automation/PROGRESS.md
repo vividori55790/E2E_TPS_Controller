@@ -2,6 +2,56 @@
 
 <!-- 새 항목은 이 줄 바로 아래에 -->
 
+## 2026-10-30 05:05–05:45 (반복 25) — OPT 1라운드 판정 / k = 1 골의 기구 / MATLAB 대기열 재배치 / k1map 제출
+- **opt1 끝(05:03, exit 0)**: mb 118 + k1 71 + grid 101 = 290회, 묶음마다 오류 0. 러너가 이것으로 깨웠다.
+- **`surface_opt_check.py compare` 1라운드(잠정; 측정 mb 46/71, k1 31/36, grid 64/80)** → `out/surface_opt_verdict.md`, `out/fig_surface_opt_check.png`,
+  `out/surface_opt_check.{csv,log}`. (i) "최적 아님": 84 V 100/150/300 W +0.067/+0.070/+0.089 A, 109.2 V 100 W +0.250 A(25 ms 창이면 최적, 창 최대면
+  그대로). 최적: 84 V 200/600/1000 W, 109.2 V 300/1000 W. 판정 불가 7점(M-B 미포착 6, 109.2 V 600 W SPS 진동). (ii) "골 실재": 95 V 100 W
+  D = 0.40 −0.149 A, 0.35 −0.123, (0.45 −0.185, 규칙 밖); 300 W 모든 후보 SPS보다 0.23–1.99 A 나쁨; 600 W (0.50, 0.45)만 −0.052 A. (iii) "불일치":
+  같은 쪽 100 %(84 V 5/5, 109.2 V 6/6), 84 V 상승 ρ = 0.798 < 0.8(300·600 W에서 계단 상위 3조합이 모두 SPS보다 나빠 격자 최적 = SPS).
+  OPT1 계단 vs 정상상태 |차| 평균 0.135, 최대 0.625 A(40개).
+- **판정 아닌 점검을 compare에 추가**(규칙 파일은 그대로): (1) `roughness()` — 십자 2차 차분으로 Simulink Ipk 곡면 거칠기 σ ≈ 0.067 A
+  (≤ 300 W, 7개), 0.003 A(1 kW). 84 V 300 W D2 축 2.292/2.175/2.263/2.202/2.325 A. "모두 같음" 최솟값 선택 편향 기댓값 σ·E[n개 최댓값]:
+  84 V 100·300 W 0.110·0.107 A > 차 → 규칙상 실패지만 매끄러운 이득의 증거 아님. 84 V 150 W(0.070 > 0.038), 109.2 V 100 W(0.25 > 0.07)는 넘음.
+  (2) `k1_levels()` — 95 V 같은 계단 표(보간 없음): 4.32°에서 SPS 73 W 0.738 A vs D 0.35–0.45 65–72 W 0.415 A(−44 %); 7.20°에서 SPS 250 W
+  0.840 vs TPS 1.24–1.41 A.
+- **k = 1 골의 기구 조사**: `out/iL_wave/`의 마지막 한 주기 파형 — SPS 4.32° 실행은 한 주기 피크 0.41 A인데 1 ms 최대 0.738 A(간헐
+  스파이크; 15–40 ms 모든 창에서 0.738), TPS는 0.415 A로 주기적. R.4부터 있던 사실: 95 V 100 W SPS Simulink 0.753 vs 해석 0.266 / 플랜트 0.278 A.
+  가설 "제어기 부동소수 위상 카운터가 칼날 경계를 넘나든다"를 `pwm_counter_check.py`(→ `out/pwm_counter_check.log`)로 시험: IEEE double로
+  40 ms(3200주기) 재생 → 모든 다리 게이트 명령이 한 패턴(high 62/63 표본, plant_params.md 4절과 같음). **기각**. (처음엔 DeadTime_ns = 100으로
+  돌려 60/61이 나왔으나 모델 값은 0(데드타임은 UCC 드라이버) → 고쳐 다시 돌림.) 남는 원인 = 플랜트(드라이버 데드타임 100 ns, Coss 0, 거의 0 A
+  전환 → 중점 전압 미정; plant_params.md 6절 3항). Q3(94.61 V "이득 없음")과의 관계: 94.61 V SPS 보간 구간 18 W 0.097 → 157 W 0.855 A가 SPS 도약을
+  가로질러 100 W 값 0.54 A. 두 판정은 그대로 두고 "같은 계단 비교가 확실한 것"으로 적었다.
+- **MATLAB 대기열 재배치(사용자 최우선 = OPT)**: `out/zvs_points_r1.csv` → `out/zvs_points_r1q.csv`, `out/robust_points_r1.csv` →
+  `out/robust_points_r1q.csv`로 옮겨, 대기 중인 zvs1·rob1이 MATLAB 시작 직후 readtable 오류로 끝나게 했다(kill 아님 — `job.py wait`는 상태가
+  running이 아니면 풀린다). 새 잡: **k1map**(`--after optR`, `k1_map.py make` → `out/k1map_points_r1.csv` 79회 = 76 + 95 V SPS 4.32°/7.20°·D 0.45 4.32° 재실행(주기별
+  피크용; 시작 전에 점 파일에 덧붙임), 40 ms: V2 93/94/95/96/97 ×
+  {SPS, D1 = D2 = 0.475/0.45/0.40} × D0 계단 1–4, 95 V 기존 실행 제외 + SPS 90/100 V), **zvs2**(`--after k1map`, r1q 점, 출력 이름 그대로),
+  **rob2**(`--after zvs2`, verify_steady_param, r1q 점).
+- **`verify_steady_state.m`**: 마지막 1 ms 80주기 각각의 i_L 최대·최소 → `out/iL_pp/<결과 이름>.csv`(try/catch, iL_wave와 다른 폴더 — zvs_check가
+  iL_wave/*.csv를 모두 읽기 때문). m_static_check OK. optR 첫 묶음이 첫 실행.
+- RESULTS: 머리말, 0절 k ≈ 1 항목·OPT 항목, R.10 1라운드(표, 거칠기, 같은 계단 표, 기구, Q3 관계, (iii), 해석, 다음). REPORT: 0절 표 두 줄·남은 것,
+  7절 [1] Fig. 14(a) [S] 단락, 8절 표 4줄, 9절 명령, 11절 → 11.1 1라운드 결과(그림 포함).
+- **재배치 확인(05:27)**: eff1 exit 0(05:27:17) → zvs1 rc 1(05:27:24, readtable 'zvs_points_r1.csv'을 찾을 수 없음) → rob1 rc 1(05:27:31) → **optR
+  05:27:37 시작**. 2라운드 계획은 mb 50 + k1 10 + grid 30 = 90회다(opt_points_*_r2.csv). eff1 뒤 compare를 다시 돌렸지만 1라운드 표는 그대로였다
+  (eff1의 M-B 200/400/800 W 실행도 목표를 감싸지 못함).
+- **eff1 → `efficiency_sweep.py compare`**: 52/63구성(이전 43). M-B 깨끗한 13구성 평균 손실 −2.52 W, Δη +0.34 pp(최악 84 V 100 W −1.31 pp). 새 점 84 V
+  200 W M-B ΔI +0.216 A, +0.15 pp. `result_files()`가 OPT 30 ms 실행도 읽게 고쳤다(중복 계획 방지). RESULTS R.9, REPORT 0절 표·5절 표 갱신.
+- **OPT4 도구 `train_corrected.py`**(앵커 CSV → M-B를 가우스 가중으로 앵커 쪽에 섞은 목표 → M-B 인코더로 릿지 재적합 → M-S). 해석 E2E 미세조정은
+  하지 않는다(앵커를 되돌림). 임시 앵커 두 개(`out/opt4_anchors_r1test.csv`: 95 V 70 W 0.45/0.45 ±1.5 V ±45 W; 109.2 V 100 W (0.263, 0.200))로 시험했다.
+  M-B 자기 출력의 릿지 재적합 기준 오차는 RMSE 0.0006, 최대 0.0072다. α 1e-3이면 k = 1 앵커가 0.484(1/3)까지만 가고, α 1e-5 + 가중 50이면 0.467이다
+  (앵커 밖 최대 변화 0.033, 야코비안 최대 3.64 vs 2.82). 해석 모델 4000점 평균 ΔI는 M-B와 같은 +0.065 A다(참고). 시험 산출물(모델·그림·로그)은 지웠다.
+  결론: k = 1 앵커 폭은 k1map이 정한다.
+- 메모리: job-kill-interactive(입력 파일을 옮겨 대기 잡을 곧바로 실패시키는 재배치법, 검증), thesis 목표 파일에 OPT 1라운드 요약.
+- **주기별 피크 기록 확인(05:43, optR 2라운드 첫 묶음)**: `out/iL_pp/opt_sweep_mb_r2_part001.csv` 24 × (8 + 80 + 80)열, NaN 0. 80주기 최대 = Ipk_sim(차 0).
+  'not written' 오류 없음. 대부분 80주기가 모두 같지만, 두 실행은 주기마다 다르다. 84 V 100 W BT 7.20°는 1.625–1.801 A이고 최대 근처
+  주기가 42/80이다. 109.2 V both+0.04 L7은 2.659–2.977 A이고 12/80이다. → k1map에서 95 V SPS의 간헐성을 직접 볼 수 있다.
+- k1map 점 파일에 95 V SPS 4.32°/7.20°·D 0.45 4.32° 재실행 3개를 덧붙였다(79회; 잡 시작 전). `k1_map.py compare`는 기존 95 V 데이터로
+  연기 시험을 했고, 그 출력은 지웠다.
+- 다음 턴(러너가 잡 하나 끝날 때 깨움 — 다음은 optR, 약 06:40–07:10): optR 첫 묶음 로그에서 'per-period peaks not written'이 없는지와
+  `out/iL_pp/opt_sweep_mb_r2_part001.csv`(80 + 80열)를 확인한다. optR가 끝나면 compare(2라운드) → RESULTS R.10·REPORT 11절 갱신 →
+  `efficiency_sweep.py next` → eff2(`--after rob2`). k1map이 끝나면 `k1_map.py compare` → 앵커 폭을 정해 `train_corrected.py` → M-S Simulink 검증 점 생성.
+
 ## 2026-10-30 01:52–02:35 (반복 24) — r5r6 완료 → Q4 판정·분해 / opt1 실행 중 / R10 준비·rob1·optR 대기열
 - **r5r6 끝(01:50:46, exit 0)**: 3단계 R6 363/363조합, 19,588 s(`out/dataset_fixed_part_001…021.csv`). 러너가 이것으로 깨웠다.
 - **맨 먼저 `surface_opt_check.py make --fams grid`** → `out/opt_points_grid_r1.csv` 80구성 101회(22구성은 R.4/eff 실행으로 이미 감쌈).

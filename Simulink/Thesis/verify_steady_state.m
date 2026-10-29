@@ -101,6 +101,11 @@ function verify_steady_state(pointsCsv, outCsv, simTime)
     Tsw = 1 / spec.fs; nW = 400;
     tW = simTime - Tsw + (0:nW - 1) * (Tsw / nW);
     Wv = nan(N, nW);
+    % 10-30 (OPT, k = 1): max and min of i_L in each switching period of the last 1 ms -> out/iL_pp/<outCsv name>.csv
+    % (SPS at 95 V light load peaks at 0.74 A in the 1 ms window but 0.41 A in its last period: which periods spike?)
+    % Own folder: zvs_check.py reads every file in iL_wave/. Never fatal.
+    nPP = round(1e-3 / Tsw);
+    PPmax = nan(N, nPP); PPmin = nan(N, nPP);
     for k = 1:N
         o = out(k);
         if ~isempty(o.ErrorMessage), err(k) = string(o.ErrorMessage); continue; end
@@ -139,6 +144,13 @@ function verify_steady_state(pointsCsv, outCsv, simTime)
             Wv(k, :) = interp1(tu, xW(iu), tW, 'linear', NaN);
         catch
         end
+        try
+            for p = 1:nPP
+                mp = (tI >= simTime - (nPP - p + 1) * Tsw) & (tI < simTime - (nPP - p) * Tsw);
+                if any(mp), PPmax(k, p) = max(iL(mp)); PPmin(k, p) = min(iL(mp)); end
+            end
+        catch
+        end
     end
     names = [{'Ipk_sim', 'iL_mean', 'iL_rms', 'P_LV', 'P_HV', 'V_LV', 'V_HV'}, ...
              arrayfun(@(t) sprintf('Ipk_at_%gms', t * 1e3), winEnds, 'UniformOutput', false), ...
@@ -153,6 +165,16 @@ function verify_steady_state(pointsCsv, outCsv, simTime)
         writetable([pts, array2table(Wv)], fullfile(wDir, [fName '.csv']));
     catch ME
         fprintf('i_L waveform not written: %s\n', ME.message);
+    end
+    try
+        [pDir, fName] = fileparts(outCsv);
+        pDir2 = fullfile(pDir, 'iL_pp');
+        if ~isfolder(pDir2), mkdir(pDir2); end
+        writetable([pts, array2table(PPmax, 'VariableNames', arrayfun(@(p) sprintf('max%d', p), 1:nPP, 'UniformOutput', false)), ...
+                    array2table(PPmin, 'VariableNames', arrayfun(@(p) sprintf('min%d', p), 1:nPP, 'UniformOutput', false))], ...
+                   fullfile(pDir2, [fName '.csv']));
+    catch ME
+        fprintf('i_L per-period peaks not written: %s\n', ME.message);
     end
 end
 
