@@ -361,9 +361,9 @@ def running_jobs():
     for p in glob.glob(os.path.join(STATE_DIR, "jobs", "*.json")):
         j = load_json(p, {})
         if j.get("status") == "running" and not os.path.exists(p[:-5] + ".done"):
-            # an --interactive job that never started (no desktop logon -> no .log yet) cannot finish; don't wait on it
-            if j.get("interactive") and not os.path.exists(p[:-5] + ".log"):
-                continue
+            # an --interactive job that has not started yet (no desktop logon -> no .log) IS counted: it starts at the
+            # next logon, and waiting for it (capped by job_wait_max_min) costs no Claude usage. Skipping it made the
+            # runner open a new turn every minute after the 10-29 reboot, each one only re-checking the logon.
             n += 1
     return n
 
@@ -600,7 +600,9 @@ def main():
                 break
             if a.once:
                 break
-            if rep.get("wait_for_jobs") and running_jobs():
+            # wait whenever a job is still pending, even if the report forgot to ask: a turn that only re-checks a job
+            # costs usage, the wait does not (capped by job_wait_max_min / the report's wait_minutes)
+            if running_jobs():
                 wait_for_jobs(min(CFG["job_wait_max_min"], int(rep.get("wait_minutes") or CFG["job_wait_max_min"])))
             else:
                 sleep_checked(CFG["min_gap_s"], "gap between turns")

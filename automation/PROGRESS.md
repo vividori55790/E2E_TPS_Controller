@@ -2,6 +2,16 @@
 
 <!-- 새 항목은 이 줄 바로 아래에 -->
 
+## 2026-10-29 18:36–18:41 (반복 20) — `r5r6` 여전히 로그온 대기 / 1분 간격 턴 반복 멈춤
+- `job.py diag r5r6`(18:37): 작업 "준비", 마지막 결과 267011(한 번도 실행 안 됨), explorer.exe 0개, MATLAB.exe 0개 — 반복 19와 같음.
+- 반복 18–20이 1분 간격으로 열린 원인: `loop_runner.running_jobs()`(355–368행)는 `.log`가 없는 --interactive 잡을 "시작 안 됨"으로
+  세지 않는다 → `wait_for_jobs:true`를 보고해도 대기 없이 `min_gap_s`(60 s) 뒤 다음 턴(턴당 $0.4–0.8).
+- 조치: `automation/state/jobs/r5r6.log`에 "placeholder, NOT job output" 세 줄을 미리 썼다(state/는 gitignore). 잡 .cmd는 `>>`로
+  덧붙이므로 실제 출력은 그 아래 "==== job r5r6 start"부터 이어진다. interactive 잡의 사망 판정은 부팅 시각만 보므로(job.py 163행)
+  이 파일로 died가 되지 않는다. 이제 러너는 최대 240분 기다린다. 러너 코드는 바꾸지 않았다(실행 중인 프로세스는 다시 읽지 않음).
+- 다음 턴: 로그에서 placeholder 아래 줄부터 본다. "==== job r5r6 start"가 없으면 아직 로그온 전.
+  나머지 절차는 반복 18 항목과 같다.
+
 ## 2026-10-29 18:35 (반복 19) — `r5r6` 로그온 대기 확인만
 - `job.py status`: r5r6 running(18:32:55 제출), 로그 없음. `job.py diag r5r6`(18:35:09): 작업 \DABJob-r5r6 상태 "준비",
   로그온 모드 "대화형만", 마지막 결과 267011(한 번도 실행 안 됨), explorer.exe 0개(= 아직 아무도 로그온 안 함), MATLAB.exe 0개.
