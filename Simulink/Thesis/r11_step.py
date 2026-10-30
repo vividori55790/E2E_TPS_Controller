@@ -13,6 +13,7 @@ constant-D0 value, and how long a run takes. `make` then writes the step tests.
     python automation/job.py submit r11smoke --interactive --after eff2 -- matlab -batch "cd('Simulink/Thesis'); r11_closed_loop('out/r11_points_smoke.csv', 'out/r11')"
     python -I -X utf8 Simulink/Thesis/r11_step.py make --ts 2.5e-8   -> out/r11_points_r1.csv (after the smoke verdict)
     python -I -X utf8 Simulink/Thesis/r11_step.py compare            -> out/r11_check.{csv,log}, out/fig_r11_step.png
+    python -I -X utf8 Simulink/Thesis/r11_step.py makev2 --gain 0.5  -> out/r11_points_r3.csv (V2 steps and ramps at constant |P|, reported only)
 """
 import argparse
 import glob
@@ -35,9 +36,18 @@ SEG = 0.012                      # [s] per power level in `make`
 PROFILES = {"heavy": (1000.0, 500.0, 1000.0), "light": (300.0, 100.0, 300.0)}
 V2S = (84.0, 109.2)
 SETTLE_TOL = 0.02                # settled when |P_LV - P_target| <= max(2 %, 5 W) for the rest of the segment
+MA_N = 40                        # [periods] = 0.5 ms: settling of the average power (chosen 10-30 after round 1: a PI dithering
+                                 # between two phase steps keeps the one-period power outside 2 % for good)
 OSC = 0.02                       # [A] |mean i_L| above this = not a clean steady state (R.4)
 MODELS = {"M-B": "model_smooth_reghdc_b3.json", "M-S": "model_smooth_reghdc_MS.json"}
 SAME = 0.003                     # M-S within this of M-B at every level = the M-B run (as efficiency_sweep / ms families)
+V2_PROFILES = {"v2step": ((0.0, 84.0), (0.012, 84.0), (0.0125, 95.0), (0.0245, 95.0), (0.025, 84.0), (0.036, 84.0)),
+               "v2ramp": ((0.0, 84.0), (0.006, 84.0), (0.016, 109.2), (0.022, 109.2), (0.032, 84.0), (0.036, 84.0))}
+V2_WINDOWS = {"v2step": (("hold 84 V", 0.010, 0.012), ("edge up + 2 ms", 0.012, 0.0145), ("hold 95 V", 0.0225, 0.0245), ("edge down + 2 ms", 0.0245, 0.027),
+                         ("hold 84 V", 0.034, 0.036)),
+              "v2ramp": (("hold 84 V", 0.004, 0.006), ("ramp up", 0.006, 0.016), ("hold 109.2 V", 0.020, 0.022), ("ramp down", 0.022, 0.032),
+                         ("hold 84 V", 0.034, 0.036))}
+V2_PW = (300.0, 1000.0)
 _cache = {}
 
 
@@ -65,6 +75,32 @@ def write_profile(name, ctrl, V2, levels, seg):
     pd.DataFrame(dict(t=t, P_ref=[-p for p in P], D1=[d[0] for d in D], D2=[d[1] for d in D], V2=V2)).to_csv(
         path, index=False, float_format="%.10g")
     return os.path.relpath(path, HERE).replace(os.sep, "/")
+
+
+def write_profile_v2(name, ctrl, P, knots, dt=1e-4):
+    """constant |P|, V2 piecewise linear through knots ((t, V2), ...); the duties follow V2 at every 0.1 ms knot"""
+    import pandas as pd
+    t = sorted({round(float(x), 9) for x in np.arange(0.0, knots[-1][0] + 1e-12, dt)} | {k[0] for k in knots})
+    v = np.interp(t, [k[0] for k in knots], [k[1] for k in knots])
+    D = [duties(ctrl, P, x) for x in v]
+    os.makedirs(PROF, exist_ok=True)
+    path = os.path.join(PROF, f"{name}.csv")
+    pd.DataFrame(dict(t=t, P_ref=-P, D1=[d[0] for d in D], D2=[d[1] for d in D], V2=v)).to_csv(path, index=False, float_format="%.10g")
+    return os.path.relpath(path, HERE).replace(os.sep, "/")
+
+
+def make_v2(ts, sync, gain, rnd=3):
+    """the V2 half of the user's R11: an ideal LV source cannot jump, so a 0.5 ms edge (84 -> 95 -> 84 V) and a slow ramp through k = 1
+    (84 -> 109.2 -> 84 V in 10 ms each), |P| 300 and 1000 W, at the gain round 2 found stable. Reported only, no rule."""
+    rows = []
+    for pname, knots in V2_PROFILES.items():
+        for P in V2_PW:
+            for ctrl in ("SPS", "M-B", "M-S"):
+                lab = f"r{rnd}_g{gain:g}_{ctrl.replace('-', '')}_{P:g}W_{pname}"
+                prof = write_profile_v2(lab, ctrl, P, knots)
+                rows.append(dict(label=lab, ctrl=ctrl, V2=knots[0][1], Ts=ts, sync=sync, Kp=KP * gain, Ki=KI * gain, simTime=knots[-1][0],
+                                 profile=prof, trim=1))
+    write_points(os.path.join(OUT, f"r11_points_r{rnd}.csv"), rows)
 
 
 def write_points(path, rows):
@@ -187,6 +223,11 @@ def seg_metrics(per, a, b, P, P0):
     if not bad[-1]:
         last_bad = np.where(bad)[0]
         t_set = (g["t_end"].iloc[last_bad[-1] + 1] if len(last_bad) else g["t_end"].iloc[0]) - a
+    ma = np.convolve(Pd, np.ones(MA_N) / MA_N, mode="valid")    # ma[i] = mean of Pd[i : i + MA_N], known at period i + MA_N - 1
+    t_ma = np.nan
+    if len(ma) and abs(ma[-1] - P) <= tol:
+        off = np.where(np.abs(ma - P) > tol)[0]
+        t_ma = g["t_end"].iloc[(off[-1] + 1 if len(off) else 0) + MA_N - 1] - a
     dev = np.sign(P - P0) * (Pd - P)                            # > 0 = beyond the target in the step direction
     crossed = np.where(dev >= 0)[0]
     # mean i_L over the window = the R.4 criterion (constant-D0 runs: mean over the last 1 ms); the per-period value
@@ -194,7 +235,7 @@ def seg_metrics(per, a, b, P, P0):
     return dict(P=P, Ipk_steady=float(st["Ipk"].max()), Ipk_steady_med=float(st["Ipk"].median()),
                 iL_mean_steady=float(abs(st["iL_mean"].mean())), iL_mean_period_max=float(st["iL_mean"].abs().max()),
                 P_err_pct=float(100 * (-st["P_LV"].mean() - P) / P),
-                t_settle_ms=float(t_set * 1e3), overshoot_W=float(dev[crossed[0]:].max()) if len(crossed) else 0.0,
+                t_settle_ms=float(t_set * 1e3), t_settle_ma_ms=float(t_ma * 1e3), overshoot_W=float(dev[crossed[0]:].max()) if len(crossed) else 0.0,
                 Ipk_transient=float(g[g["t_end"] <= a + 2e-3]["Ipk"].max()), phi_steady=float(st["phi"].mean()),
                 phi_p2p=float(st["phi"].max() - st["phi"].min()))
 
@@ -247,18 +288,95 @@ def compare():
             y = [r for r in x if r["label"] == lab]
             out(f"  {lab:32s} " + "  ".join(f"{r['P']:6.0f} W {r['phi_p2p']:5.2f}" for r in y))
         out(f"  worst {max(r['phi_p2p'] for r in x):.2f} deg over {len(x)} segments of {len({r['label'] for r in x})} runs")
+        out(f"gain x{g:g}, the steps (segments 2 and 3 of each profile): largest peak in the first 2 ms [A] / overshoot [W] / settling of the "
+            f"{MA_N * TSW * 1e3:g} ms average power [ms], and the steady median period peak minus the 25 ns constant-D0 value [A]")
+        for lab in sorted({r["label"].split("_", 3)[3] for r in x}):
+            y = [r for r in x if r["label"].endswith(lab)]
+            for t0 in sorted({r["t0"] for r in y})[1:]:
+                z = {r["ctrl"]: r for r in y if r["t0"] == t0}
+                out(f"  {lab:14s} -> {next(iter(z.values()))['P']:5.0f} W: " + " | ".join(
+                    f"{c} {z[c]['Ipk_transient']:6.3f} / {z[c]['overshoot_W']:+6.0f} / {z[c]['t_settle_ma_ms']:5.2f}, {z[c]['Ipk_steady_med'] - z[c]['Ipk_ref25']:+.3f}"
+                    for c in ("SPS", "M-B", "M-S") if c in z))
     sm = [r for r in rows if r["label"].startswith("smoke_")]
     if sm:      # the smoke question (R.7 regression + grid choice): median period Ipk vs the constant-D0 steady state
         out("\nsmoke summary: label | Ipk median - ref | Ipk max - ref | window |mean i_L| [A]")
         for r in sm:
             out(f"  {r['label']:22s} {r['Ipk_steady_med'] - r['Ipk_ref']:+.3f}  {r['Ipk_steady'] - r['Ipk_ref']:+.3f}"
                 f"  {r['iL_mean_steady']:.3f}")
+    compare_v2(runs, out)
     pd.DataFrame(rows).to_csv(os.path.join(OUT, "r11_check.csv"), index=False, float_format="%.6g")
     open(os.path.join(OUT, "r11_check.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
     fig(runs)
     for g in gains:
         fig(runs, f"r2_g{g:g}_", f"fig_r11_step_g{g:g}.png", g)
     print("wrote out/r11_check.{csv,log}, out/fig_r11_step.png" + "".join(f", out/fig_r11_step_g{g:g}.png" for g in gains))
+
+
+def compare_v2(runs, out):
+    """round 3: V2 moves at constant |P| (reported only): per window the largest and median period peak, the power error, the measured V_LV"""
+    import pandas as pd
+    v2 = [s for s in runs if s["label"].startswith("r3_") and s["periods"] is not None]
+    if not v2:
+        return
+    rows = []
+    for s in v2:
+        pname = s["label"].rsplit("_", 1)[-1]
+        P = -float(s["prof"]["P_ref"].iloc[0])
+        per = s["periods"]
+        for w, a, b in V2_WINDOWS[pname]:
+            g = per[(per["t_end"] > a + 1e-9) & (per["t_end"] <= b + 1e-9)]
+            e = -g["P_LV"].to_numpy() - P
+            rows.append(dict(label=s["label"], ctrl=s["ctrl"], P=P, profile=pname, window=w, t0=a, Ipk_max=g["Ipk"].max(), Ipk_med=g["Ipk"].median(),
+                             err_max=float(np.abs(e).max()), err_rms=float(np.sqrt(np.mean(e ** 2))), V_LV=float(g["V_LV"].iloc[-1]),
+                             phi_p2p=float(g["phi"].max() - g["phi"].min())))
+    T = pd.DataFrame(rows)
+    T.to_csv(os.path.join(OUT, "r11_v2.csv"), index=False, float_format="%.6g")
+    out("\nV2 moves at constant |P| (round 3, reported only): largest / median period peak [A], power error max / rms [W], V_LV at the window end")
+    for (pname, P), g in T.groupby(["profile", "P"], sort=False):
+        out(f"  {pname} {P:.0f} W")
+        for (w, a), y in g.groupby(["window", "t0"], sort=False):
+            z = {r["ctrl"]: r for _, r in y.iterrows()}
+            out(f"    {w:18s} V_LV {next(iter(z.values()))['V_LV']:6.2f}: " + " | ".join(
+                f"{c} {z[c]['Ipk_max']:6.3f} / {z[c]['Ipk_med']:6.3f}, {z[c]['err_max']:5.0f} / {z[c]['err_rms']:4.0f}" for c in ("SPS", "M-B", "M-S") if c in z))
+    fig_v2(v2)
+
+
+def fig_v2(v2):
+    """small multiples: one column per (profile, |P|); period peak, delivered power, V2 on separate axes (never a second y-scale)"""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from evaluate import BLUE, MUTED, YELLOW, _style
+    _style(plt)
+    keys = []
+    for s in v2:
+        k = (s["label"].rsplit("_", 1)[-1], -float(s["prof"]["P_ref"].iloc[0]))
+        if k not in keys:
+            keys.append(k)
+    f, ax = plt.subplots(3, len(keys), figsize=(4.2 * len(keys), 7.0), squeeze=False, sharex="col", gridspec_kw=dict(height_ratios=(3, 2, 1)))
+    rank = {"SPS": 0, "M-B": 1, "M-S": 2}
+    for j, (pname, P) in enumerate(keys):
+        for s in sorted([x for x in v2 if x["label"].endswith(pname) and np.isclose(-float(x["prof"]["P_ref"].iloc[0]), P)], key=lambda x: rank[x["ctrl"]]):
+            p = s["periods"]
+            p = p[p["t_end"] >= 3e-3]
+            c = {"SPS": MUTED, "M-B": BLUE, "M-S": YELLOW}[s["ctrl"]]
+            ax[0, j].plot(p["t_end"] * 1e3, p["Ipk"], color=c, lw=1.0, label=s["ctrl"])
+            ax[1, j].plot(p["t_end"] * 1e3, -p["P_LV"], color=c, lw=1.0)
+            ax[2, j].plot(p["t_end"] * 1e3, p["V_LV"], color="#333333", lw=1.0)
+        ax[1, j].axhline(P, color="#333333", ls="--", lw=0.8)
+        ax[1, j].set_ylim(0.5 * P, 1.5 * P)
+        ax[0, j].set_title(f"{pname}, {P:.0f} W: Ipk per period", fontsize=9)
+        ax[1, j].set_title("delivered power, one-period average (dashed = command)", fontsize=9)
+        ax[2, j].set_title("measured V2", fontsize=9)
+        ax[2, j].set_xlabel("t [ms]")
+    ax[0, 0].set_ylabel("[A]")
+    ax[1, 0].set_ylabel("[W]")
+    ax[2, 0].set_ylabel("[V]")
+    ax[0, 0].legend(frameon=False, fontsize=8)
+    f.suptitle("R11 closed loop: V2 moves at constant |P| (25 ns edge grid, period latch, gain x0.5; first 3 ms not shown)", fontsize=11)
+    f.tight_layout()
+    f.savefig(os.path.join(OUT, "fig_r11_v2.png"), dpi=130)
+    plt.close(f)
 
 
 def fig(runs, prefix="r1_", name="fig_r11_step.png", gain=1.0):
@@ -317,7 +435,8 @@ def fig(runs, prefix="r1_", name="fig_r11_step.png", gain=1.0):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=("smoke", "make", "compare"))
+    ap.add_argument("cmd", choices=("smoke", "make", "makev2", "compare"))
+    ap.add_argument("--gain", type=float, default=0.5, help="makev2: (Kp, Ki) scale factor")
     ap.add_argument("--ts", type=float, default=2.5e-8)
     ap.add_argument("--sync", type=int, default=1)
     ap.add_argument("--gains", default="1", help="comma-separated (Kp, Ki) scale factors, e.g. 0.5,0.25")
@@ -327,5 +446,7 @@ if __name__ == "__main__":
         smoke()
     elif a.cmd == "make":
         make(a.ts, a.sync, tuple(float(x) for x in a.gains.split(",")), a.round)
+    elif a.cmd == "makev2":
+        make_v2(a.ts, a.sync, a.gain)
     else:
         compare()

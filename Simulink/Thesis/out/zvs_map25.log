@@ -1,4 +1,4 @@
-zvs_check map25: 375 runs at 25 ns with a waveform; common frame sigma +1, rho +1, offset c +0.36 deg (per-run best -5.49..+3.51); slope correlation min -0.546, median 0.926
+zvs_check map25: 709 runs at 25 ns with a waveform; common frame sigma +1, rho +1, offset c +0.36 deg (per-run best -5.49..+3.51); slope correlation min -0.546, median 0.928
 
 legs A B C D per point (Z ZVS, m marginal, H hard, h hard at |i| < 0.2 A, ~ oscillating) and the V x I switched the wrong way [VA]
     V2   |P| |     SPS      |     M-B      |     M-S     
@@ -12,7 +12,7 @@ legs A B C D per point (Z ZVS, m marginal, H hard, h hard at |i| < 0.2 A, ~ osci
     84  1000 | ZZZZ       0  | ZZZZ       0  | ZZZZ       0 
   88.2   100 | ZZHH     850  | HZZZ     142  | HZZZ     142 
   88.2   150 | ZZHH     850  | HZZZ      99  | HZZZ      99 
-  88.2   200 | ZZHH     850  |      -       |      -      
+  88.2   200 | ZZHH     850  | HZZZ      85  | HZZZ      85 
   88.2   300 | ZZHH     530  | HZZZ     124  | HZZZ     124 
   88.2   400 | ZZmm      16  | mZZZ~     91  | mZZZ     112 
   88.2   600 | ZZZZ       0  | mZZZ      18  | mZZZ      18 
@@ -59,7 +59,7 @@ legs A B C D per point (Z ZVS, m marginal, H hard, h hard at |i| < 0.2 A, ~ osci
  109.2   800 | HHZZ     223  | mmZZ     138  | mZZH     208 
  109.2  1000 | mmZZ     114  | ZZZZ       0  | mmZZ     127 
 
-M-B vs SPS, both clean (51 points): summed V x I 4513 vs 21769 VA (-79 %); lower at 27, higher at 9; per V2 84 V 776/5343, 88.2 V 383/2230, 92.4 V 617/415, 96.6 V 672/706, 100.8 V 693/1516, 105 V 677/4248, 109.2 V 695/7312
+M-B vs SPS, both clean (52 points): summed V x I 4599 vs 22619 VA (-80 %); lower at 28, higher at 9; per V2 84 V 776/5343, 88.2 V 469/3080, 92.4 V 617/415, 96.6 V 672/706, 100.8 V 693/1516, 105 V 677/4248, 109.2 V 695/7312
    higher: 84 V 600 W 104 vs 0 VA
    higher: 88.2 V 600 W 18 vs 0 VA
    higher: 92.4 V 150 W 188 vs 2 VA
@@ -70,7 +70,7 @@ M-B vs SPS, both clean (51 points): summed V x I 4513 vs 21769 VA (-79 %); lower
    higher: 100.8 V 400 W 186 vs 113 VA
    higher: 100.8 V 600 W 108 vs 2 VA
 
-M-S vs SPS, both clean (52 points): summed V x I 4373 vs 21785 VA (-80 %); lower at 30, higher at 9; per V2 84 V 898/5343, 88.2 V 495/2246, 92.4 V 513/415, 96.6 V 594/706, 100.8 V 580/1516, 105 V 695/4248, 109.2 V 599/7312
+M-S vs SPS, both clean (53 points): summed V x I 4458 vs 22635 VA (-80 %); lower at 31, higher at 9; per V2 84 V 898/5343, 88.2 V 580/3096, 92.4 V 513/415, 96.6 V 594/706, 100.8 V 580/1516, 105 V 695/4248, 109.2 V 599/7312
    higher: 84 V 600 W 146 vs 0 VA
    higher: 88.2 V 400 W 112 vs 16 VA
    higher: 88.2 V 600 W 18 vs 0 VA
@@ -81,8 +81,8 @@ M-S vs SPS, both clean (52 points): summed V x I 4373 vs 21785 VA (-80 %); lower
    higher: 100.8 V 400 W 186 vs 113 VA
    higher: 109.2 V 1000 W 127 vs 114 VA
 
-not a verdict: smallest |current| at any edge of a run vs the run's period peaks (375 runs; own-side amperes, frame above)
-  edge current <= 0.1 A: 50/169 runs not periodic; above: 1/206
-  edge current <= 0.2 A: 51/220 runs not periodic; above: 0/155
-  edge current <= 0.42 A: 51/283 runs not periodic; above: 0/92
-  the 51 non-periodic runs: edge current median 0.000 A, max 0.143 A; the periodic runs: median 0.186 A
+not a verdict: smallest |current| at any edge of a run vs the run's period peaks (709 runs; own-side amperes, frame above)
+  edge current <= 0.1 A: 64/306 runs not periodic; above: 12/403
+  edge current <= 0.2 A: 72/403 runs not periodic; above: 4/306
+  edge current <= 0.42 A: 76/521 runs not periodic; above: 0/188
+  the 76 non-periodic runs: edge current median 0.006 A, max 0.372 A; the periodic runs: median 0.182 A

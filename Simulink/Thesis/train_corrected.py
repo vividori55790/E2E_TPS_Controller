@@ -119,6 +119,7 @@ def main():
                     help="fit only the correction on top of M-B's readout (M-S = M-B exactly far from the anchors)")
     a = ap.parse_args()
     lines = []
+    name = f"M-{a.tag[1:]}" if a.tag.startswith("M") else a.tag
 
     def out(x=""):
         print(x, flush=True)
@@ -142,38 +143,39 @@ def main():
     else:
         ms = fit(mb, P, V, t1, t2, alpha=a.alpha, sample_w=1.0 + a.anchor_weight * w)
     m1, m2 = (np.ravel(x) for x in ms.predict(P, V))
-    out(f"M-S = {'M-B + ridge fit of the correction (--delta)' if a.delta else 'ridge fit of the corrected target'}, "
+    out(f"{name} = {'M-B + ridge fit of the correction (--delta)' if a.delta else 'ridge fit of the corrected target'}, "
         f"{len(A)} anchors from {os.path.relpath(a.anchors, HERE)} (alpha {a.alpha:g}, anchor weight {a.anchor_weight:g})")
     out(f"  RMSE to target {np.sqrt(np.mean((m1 - t1) ** 2 + (m2 - t2) ** 2) / 2):.4f}, max |dD| "
         f"{max(np.abs(m1 - t1).max(), np.abs(m2 - t2).max()):.4f}")
     far = w < 0.01
-    out(f"  away from the anchors (w < 0.01, {far.mean() * 100:.0f} % of the grid): max |M-S - M-B| "
+    out(f"  away from the anchors (w < 0.01, {far.mean() * 100:.0f} % of the grid): max |{name} - M-B| "
         f"{max(np.abs(m1 - b1)[far].max(), np.abs(m2 - b2)[far].max()):.4f} (baseline refit {max(np.abs(f1 - b1)[far].max(), np.abs(f2 - b2)[far].max()):.4f})")
     op = far & (P >= 100) & (P <= 1000)                    # the max above sits at P = 0 (109.2 V); the operating range:
     dd = np.maximum(np.abs(m1 - b1), np.abs(m2 - b2))
-    i = int(np.argmax(np.where(op, dd, -1)))
-    out(f"    of which at 100-1000 W: max {dd[op].max():.4f} (at {V[i]:.1f} V {P[i]:.0f} W), mean {dd[op].mean():.4f}")
-    out("  at the anchors: anchor (D1, D2) -> M-S (D1, D2), M-B (D1, D2)")
+    if op.any():                                           # none when anchors cover the whole range (R13 stage 2)
+        i = int(np.argmax(np.where(op, dd, -1)))
+        out(f"    of which at 100-1000 W: max {dd[op].max():.4f} (at {V[i]:.1f} V {P[i]:.0f} W), mean {dd[op].mean():.4f}")
+    out(f"  at the anchors: anchor (D1, D2) -> {name} (D1, D2), M-B (D1, D2)")
     for _, r in A.iterrows():
         s1, s2 = (float(np.ravel(x)[0]) for x in ms.predict(np.array([r["P"]]), np.array([r["V2"]])))
         q1, q2 = (float(np.ravel(x)[0]) for x in mb.predict(np.array([r["P"]]), np.array([r["V2"]])))
         out(f"    {r['V2']:6.2f} V {r['P']:6.0f} W: ({r['D1']:.3f}, {r['D2']:.3f}) -> ({s1:.3f}, {s2:.3f}), M-B ({q1:.3f}, {q2:.3f})"
             f"  [{r['source']}]")
     jm = np.abs(ms.jacobian(P, V)).max()
-    out(f"  max |dDelta/dx| (normalised inputs): M-S {jm:.2f}, M-B {np.abs(mb.jacobian(P, V)).max():.2f}")
+    out(f"  max |dDelta/dx| (normalised inputs): {name} {jm:.2f}, M-B {np.abs(mb.jacobian(P, V)).max():.2f}")
 
     try:                                                   # reference only: what the ideal model thinks of M-S
         import pi_steady as ps
         rng = np.random.default_rng(1)
         Pr, Vr = rng.uniform(50, 1200, 4000), rng.uniform(84, 109.2, 4000)
         res = {}
-        for name, mdl in (("M-B", mb), ("M-S", ms)):
+        for nm, mdl in (("M-B", mb), (name, ms)):
             d1, d2 = (np.ravel(x) for x in mdl.predict(Pr, Vr))
             ip = ps.operating_point(Pr, d1, d2, Vr)["Ipk"]
             isps = ps.operating_point(Pr, np.full_like(Pr, 0.5), np.full_like(Pr, 0.5), Vr)["Ipk"]
-            res[name] = isps - ip
+            res[nm] = isps - ip
         out(f"  [참고, 해석 모델] 4000 random points, dI = Ipk_SPS - Ipk: M-B mean {np.nanmean(res['M-B']):+.4f} A, "
-            f"M-S mean {np.nanmean(res['M-S']):+.4f} A, M-S worst {np.nanmin(res['M-S']):+.3f} A "
+            f"{name} mean {np.nanmean(res[name]):+.4f} A, {name} worst {np.nanmin(res[name]):+.3f} A "
             f"(the ideal model has no k = 1 valley, so an anchor there costs here by construction)")
     except Exception as e:                                 # noqa: BLE001
         out(f"  (analytic reference skipped: {e})")
@@ -182,11 +184,11 @@ def main():
     ms.to_json(path, stage="OPT4", base="b3", alpha=a.alpha, anchor_weight=a.anchor_weight, delta=a.delta,
                anchors=A.to_dict("records"))
     out(f"wrote {os.path.relpath(path, HERE)}")
-    fig(mb, ms, A, a.tag)
+    fig(mb, ms, A, a.tag, name)
     open(os.path.join(OUT, f"train_corrected_{a.tag}.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
 
 
-def fig(mb, ms, A, tag):
+def fig(mb, ms, A, tag, name="M-S"):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -194,6 +196,8 @@ def fig(mb, ms, A, tag):
     _style(plt)
     Pc = np.linspace(0, 1200, 241)
     vs = (84.0, 96.0, 97.0, 109.2)          # 96/97 V: the k = 1 cap anchors (95 V stays on M-B, see opt4_anchors_r3.csv)
+    if len(A) > 20:                         # anchors on the R13 map: its V2 values, the k = 1 band and the side with the gaps
+        vs = (84.0, 96.6, 105.0, 109.2)
     f, ax = plt.subplots(1, len(vs), figsize=(4.2 * len(vs), 3.6), sharey=True, constrained_layout=True)
     for a_, v in zip(ax, vs):
         Vc = np.full_like(Pc, v)
@@ -204,8 +208,8 @@ def fig(mb, ms, A, tag):
         a_.plot(Pc, q2, color=ORANGE, lw=1.2, ls="--", label="M-B D2")
         a_.plot(Pc, t1, color=MUTED, lw=0.8, ls=":", label="target")
         a_.plot(Pc, t2, color=MUTED, lw=0.8, ls=":")
-        a_.plot(Pc, s1, color=BLUE, lw=1.8, label="M-S D1")
-        a_.plot(Pc, s2, color=ORANGE, lw=1.8, label="M-S D2")
+        a_.plot(Pc, s1, color=BLUE, lw=1.8, label=f"{name} D1")
+        a_.plot(Pc, s2, color=ORANGE, lw=1.8, label=f"{name} D2")
         near = A[np.abs(A["V2"] - v) <= A["wV"]]
         a_.plot(near["P"], near["D1"], "o", color=BLUE, ms=6, mec="white")
         a_.plot(near["P"], near["D2"], "s", color=ORANGE, ms=6, mec="white")

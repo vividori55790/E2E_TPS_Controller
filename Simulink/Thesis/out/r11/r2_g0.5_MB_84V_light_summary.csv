@@ -1,0 +1,2 @@
+label,ctrl,V2,Ts,sync,Kp,Ki,simTime,profile,trim,Ipk_last1ms,iL_mean_last1ms,P_LV_last1ms,P_HV_last1ms,batch_seconds,error
+r2_g0.5_MB_84V_light,M-B,84,2.5e-08,1,1,24500,0.036,out/r11_profiles/r1_MB_84V_light.csv,1,2.2203878476322,-0.000429477524375051,-299.766173528362,-303.523479332453,450.0600739,

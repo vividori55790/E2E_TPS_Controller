@@ -100,6 +100,7 @@ PRED = os.path.join(OUT, "r13_pred.csv")
 X_PTS = ((93.0, 100.0, ()), (93.0, 150.0, ()), (84.0, 700.0, ()), (109.2, 700.0, ()), (95.0, 70.0, (0.40,)),
          (95.0, 100.0, (0.40,)), (96.0, 150.0, ()), (96.0, 200.0, ()), (96.0, 300.0, ()), (97.0, 150.0, ()))
 X_PAIRS = (("M-B", "SPS"), ("M-S", "SPS"), ("M-S", "M-B"), ("D0.40", "SPS"))
+PATS = ("fine_sweep_r*.csv", "r13a_sweep_r*.csv", "r13b_sweep_r*.csv")   # the 25 ns result files of the map
 
 
 # ----------------------------------------------------------------------------------------------------- candidates
@@ -185,9 +186,8 @@ def run_configs(part="all"):
 
 
 # ----------------------------------------------------------------------------------------------------- data
-def results_25():
-    fs = [f for pat in ("fine_sweep_r*.csv", "r13a_sweep_r*.csv", "r13b_sweep_r*.csv")
-          for f in sorted(glob.glob(os.path.join(OUT, pat))) if not f.endswith("_in.csv")]
+def results_25(pats=PATS):
+    fs = [f for pat in pats for f in sorted(glob.glob(os.path.join(OUT, pat))) if not f.endswith("_in.csv")]
     d = fg._load(fs, fine=True) if fs else None
     if d is None:
         return None
@@ -213,7 +213,7 @@ def first_bracket(lv, Pd, P):
     return None
 
 
-def predict():
+def predict(cf=None, path=PRED):
     """two adjacent levels per configuration from the Python plant on the 25 ns grid -> out/r13_pred.csv"""
     import time
 
@@ -221,7 +221,7 @@ def predict():
     import pi_steady as ps
     import plant_full as pf
     t0 = time.time()
-    cf = run_configs()
+    cf = run_configs() if cf is None else cf
     n = len(cf)
     P, V = np.array([c["P"] for c in cf]), np.array([c["V2"] for c in cf])
     D1, D2 = np.array([c["D1"] for c in cf]), np.array([c["D2"] for c in cf])
@@ -270,16 +270,16 @@ def predict():
                          P_hi=known.get((i, b[1]), (np.nan,))[0], Ipk_lo=known.get((i, b[0]), (np.nan, np.nan))[1],
                          Ipk_hi=known.get((i, b[1]), (np.nan, np.nan))[1]))
     T = pd.DataFrame(rows)
-    T.to_csv(PRED, index=False, float_format="%.9g")
-    print(f"wrote {PRED}: {n} configurations, {int(T['found'].sum())} bracketed by the plant, "
+    T.to_csv(path, index=False, float_format="%.9g")
+    print(f"wrote {path}: {n} configurations, {int(T['found'].sum())} bracketed by the plant, "
           f"{len(known)} plant evaluations, {time.time() - t0:.0f} s")
 
 
-def _pred_levels():
+def _pred_levels(path=PRED):
     import pandas as pd
-    if not os.path.isfile(PRED):
-        sys.exit(f"{PRED} not found: run `r13_map.py predict` first")
-    T = pd.read_csv(PRED)
+    if not os.path.isfile(path):
+        sys.exit(f"{path} not found: run the `predict` command first")
+    T = pd.read_csv(path)
     return {(round(r["V2"], 6), round(r["P"], 6), round(r["D1"], 9), round(r["D2"], 9)): (int(r["lo"]), int(r["hi"]))
             for _, r in T.iterrows()}
 
@@ -696,12 +696,12 @@ PERIODIC = 0.005                            # A: peak spread over the 80 periods
 CELL = 380.0 * TS / 90e-6                   # A: V1 Ts / L, i_L moved by one grid step at the full V1
 
 
-def per_period(d):
+def per_period(d, pats=PATS):
     """the 25 ns runs d + from out/iL_pp/ (verify_steady_fine.m): pk_med, pk_min, spread = largest - smallest period peak,
     kind = periodic / cell (a rare spike of up to about 1.5 grid steps over an otherwise constant peak) / slow (the rest)"""
     import pandas as pd
     fr = []
-    for pat in ("fine_sweep_r*.csv", "r13a_sweep_r*.csv", "r13b_sweep_r*.csv"):
+    for pat in pats:
         for f in sorted(glob.glob(os.path.join(OUT, "iL_pp", pat))):
             T = pd.read_csv(f)
             pk = np.maximum(T[[f"max{i}" for i in range(1, PP_N + 1)]].to_numpy(float),

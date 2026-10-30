@@ -1,0 +1,2 @@
+label,ctrl,V2,Ts,sync,Kp,Ki,simTime,profile,trim,Ipk_last1ms,iL_mean_last1ms,P_LV_last1ms,P_HV_last1ms,batch_seconds,error
+r2_g0.5_MS_84V_heavy,M-S,84,2.5e-08,1,1,24500,0.036,out/r11_profiles/r1_MS_84V_heavy.csv,1,4.40694185878467,-0.00419185228905299,-1000.8106178502,-1020.99787611072,450.0600739,

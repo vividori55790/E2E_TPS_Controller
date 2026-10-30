@@ -28,6 +28,14 @@ RULES (registered 2026-10-30 18:22, before any 10 ns run exists; do not change a
     C2 "no k = 1 valley at 95 V" (25 ns: SPS lower than D = 0.40) stands unless that statement is "reversed";
     C3 "the 25 ns map has converged for its reductions" iff T2 "converged" and no H statement is "gone" or "reversed".
 
+ADDED 2026-10-30 22:10, after r13b (the map's Q1 is final: 11 "not optimal" points -> stage 2, M-D) and before any 10 ns run
+exists; the rules above are untouched. The 100 ns retraining (M-S) chased grid-scale differences, so the statements that
+trigger the 25 ns retraining go through the same test before M-D is believed:
+  Q  the Q1 "best candidate lower than M-S" statements not in W: 96.6 V 150 W, 100.8 V 100 / 300 W, 105 V 100 / 150 / 200 W,
+     109.2 V 200 / 300 / 400 W, {M-S, the best candidate}. T1 classifies them as above (W holds the other two: 92.4 V 300 W,
+     96.6 V 100 W, SPS lower than M-S).
+  C4 reported, no threshold: how many of the 11 Q1 statements are kept / gone / reversed / undecidable at 10 ns.
+
     python -I -X utf8 Simulink/Thesis/grid10_check.py make       -> out/g10_points_r1.csv
     python automation/job.py submit g10 --interactive --after r11r2 -- matlab -batch "cd('Simulink/Thesis'); grid10_rounds(1, 4, '<python.exe>')"
     python -I -X utf8 Simulink/Thesis/grid10_check.py next       (not bracketed -> next round; grid10_rounds calls it)
@@ -57,7 +65,10 @@ MIN_H = 4
 POINTS = (("W", "map", 92.4, 300.0, ("SPS", "M-B")), ("W", "map", 96.6, 100.0, ("SPS", "M-B", "M-S")),
           ("W", "map", 105.0, 400.0, ("SPS", "M-B", "M-S")), ("K", "x", 95.0, 100.0, ("SPS", "D0.40")),
           ("K", "x", 96.0, 200.0, ("SPS", "M-S"))) + tuple(
-    ("H", "map", v, p, ("SPS", "M-B")) for v in (84.0, 109.2) for p in (100.0, 300.0, 1000.0))
+    ("H", "map", v, p, ("SPS", "M-B")) for v in (84.0, 109.2) for p in (100.0, 300.0, 1000.0)) + tuple(
+    ("Q", "map", v, p, ("M-S", best)) for v, p, best in (
+        (96.6, 150.0, "D1+"), (100.8, 100.0, "D1-"), (100.8, 300.0, "D1+"), (105.0, 100.0, "D1+"), (105.0, 150.0, "D2+"),
+        (105.0, 200.0, "D2-"), (109.2, 200.0, "D1+"), (109.2, 300.0, "D1+"), (109.2, 400.0, "D2-")))
 
 
 def configs():
@@ -295,6 +306,11 @@ def compare():
       + (f" ({k['res']})" if k is not None else ""))
     o(f"  C3 the 25 ns map has converged for its reductions: {'yes' if c3 else 'no'} (T2 {t2}; H statements: "
       + ", ".join(f"{x} {h_res.count(x)}" for x in ("kept", "gone", "reversed", "undecidable")) + ")")
+    q1_st = [r for r in st_rows if r["set"] == "Q" or (r["set"] == "W" and r["lo"] == "SPS" and r["hi"] == "M-S")
+             or (r["set"] == "W" and r["V2"] == 92.4 and r["lo"] == "SPS")]
+    q1_res = [r["res"] for r in q1_st]
+    c4 = ", ".join(f"{x} {q1_res.count(x)}" for x in ("kept", "gone", "reversed", "undecidable"))
+    o(f"  C4 the map's Q1 'not optimal' statements at 10 ns ({len(q1_st)} measured of 11): {c4}")
     nmiss = int(C["Ipk10"].isna().sum())
     if nmiss:
         o(f"\n{nmiss} configurations not bracketed at 10 ns yet -> provisional")
@@ -313,6 +329,7 @@ def compare():
     if k is not None:
         md.append(f"- C2 95 V k = 1 골 없음: **{'유지' if c2_stands(k['res']) else '깨짐'}** ({KO[k['res']]})")
     md.append(f"- C3 25 ns 지도의 저감은 수렴: **{'그렇다' if c3 else '아니다'}**")
+    md.append(f"- C4 지도 Q1 \"최적 아님\" 진술(측정 {len(q1_st)}/11)의 10 ns 분류: {', '.join(f'{KO[x]} {q1_res.count(x)}' for x in KO)} (머리말 22:10 추가, 문턱 없음)")
     if nmiss:
         md.append(f"\n**10 ns에서 아직 감싸지 못한 구성 {nmiss}개 — 잠정.**")
     md += ["", "표 원본 `out/g10_check.csv`(진술), `out/g10_configs.csv`(구성), 로그 `out/g10_check.log`."]

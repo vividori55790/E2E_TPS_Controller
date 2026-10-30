@@ -1,0 +1,2 @@
+label,ctrl,V2,Ts,sync,Kp,Ki,simTime,profile,trim,Ipk_last1ms,iL_mean_last1ms,P_LV_last1ms,P_HV_last1ms,batch_seconds,error
+r2_g0.5_SPS_84V_light,SPS,84,2.5e-08,1,1,24500,0.036,out/r11_profiles/r1_SPS_84V_light.csv,1,2.3977109592856,-8.7954861661719e-05,-300.459744728294,-305.149671748995,450.0600739,
