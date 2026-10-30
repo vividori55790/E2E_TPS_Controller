@@ -87,6 +87,16 @@
   같은 전력 1–2칸 이웃 중앙값 0.086 A(해석 모델 0.0006 A). → **격자 세분 점검 GRID**(아래 줄) 준비·제출. RESULTS 0절·R.10, REPORT 0·8·9·11.3·11.4절.
   **다음 턴**: msR 끝(12:00쯤) → `ms_compare` 확정(msk1 2라운드 포함) → REPORT 11.3 표 갱신. fine1 끝나면 `fine_grid_check.py compare`
   (감싸지 못한 구성 있으면 `next` → fine2) → R1–R3 결과로 11절·11.3·5절의 0.1 A 단위 서술을 고칠지 정한다.
+- **진행(반복 30, 10-30 11:41–12:10)**: msR 끝(11:40, 84회 오류 0; 3라운드에 잴 구성 없음 = ms 49·msk1 63구성 모두 감쌈). `ms_compare` **확정 "채택"**:
+  46점 중 43점(나머지 3점 = M-S·M-B 함께 진동), A 앵커 12점 +0.198 A / 8점, B 번짐 +0.071 A / 24점, C SPS 위반 M-S 3 ≤ M-B 3(22점). 판정문의 "미완료 —
+  잠정" 문구가 진동 판정 불가 점도 미측정으로 세던 결함을 고쳤다(규칙 아님, 문구만). 그림 범례가 109.2 V 700 W(+1.0 A) 점을 가려 k = 1 패널로 옮겼다.
+  **판정 아닌 점검 둘(판정 뒤 추가)**: (1) 듀티 이동 거리별 — 2칸 초과 28점 +0.179 A, 2칸 이하 18점 +0.005 A(칸 추첨이 양쪽으로 흩어짐).
+  (2) `surface_opt_check.py ms_goal3`(새) → `out/ms_goal3.{csv,log}`: 셋 다 깨끗한 28점 평균 SPS − B +0.069, SPS − M-S +0.138 A, 위반 3 대 3.
+  **새로 찾은 B의 목표 3 위반: 93 V 100·150 W +0.191·+0.105 A**(k1map은 93 V에서 SPS와 D1 = D2만 쟀음; 100 W B 값은 14–132 W 계단 보간).
+  RESULTS 머리말·0절·R.10, REPORT 0절 표 두 줄·남은 것·8절 두 줄·11.3 결과(표에 "칸" 열)·해석 갱신.
+  **다음 턴**: rob4 끝(약 13:00) → `robust_check.py next`(감싸지 못한 구성 → r2) / `compare` → `out/robust_verdict.md` → R10(RESULTS·REPORT 8절).
+  eff2 끝 → `efficiency_sweep.py compare` + `zvs_check.py compare`(63/63) → R8 그림(Fig. 26–28 형식: Ipk·η 대 P, V2별; M-S 곡선도 — M-S 실행에 P_LV·P_HV
+  있음). r11smoke 끝 → `r11_step.py compare`(25 ns 실행 시간 → fine1 소요 추정). fine1 끝 → `fine_grid_check.py compare`.
 - [~] **GRID 격자 세분 점검(10-30 11:07 제출)**: `verify_steady_fine.m`/`verify_steady_fine_batch.m`(verify_steady_state 복사본 + r11 제어기 + 실행마다
   Ts_ctrl·LocalSolverSampleTime; m_static_check OK), `fine_grid_check.py`(make/next/compare/selftest 19항목 ALL PASS; **규칙 R1–R3은 머리말에 결과 전
   등록, 바꾸지 말 것**). `out/fine_points_r1.csv` 117회(S 스캔 4개 × 5듀티 × 2계단 × {100, 25 ns}, B 5점 × {SPS, B, M-S}, C 6점 × {SPS, B}; 25 ns D0 =
@@ -111,7 +121,7 @@
 - [x] OPT3 **M-B 국소 최적성(새 Simulink 실행)**: (84, 109.2 V) × (100, 300, 1000 W)에서 M-B의 (D1, D2)와 ±0.02, ±0.04 십자(9 후보/점) → 같은 방식으로
   같은 전력 Ipk. M-B가 국소 최소(규칙 (i))인지.
 - [~] OPT4 정리(판정문·그림·REPORT 11절·RESULTS R.10은 2라운드로 완료, 10-30 07:20; k = 1 지도 REPORT 11.2, M-S 학습·규칙 등록 REPORT 11.3
-  완료 10-30 08:20, **M-S Simulink 잠정 "채택"(10-30 11:25, 25/46점), msR 뒤 확정** — 위 반복 27·29): `surface_opt_check.py` → `out/surface_opt_check.{csv,log}`, 그림 `out/fig_surface_opt_check.png`(V2별 |P|–D1/D2 단면: M-B 곡선, Simulink
+  완료 10-30 08:20, **M-S Simulink 확정 "채택"(10-30 11:45, 43/46점 판정, 미측정 0) — 남은 것은 fine1(25 ns)로 0.1 A 진술 확인뿐** — 위 반복 27·29·30): `surface_opt_check.py` → `out/surface_opt_check.{csv,log}`, 그림 `out/fig_surface_opt_check.png`(V2별 |P|–D1/D2 단면: M-B 곡선, Simulink
   격자 최적 점, 허용오차 안 후보 범위 막대; 아래 행 Ipk(M-B) − Ipk(최적)). 판정문 `out/surface_opt_verdict.md`. REPORT.md·RESULTS.md에 절 추가.
   규칙 (i)이 깨지는 점이 있으면 곡면을 고치는 방법(Simulink 격자 최적을 목표로 재학습 = R13 앞당김)을 제안하고 바로 진행.
   (반복 25 설계안, 1라운드 근거): 보정은 경부하 두 곳만. (a) k ≈ 1 경부하 → D1 = D2 ≈ 0.45(범위는 k1map: V2 폭, 어느 계단까지 SPS보다
@@ -132,6 +142,8 @@
   (wP 40 W). (3) k = 1 경부하(k1map 뒤). 모두 wV 5 V → 중간 V2(89/104 V)도 검증. `out/opt4_anchors_r2.csv`. 학습은 `--delta`로.
   84 V 경부하·109.2 V 150 W(거칠기 범위 안)와 M-B 최적점(84 V 200/600/1000, 109.2 V 300/400/1000 W)은 M-B 그대로 두되, 링잉으로 0.003–0.009
   움직이므로 ms 묶음이 그 점들도 다시 잰다.
+- MATLAB 순서(반복 30, 10-30 11:50): msR 끝(11:40) → **rob4**(11:41 시작, R10 111회, 약 13:00 끝) → eff2(7회) → r11smoke(5회) → **fine1**(GRID 117회,
+  약 2 h 예상). 대기 중인 대화형 잡을 kill하지 말 것(순서 바꿀 때는 입력 파일 옮기기).
 - MATLAB 순서(반복 29, 10-30 11:07): msR(10:41 시작, 2라운드 ms 46회 → msk1 38회 → 3–4라운드, 12:00쯤 끝) → rob4(R10 111회) → eff2(7회)
   → r11smoke(5회) → **fine1**(GRID 117회, 약 2 h 예상).
 - MATLAB 순서(반복 28, 10-30 09:00): zvs2 끝(08:33) → rob2 실패(08:33, 의도) → **opt5**(08:33 시작; 5라운드 08:42 끝; ms 84회 → msk1 86회, 11:10쯤 끝)
@@ -214,6 +226,11 @@ MATLAB은 한 번에 잡 하나(병렬 풀 6워커)만. 지금 `r5r6` 실행 중
   `make` → `out/robust_points_r1.csv`, 잡 **`rob1`**(`--after zvs1`). 끝나면 `robust_check.py next`(감싸지 못한 구성이 있으면 r2) → `compare` →
   `out/robust_verdict.md` → RESULTS·REPORT. **첫 실행이다 — 로그에서 setBlockParameter 오류가 있는지 먼저 확인**(Simscape compiletime 파라미터).
   (반복 25: rob1은 의도적으로 실패시키고 **rob2**(`--after zvs2`, `out/robust_points_r1q.csv`)로 다시 냈다.)
+  (반복 30: 실제로 도는 것은 **rob4**(10-30 11:41 시작, `out/robust_points_r1q3.csv` → `out/robust_sweep_r1_part*.csv`). 첫 묶음 24회 오류 0, 820 s →
+  약 12:55 끝. setBlockParameter 적용 확인(L −10 % / +10 %에서 같은 D0 계단 전력 96.7 / 77.7 W). R.4 계단을 그대로 써서 L −10 %의 84 V B 1 kW, 109.2 V B
+  300 W 등은 목표 전력을 못 감싼다 → rob4 끝나면 `robust_check.py next` → `out/robust_points_r2.csv` → 잡 **rob5**를 `--after fine1`로(격자 점검이 R10의
+  0.03 A 판정 해석에도 필요해서 fine1을 먼저). 그다음 `compare` → `out/robust_verdict.md` → RESULTS·REPORT 8절. 0.03–0.1 A 크기 "열화"는 11.4절 격자
+  거칠기와 같은 크기라는 단서를 판정문 옆에 적을 것(규칙은 그대로).)
 - [ ] R10 (개선 5) **파라미터 견고성(Simulink)**: L ±10 %, 데드타임 100→200 ns, V1 ±5 %(블록/변수 값을 시뮬레이션 입력으로만 바꿈, 모델 저장 금지)
   × 대표 6점 × {SPS, M-B}(가능하면 M-A) — 상수 D0 두 계단 보간. M-B가 어디서도 SPS보다 의미 있게 나빠지지 않는지.
 - [~] (반복 28, 10-30 09:00) R11 준비 + 스모크 대기. **복사본** `Simulink/Thesis/r11/DAB_Controller_System.m`(경로 맨 앞에 두어 원본을 가림; 바뀐 것 둘:

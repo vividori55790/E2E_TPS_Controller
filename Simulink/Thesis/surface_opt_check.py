@@ -813,23 +813,38 @@ def ms_compare():
     Tw, _ = ms_points(col="Ipk_max")                           # window sensitivity (report only)
     code_w = mv.judge(Tw)[0]
     out(f"   window check (worst 1 ms window 15 ms - end): verdict {code_w}")
+    # report only (added 10-30 11:55, after the verdict): split by how far M-S moved the duty from M-B, in 0.004 cells
+    # of the 100 ns grid (duty_quant_check.py); <= 2 cells is the range of its same-power neighbour comparison
+    cells = np.maximum((T["D1_MS"] - T["D1_MB"]).abs(), (T["D2_MS"] - T["D2_MB"]).abs()) / 0.004
+    mv_ = {}
+    for lab, m in (("<= 2 cells", cells <= 2.0), ("> 2 cells", cells > 2.0)):
+        g = T[m]
+        gv = g["gain"].dropna()
+        mv_[lab] = (len(g), len(gv), float(gv.mean()) if len(gv) else np.nan, float(gv.median()) if len(gv) else np.nan,
+                    {c: int((g["cls"] == c).sum()) for c in CLS_KO})
+        out(f"   duty move {lab} (report only): {len(g)} points, mean gain {mv_[lab][2]:+.3f} A, median {mv_[lab][3]:+.3f} A "
+            f"over {len(gv)}; " + ", ".join(f"{c} {n}" for c, n in mv_[lab][4].items() if n))
     open(os.path.join(OUT, "ms_check.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
-    ms_verdict_md(code, T, s, grp, code_w, A)
+    ms_verdict_md(code, T, s, grp, code_w, A, mv_)
     ms_fig(T, code)
     print("wrote out/ms_check.{csv,log}, out/ms_verdict.md, out/fig_ms_check.png")
     return code, T, s
 
 
-def ms_verdict_md(code, T, s, grp, code_w, A):
+def ms_verdict_md(code, T, s, grp, code_w, A, mv_=None):
     import datetime
     n_meas = int(T["cls"].ne("undecidable").sum())
+    # 'undecidable' = not bracketed OR M-S and M-B both oscillating; only the first means "more rounds needed"
+    n_open = int((~np.isfinite(T["Ipk_MS"].astype(float)) | ~np.isfinite(T["Ipk_MB"].astype(float))).sum())
     md = ["# OPT4 판정: 보정 곡면 M-S는 Simulink에서 M-B보다 나은가? (자동 생성)", "",
           f"생성 {datetime.datetime.now():%Y-%m-%d %H:%M}, `surface_opt_check.py ms_compare`. 규칙은 `ms_verdict.py`(10-30 08:15, M-S"
           " Simulink 실행 전 등록)이며 바꾸지 않았다. 수치는 모두 Simulink(데이터셋 시기 모델) 정상상태다. 상수 D0 30 ms(k = 1 띠는"
           " 40 ms)를 돌리고 마지막 1 ms의 max|i_L|을 쓰며, 목표 전력을 감싸는 2.88° 두 계단 사이에서 전력으로 보간한다(HV→LV).",
           "", f"M-S = M-B + 앵커 보정(`train_corrected.py --delta`, 앵커 {len(A)}개 `out/opt4_anchors_r3.csv`). M-S가 M-B와 듀티 0.003"
-          f" 넘게 다른 점만 돌렸다. 점 {len(T)}개 중 판정 가능 {n_meas}개."
-          + ("" if n_meas == len(T) else " **미완료 점이 있다 — 아래 판정은 잠정이다**(`surface_opt_check.py next --fams ms,msk1`)."),
+          f" 넘게 다른 점만 돌렸다. 점 {len(T)}개 중 판정 가능 {n_meas}개"
+          + ((f"(나머지 {len(T) - n_meas}개는 M-S와 M-B가 함께 진동해 판정 불가; 감싸지 못한 점 없음 — 확정)." if n_meas < len(T)
+              else "(감싸지 못한 점 없음 — 확정).") if n_open == 0
+             else f". **감싸지 못한 점 {n_open}개 — 아래 판정은 잠정이다**(`surface_opt_check.py next --fams ms,msk1`)."),
           "", "| 묶음 | V2 | \\|P\\| | w | 앵커 무리 | M-S (D1, D2) | M-S Ipk | M-B (D1, D2) | M-B Ipk | SPS | 이득 M-B − M-S | 허용 | 분류 |",
           "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
 
@@ -853,8 +868,13 @@ def ms_verdict_md(code, T, s, grp, code_w, A):
     md += ["", f"**판정: {MS_VERDICT_KO[code]}**.", "",
            "참고(판정 아님): 앵커 무리별 평균 이득 — " + "; ".join(
                f"{ {'knee': 'SPS 무릎', 'ridge': '109.2 V 경부하 능선', 'k1': 'k = 1 띠'}.get(k, k)} {n}점 중 {m}점 평균 {g:+.3f} A"
-               for k, (n, m, g) in grp.items()) + f". 창 민감도(15 ms–끝 최대 창으로 같은 규칙): {MS_VERDICT_KO[code_w]}.",
-           "", "그림: `out/fig_ms_check.png`. 표 원본: `out/ms_check.csv`, 로그: `out/ms_check.log`."]
+               for k, (n, m, g) in grp.items()) + f". 창 민감도(15 ms–끝 최대 창으로 같은 규칙): {MS_VERDICT_KO[code_w]}."]
+    if mv_:                                                     # report only, added after the verdict (10-30 11:55)
+        md += ["", "참고(판정 아님, 판정 뒤 추가): M-S가 B에서 듀티를 몇 칸(100 ns 격자의 0.004) 옮겼는가로 나누면 — " + "; ".join(
+            f"{ {'<= 2 cells': '2칸 이하', '> 2 cells': '2칸 초과'}[lab]} {n}점: 평균 이득 {g:+.3f} A, 중앙값 {med:+.3f} A({m}점), "
+            + " · ".join(f"{CLS_KO[c]} {k}" for c, k in cl.items() if k) for lab, (n, m, g, med, cl) in mv_.items())
+            + ". 2칸 이하는 `duty_quant_check.py`의 같은 전력 이웃 비교(중앙값 0.086 A)와 같은 범위다."]
+    md += ["", "그림: `out/fig_ms_check.png`. 표 원본: `out/ms_check.csv`, 로그: `out/ms_check.log`."]
     open(os.path.join(OUT, "ms_verdict.md"), "w", encoding="utf-8").write("\n".join(md) + "\n")
 
 
@@ -889,20 +909,101 @@ def ms_fig(T, code):
         a.set_ylabel("Ipk(M-B) - Ipk(M-S) [A]")
         a.set_title(("knee / ridge anchors: V2 84, 89, 104, 109.2 V" if fam == "ms" else "k = 1 band (40 ms runs)")
                     + "  (big dots: anchor region w >= 0.5)", fontsize=9)
-    ax[0].plot([], [], "o", color=AQUA, label="M-S better (or fixes M-B oscillation)")
-    ax[0].plot([], [], "o", color=ORANGE, label="M-S worse (or oscillates)")
-    ax[0].plot([], [], "o", color=MUTED, label="same within tolerance (grey bar = that point's tolerance)")
-    ax[0].plot([], [], "X", color=INK2, label="oscillation class (M-B osc fixed / M-S osc new), no gain value")
-    ax[0].plot([], [], "o", mfc="none", mec=MUTED, label="undecidable (not bracketed yet, or both oscillate)")
-    ax[0].legend(fontsize=7.5, frameon=False, loc="upper right")
+    lg = ax[1] if ax[1].get_visible() else ax[0]      # the k = 1 panel has an empty upper-left corner; the knee panel has
+    lg.plot([], [], "o", color=AQUA, label="M-S better (or fixes M-B oscillation)")       # a point near +1 A under it
+    lg.plot([], [], "o", color=ORANGE, label="M-S worse (or oscillates)")
+    lg.plot([], [], "o", color=MUTED, label="same within tolerance (grey bar = that point's tolerance)")
+    lg.plot([], [], "X", color=INK2, label="oscillation class (M-B osc fixed / M-S osc new), no gain value")
+    lg.plot([], [], "o", mfc="none", mec=MUTED, label="undecidable (not bracketed yet, or both oscillate)")
+    lg.legend(fontsize=7.5, frameon=False, loc="upper left")
     f.suptitle(f"OPT4: M-S vs M-B in Simulink -- verdict {code} (rules: ms_verdict.py)", fontsize=10)
     f.savefig(os.path.join(OUT, "fig_ms_check.png"), dpi=130)
     plt.close(f)
 
 
+def ms_goal3():
+    """REPORT ONLY (10-30 11:50, after the M-S verdict; not a rule, decides nothing): goal 3 ("nowhere worse than SPS")
+    at every grid point of the M-S checks (ms: 84 / 109.2 V x 11 powers, 89 / 104 V x 5; msk1: 93-98 V x 5), for M-B and
+    M-S, with the measurement and tolerance of ms_verdict.py. Where M-S is within MS_DIFF of M-B it was not run and takes
+    M-B's value (a 0.003 duty change can still cross a 0.004 cell, which this ignores). Only clean values (|mean i_L|
+    <= 20 mA) are compared. -> out/ms_goal3.{csv,log}"""
+    import pandas as pd
+    import ms_verdict as mv
+    ms, mb = _ms(), _mb()
+    grid = ([("ms", v, p) for v in MS_V2_EDGE for p in MS_P] + [("ms", v, p) for v in MS_V2_MID for p in MS_P_MID]
+            + [("msk1", v, p) for v in MSK1_V2 for p in MSK1_P])
+    cf, ran = [], {}
+    for fam, v, p in grid:
+        s1, s2 = (float(np.ravel(x)[0]) for x in ms.predict(np.array([p]), np.array([v])))
+        b1, b2 = (float(np.ravel(x)[0]) for x in mb.predict(np.array([p]), np.array([v])))
+        ran[(fam, v, p)] = max(abs(s1 - b1), abs(s2 - b2)) >= MS_DIFF
+        cf += [_cfg(fam, "M-B", v, p, b1, b2), _cfg(fam, "SPS", v, p, 0.5, 0.5)]
+        if ran[(fam, v, p)]:
+            cf.append(_cfg(fam, "M-S", v, p, s1, s2))
+    T = measure(MS_FAMS, cf=_dedupe(cf))
+    rows = []
+    for fam, v, p in grid:
+        g = T[(T["fam"] == fam) & (T["V2"] == v) & (T["P"] == p)]
+
+        def val(ctrl):
+            r = g[g["ctrl"] == ctrl]
+            return (float(r["Ipk"].iloc[0]), float(r["osc"].iloc[0])) if len(r) else (np.nan, np.nan)
+        (i_b, o_b), (i_s, o_s) = val("M-B"), val("SPS")
+        if (not np.isfinite(i_s) and len(g[g["ctrl"] == "M-B"])
+                and (g.loc[g["ctrl"] == "M-B", ["D1", "D2"]].to_numpy() >= sw.D_SAFE).all()):
+            i_s, o_s = i_b, o_b                                  # M-B = SPS exactly: _dedupe kept one configuration
+        i_m, o_m = val("M-S") if ran[(fam, v, p)] else (i_b, o_b)
+        sps = mv._clean(i_s, o_s)
+        tol = max(mv.TOL_ABS, mv.TOL_REL * i_s) if sps else np.nan
+        rec = dict(fam=fam, V2=v, P=p, ms_run=ran[(fam, v, p)], Ipk_SPS=i_s, osc_SPS=o_s, Ipk_MB=i_b, osc_MB=o_b,
+                   Ipk_MS=i_m, osc_MS=o_m, tol=tol)
+        for k, i, o in (("MB", i_b, o_b), ("MS", i_m, o_m)):
+            ok = sps and mv._clean(i, o)
+            rec[f"red_{k}"] = i_s - i if ok else np.nan                 # > 0: lower than SPS
+            rec[f"viol_{k}"] = bool(i - i_s > tol) if ok else None
+        rows.append(rec)
+    R = pd.DataFrame(rows)
+    R.to_csv(os.path.join(OUT, "ms_goal3.csv"), index=False, float_format="%.6g")
+    lines = []
+
+    def out(x=""):
+        print(x, flush=True)
+        lines.append(x)
+    out("REPORT ONLY (not a verdict): goal 3 at the M-S check grid, Simulink steady state as ms_verdict.py "
+        "(red = Ipk(SPS) - Ipk(ctrl), > 0 = lower than SPS; ! = worse than SPS by more than max(0.03 A, 2 % SPS))")
+    out(f"{'fam':>4} {'V2':>6} {'|P|':>5} | {'SPS':>7} | {'M-B':>7} {'red':>7} | {'M-S':>7} {'red':>7} | M-S run")
+
+    def f(i, o):
+        return f"{i:6.3f}{'~' if np.isfinite(o) and o > mv.OSC else ' '}" if np.isfinite(i) else f"{'-':>6} "
+
+    def r_(x, vi):
+        return (f"{x:+6.3f}{'!' if vi else ' '}") if np.isfinite(x) else f"{'':>7}"
+    for _, r in R.iterrows():
+        out(f"{r['fam']:>4} {r['V2']:6g} {r['P']:5.0f} | {f(r['Ipk_SPS'], r['osc_SPS'])} | {f(r['Ipk_MB'], r['osc_MB'])} "
+            f"{r_(r['red_MB'], r['viol_MB'])} | {f(r['Ipk_MS'], r['osc_MS'])} {r_(r['red_MS'], r['viol_MS'])} | "
+            f"{'yes' if r['ms_run'] else 'no (= M-B)'}")
+    out("(~ = oscillating, |mean i_L| > 20 mA; compared only where SPS and the controller are clean)")
+    bands = (("84 V", R["V2"] == 84.0), ("89 V", R["V2"] == 89.0), ("93-98 V", R["V2"].between(93.0, 98.0)),
+             ("104 V", R["V2"] == 104.0), ("109.2 V", R["V2"] == 109.2), ("all", R["V2"] > 0))
+    for name, m in bands:
+        g = R[m]
+        for k, lab in (("MB", "M-B"), ("MS", "M-S")):
+            x = g[f"red_{k}"].dropna()
+            vi = g[g[f"viol_{k}"] == True]                                        # noqa: E712 (None / bool column)
+            out(f"  {name:>8} {lab}: {len(x):2d} clean points, mean red {x.mean():+.3f} A, median {x.median():+.3f} A, "
+                f"worse than SPS {len(vi)}" + (" (" + ", ".join(f"{a['V2']:g} V {a['P']:.0f} W {-a[f'red_{k}']:+.3f}"
+                                                               for _, a in vi.iterrows()) + ")" if len(vi) else ""))
+    both = R[R["red_MB"].notna() & R["red_MS"].notna()]
+    out(f"  same points (both clean, {len(both)}): mean red M-B {both['red_MB'].mean():+.3f} A, M-S {both['red_MS'].mean():+.3f} A; "
+        f"worse than SPS M-B {int((both['viol_MB'] == True).sum())}, M-S {int((both['viol_MS'] == True).sum())}")  # noqa: E712
+    open(os.path.join(OUT, "ms_goal3.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
+    print("wrote out/ms_goal3.{csv,log}")
+    return R
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["make", "next", "compare", "ms_compare"])
+    ap.add_argument("cmd", choices=["make", "next", "compare", "ms_compare", "ms_goal3"])
     ap.add_argument("--fams", default=",".join(FAMS))
     ap.add_argument("--partial", action="store_true", help="grid family from an incomplete R6 (testing only)")
     a = ap.parse_args()
@@ -911,6 +1012,8 @@ def main():
         plan(fams, a.partial)
     elif a.cmd == "ms_compare":
         ms_compare()
+    elif a.cmd == "ms_goal3":
+        ms_goal3()
     else:
         compare(a.partial)
 
