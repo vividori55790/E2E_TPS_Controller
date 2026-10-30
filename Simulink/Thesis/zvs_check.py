@@ -47,9 +47,12 @@ OSC = 0.02                       # [A] |mean i_L| above which a run oscillates (
 I_ZC = 0.2                       # [A] a hard edge below this node current is reported apart (TPS shapes i_L to ~0 there)
 
 
+EDGE = G                         # deg: the command edge grid; 0.72 for the 25 ns runs (map25)
+
+
 def q(p):
-    """command edge on the 100 ns grid, rounded up (plant_params.md 4.)"""
-    return np.ceil(np.round(np.mod(p, 360.0) / G, 9)) * G
+    """command edge on the gate grid, rounded up (plant_params.md 4.)"""
+    return np.ceil(np.round(np.mod(p, 360.0) / EDGE, 9)) * EDGE
 
 
 def phases(D0, D1, D2):
@@ -439,6 +442,111 @@ def compare():
     print("wrote out/zvs_check.{csv,log}, out/zvs_runs.csv, out/fig_zvs_check.png")
 
 
+def load_runs25():
+    """the 25 ns runs of GRID and the R13 map with a saved waveform: result row + the analysis, in the frame fitted to them"""
+    import pandas as pd
+    import r13_map as rm
+    rows, waves, ops = [], [], []
+    for pat in ("fine_sweep_r*.csv", "r13a_sweep_r*.csv", "r13b_sweep_r*.csv"):
+        for f in sorted(glob.glob(os.path.join(OUT, "iL_wave", pat))):
+            res = os.path.join(OUT, os.path.basename(f))
+            if not os.path.isfile(res):
+                continue
+            w, r = pd.read_csv(f), pd.read_csv(res)
+            if len(w) != len(r):
+                print(f"{f}: {len(w)} waveforms vs {len(r)} result rows, skipped")
+                continue
+            W = w[[f"Wv{j}" for j in range(1, N_S + 1)]].to_numpy(float)
+            for k in range(len(r)):
+                x = r.iloc[k]
+                if (not np.isclose(x["Ts"], rm.TS, rtol=1e-6, atol=0) or (isinstance(x.get("error"), str) and x["error"].strip())
+                        or not np.all(np.isfinite(W[k]))):
+                    continue
+                V2b = x["V_LV"] if np.isfinite(x.get("V_LV", np.nan)) else x["V2"]
+                rows.append(x.to_dict())
+                waves.append(W[k])
+                ops.append((x["D0"], x["D1"], x["D2"], V2b))
+    frame, an = analyse_all(np.array(waves), ops)
+    d = pd.DataFrame([dict(r, **a) for r, a in zip(rows, an)])
+    return d.drop_duplicates(subset=["V2", "level", "D1", "D2"], keep="last").reset_index(drop=True), frame
+
+
+def map25():
+    """R9 at 25 ns: the leg verdicts of SPS, M-B, M-S at the points of the 25 ns map (r13_map.py), the same analysis as compare
+    (bracket = fine_grid_check.at_power). Not a registered rule: R9 has none, it reports the table and the V x I sums."""
+    global EDGE
+    import pandas as pd
+    import fine_grid_check as fg
+    import r13_map as rm
+    EDGE = 360.0 * rm.TS * FS
+    d, frame = load_runs25()
+    lines = []
+
+    def out(x=""):
+        print(x, flush=True)
+        lines.append(x)
+    out(f"zvs_check map25: {len(d)} runs at 25 ns with a waveform; common frame sigma {frame[0]:+d}, rho {frame[1]:+d}, offset c {frame[2]:+.2f} deg "
+        f"(per-run best {d['c_own'].min():+.2f}..{d['c_own'].max():+.2f}); slope correlation min {d['r_cal'].min():.3f}, median {d['r_cal'].median():.3f}")
+    rows = []
+    for v, p, cs in rm.candidates():
+        by = {c["name"]: c for c in cs}
+        for nm in rm.CORE:
+            own = by[by[nm]["alias"]] if by[nm]["alias"] else by[nm]
+            g = fg.runs_of(d, dict(V2=v, D1=own["D1"], D2=own["D2"]), rm.TS)
+            I, osc, lo = fg.at_power(g, p) if not g.empty else (np.nan, np.nan, None)
+            rec = dict(V2=v, P=p, ctrl=nm, D1=own["D1"], D2=own["D2"], Ipk=I, osc=osc)
+            if lo is not None:
+                a, b = (g[g["level"] == j].iloc[0] for j in (lo, lo + 1))
+                rec["hard_VI"] = 0.0
+                for leg in LEGS:
+                    vv = (a[f"{leg}_zvs"], b[f"{leg}_zvs"])
+                    rec[leg] = "hard" if "hard" in vv else "ZVS" if vv == ("ZVS", "ZVS") else "marginal"
+                    rec[f"{leg}_margin"] = min(a[f"{leg}_margin"], b[f"{leg}_margin"])
+                    if rec[leg] == "hard" and rec[f"{leg}_margin"] > -I_ZC:
+                        rec[leg] = "hard~0"
+                    if rec[f"{leg}_margin"] < 0:
+                        rec["hard_VI"] += -rec[f"{leg}_margin"] * (V1 if leg in "AB" else v)
+            rows.append(rec)
+    T = pd.DataFrame(rows)
+    T.to_csv(os.path.join(OUT, "zvs_map25.csv"), index=False, float_format="%.6g")
+    short = {"ZVS": "Z", "marginal": "m", "hard": "H", "hard~0": "h"}
+    out(f"\nlegs A B C D per point (Z ZVS, m marginal, H hard, h hard at |i| < {I_ZC} A, ~ oscillating) and the V x I switched the wrong way [VA]")
+    out(f"{'V2':>6} {'|P|':>5} | " + " | ".join(f"{k:^12}" for k in rm.CORE))
+    for (v, p), g in T.groupby(["V2", "P"], sort=True):
+        cells = []
+        for k in rm.CORE:
+            r = g[g["ctrl"] == k].iloc[0]
+            cells.append(f"{''.join(short[r[x]] for x in LEGS)}{'~' if r['osc'] > OSC else ' '} {r['hard_VI']:6.0f} " if isinstance(r.get("A"), str) else f"{'-':^12}")
+        out(f"{v:6g} {p:5.0f} | " + " | ".join(cells))
+    both = T[T["osc"] <= OSC].pivot_table(index=["V2", "P"], columns="ctrl", values="hard_VI")
+    for k in ("M-B", "M-S"):
+        x = both[["SPS", k]].dropna()
+        if len(x):
+            per = x.groupby(level="V2").sum()
+            out(f"\n{k} vs SPS, both clean ({len(x)} points): summed V x I {x[k].sum():.0f} vs {x['SPS'].sum():.0f} VA ({100 * (x[k].sum() / x['SPS'].sum() - 1):+.0f} %); "
+                f"lower at {int((x[k] < x['SPS'] - 1).sum())}, higher at {int((x[k] > x['SPS'] + 1).sum())}; per V2 "
+                + ", ".join(f"{v:g} V {r[k]:.0f}/{r['SPS']:.0f}" for v, r in per.iterrows()))
+            hi = x[x[k] > x["SPS"] + 1]
+            for (v, p), r in hi.iterrows():
+                out(f"   higher: {v:g} V {p:.0f} W {r[k]:.0f} vs {r['SPS']:.0f} VA")
+    # not a verdict (10-30 18:36): do the non-periodic runs of r13_map.per_period have an edge switching near zero current?
+    J = rm.per_period(rm.results_25())
+    x = d.assign(D1r=d["D1"].round(9), D2r=d["D2"].round(9)).merge(J[["V2", "level", "D1r", "D2r", "kind"]],
+                                                                  on=["V2", "level", "D1r", "D2r"], how="inner")
+    x["edge"] = x[[f"{k}_margin" for k in LEGS]].abs().min(axis=1)
+    out(f"\nnot a verdict: smallest |current| at any edge of a run vs the run's period peaks ({len(x)} runs; own-side amperes, frame above)")
+    for thr in (0.1, 0.2, 0.42):
+        near = x[x["edge"] <= thr]
+        far = x[x["edge"] > thr]
+        out(f"  edge current <= {thr:g} A: {int((near['kind'] != 'periodic').sum())}/{len(near)} runs not periodic; above: "
+            f"{int((far['kind'] != 'periodic').sum())}/{len(far)}")
+    np_ = x[x["kind"] != "periodic"]["edge"]
+    out(f"  the {len(np_)} non-periodic runs: edge current median {np_.median():.3f} A, max {np_.max():.3f} A; the periodic runs: median "
+        f"{x[x['kind'] == 'periodic']['edge'].median():.3f} A")
+    open(os.path.join(OUT, "zvs_map25.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
+    print("wrote out/zvs_map25.{csv,log}")
+
+
 def selftest():
     """the same analysis on Python plant waveforms (reference only). Must hold: the common frame is the plant's own
     (sigma = rho = +1, offset within one sample), and the textbook SPS pattern -- light load k < 1 (84 V) loses ZVS on
@@ -474,4 +582,4 @@ def selftest():
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "compare"
-    {"make": make, "compare": compare, "selftest": selftest}[cmd]()
+    {"make": make, "compare": compare, "selftest": selftest, "map25": map25}[cmd]()

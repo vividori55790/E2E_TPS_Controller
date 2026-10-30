@@ -195,7 +195,8 @@ def seg_metrics(per, a, b, P, P0):
                 iL_mean_steady=float(abs(st["iL_mean"].mean())), iL_mean_period_max=float(st["iL_mean"].abs().max()),
                 P_err_pct=float(100 * (-st["P_LV"].mean() - P) / P),
                 t_settle_ms=float(t_set * 1e3), overshoot_W=float(dev[crossed[0]:].max()) if len(crossed) else 0.0,
-                Ipk_transient=float(g[g["t_end"] <= a + 2e-3]["Ipk"].max()), phi_steady=float(st["phi"].mean()))
+                Ipk_transient=float(g[g["t_end"] <= a + 2e-3]["Ipk"].max()), phi_steady=float(st["phi"].mean()),
+                phi_p2p=float(st["phi"].max() - st["phi"].min()))
 
 
 def compare():
@@ -230,14 +231,22 @@ def compare():
             m = seg_metrics(per, a, b, P, P0)
             P0 = P
             r, r25 = ref(s["ctrl"], s["V2"], P), ref25(s["ctrl"], s["V2"], P)
-            rows.append(dict(label=s["label"], ctrl=s["ctrl"], V2=s["V2"], Ts=s["Ts"], sync=s["sync"], t0=a, t1=b,
+            rows.append(dict(label=s["label"], ctrl=s["ctrl"], V2=s["V2"], Ts=s["Ts"], sync=s["sync"], gain=s["Kp"] / KP, t0=a, t1=b,
                              Ipk_ref=r, Ipk_ref25=r25, **m))
             out(f"  {a * 1e3:4.0f}-{b * 1e3:4.0f} ms {P:6.0f} W: Ipk steady {m['Ipk_steady']:.3f} (median period "
                 f"{m['Ipk_steady_med']:.3f}) vs ref {r:.3f} / ref25 {r25:.3f} A | |mean i_L| {m['iL_mean_steady']:.3f} A"
                 f"{' (osc)' if m['iL_mean_steady'] > OSC else ''} (per period max {m['iL_mean_period_max']:.3f})"
                 f" | P error {m['P_err_pct']:+.2f} % | settle "
                 f"{m['t_settle_ms']:.2f} ms | overshoot {m['overshoot_W']:+.0f} W | Ipk first 2 ms {m['Ipk_transient']:.3f} A"
-                f" | phi {m['phi_steady']:.2f} deg")
+                f" | phi {m['phi_steady']:.2f} deg, p2p {m['phi_p2p']:.2f} deg")
+    gains = sorted({r["gain"] for r in rows if r["label"].startswith("r2_")}, reverse=True)
+    for g in gains:             # R11 round 2: the R12 round-2 gain rule looks at this table (r12_ramp.py ROUND 2)
+        x = [r for r in rows if r["label"].startswith("r2_") and r["gain"] == g]
+        out(f"\ngain x{g:g} (Kp {KP * g:g}, Ki {KI * g:g}), steady phase peak-to-peak [deg] per segment:")
+        for lab in sorted({r["label"] for r in x}):
+            y = [r for r in x if r["label"] == lab]
+            out(f"  {lab:32s} " + "  ".join(f"{r['P']:6.0f} W {r['phi_p2p']:5.2f}" for r in y))
+        out(f"  worst {max(r['phi_p2p'] for r in x):.2f} deg over {len(x)} segments of {len({r['label'] for r in x})} runs")
     sm = [r for r in rows if r["label"].startswith("smoke_")]
     if sm:      # the smoke question (R.7 regression + grid choice): median period Ipk vs the constant-D0 steady state
         out("\nsmoke summary: label | Ipk median - ref | Ipk max - ref | window |mean i_L| [A]")
@@ -247,17 +256,19 @@ def compare():
     pd.DataFrame(rows).to_csv(os.path.join(OUT, "r11_check.csv"), index=False, float_format="%.6g")
     open(os.path.join(OUT, "r11_check.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
     fig(runs)
-    print("wrote out/r11_check.{csv,log}, out/fig_r11_step.png")
+    for g in gains:
+        fig(runs, f"r2_g{g:g}_", f"fig_r11_step_g{g:g}.png", g)
+    print("wrote out/r11_check.{csv,log}, out/fig_r11_step.png" + "".join(f", out/fig_r11_step_g{g:g}.png" for g in gains))
 
 
-def fig(runs):
+def fig(runs, prefix="r1_", name="fig_r11_step.png", gain=1.0):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from evaluate import BLUE, MUTED, ORANGE, YELLOW, _style
     _style(plt)
     good = [s for s in runs if s["periods"] is not None]
-    groups = sorted({(s["V2"], s["label"].rsplit("_", 1)[-1]) for s in good if s["label"].startswith("r1_")})
+    groups = sorted({(s["V2"], s["label"].rsplit("_", 1)[-1]) for s in good if s["label"].startswith(prefix)})
     smoke = [s for s in good if s["label"].startswith("smoke_")]
     cols = groups if groups else [("smoke", "")]
     fig_, ax = plt.subplots(2, len(cols), figsize=(4.4 * len(cols), 6.4), squeeze=False)
@@ -266,7 +277,7 @@ def fig(runs):
         rank = {"SPS": 0, "M-B": 1, "M-S": 2}
         for j, (V2, pname) in enumerate(groups):
             top_i, top_p = 0.0, 0.0
-            sel = [s for s in good if s["label"].startswith("r1_") and np.isclose(s["V2"], V2) and s["label"].endswith(pname)]
+            sel = [s for s in good if s["label"].startswith(prefix) and np.isclose(s["V2"], V2) and s["label"].endswith(pname)]
             for s in sorted(sel, key=lambda s: rank.get(s["ctrl"], 9)):           # SPS underneath
                 p, c = s["periods"], {"SPS": MUTED, "M-B": BLUE, "M-S": YELLOW}.get(s["ctrl"], ORANGE)
                 p = p[p["t_end"] * 1e3 >= t0]
@@ -297,10 +308,10 @@ def fig(runs):
     ax[0, 0].set_ylabel("max |i_L| per period [A]")
     ax[1, 0].set_ylabel("P [W]")
     ax[0, 0].legend(frameon=False, fontsize=8)
-    fig_.suptitle("R11 closed loop in Simulink (PI on the outer phase, 25 ns edge grid + period latch, Kp 2 / Ki 49000)",
+    fig_.suptitle(f"R11 closed loop in Simulink (PI on the outer phase, 25 ns edge grid + period latch, Kp {KP * gain:g} / Ki {KI * gain:g})",
                   fontsize=11)
     fig_.tight_layout()
-    fig_.savefig(os.path.join(OUT, "fig_r11_step.png"), dpi=130)
+    fig_.savefig(os.path.join(OUT, name), dpi=130)
     plt.close(fig_)
 
 

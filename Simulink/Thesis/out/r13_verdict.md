@@ -1,89 +1,98 @@
 # R13 1단계: 25 ns 격자 Simulink 정상상태 지도 (자동 생성)
 
-생성 2026-10-30 15:30, `r13_map.py compare`. 규칙은 `r13_map.py` 머리말(10-30 15:20, R13 실행 전 등록)이며 바꾸지 않았다. 모두 Simulink(데이터셋 시기 모델, 제어기·로컬 솔버 25 ns) 정상상태, 상수 D0 두 계단 전력 보간, 20 ms 창.
+생성 2026-10-30 18:40, `r13_map.py compare`. 규칙은 `r13_map.py` 머리말(10-30 15:20, R13 실행 전 등록)이며 바꾸지 않았다. 모두 Simulink(데이터셋 시기 모델, 제어기·로컬 솔버 25 ns) 정상상태, 상수 D0 두 계단 전력 보간, 20 ms 창.
 
-- 점 56개(V2 7값 × |P| 8값) 중 Q1 판정 가능 0개 — **잠정**(75 % 미만)
-- Q1 M-S 국소 최적성: 최적 0, 최적 아님 0 → 2단계(재학습): **안 함**
-- Q2 목표 3: M-S가 SPS보다 나쁜 점 0, M-B 0
-- Q3 M-S: 7점 평균 SPS − M-S +0.294 A(중앙값 +0.175), SPS 대비 +13.7 %
-- Q3 M-B: 10점 평균 SPS − M-B +0.259 A(중앙값 +0.155), SPS 대비 +11.3 %
-- Q4 M-S 대 M-B(31점): 개선 0, 같음 5, 열화 0 → **M-S holds**
-- Q5 93 V 100 W: 'SPS lower than M-B' +0.190 A(100 ns) → +nan A(25 ns): **undecidable**
-- Q5 93 V 100 W: 'SPS lower than M-S' +0.050 A(100 ns) → +nan A(25 ns): **undecidable**
-- Q5 93 V 100 W: 'M-S lower than M-B' +0.140 A(100 ns) → +nan A(25 ns): **undecidable**
-- Q5 93 V 150 W: 'SPS lower than M-B' +0.105 A(100 ns) → +nan A(25 ns): **undecidable**
-- Q5 84 V 700 W: 'SPS lower than M-S' +0.095 A(100 ns) → +nan A(25 ns): **undecidable**
-- Q5 84 V 700 W: 'M-B lower than M-S' +0.072 A(100 ns) → +nan A(25 ns): **undecidable**
-- Q5 109.2 V 700 W: 'M-S lower than M-B' +1.003 A(100 ns) → +nan A(25 ns): **undecidable**
-- Q5 95 V 70 W: 'D0.40 lower than SPS' +0.286 A(100 ns) → +nan A(25 ns): **undecidable**
-- Q5 95 V 100 W: 'D0.40 lower than SPS' +0.149 A(100 ns) → +nan A(25 ns): **undecidable**
-- Q5 96 V 150 W: 'M-S lower than SPS' +0.581 A(100 ns) → +nan A(25 ns): **undecidable**
-- Q5 96 V 150 W: 'M-S lower than M-B' +0.581 A(100 ns) → +nan A(25 ns): **undecidable**
-- Q5 96 V 200 W: 'M-S lower than SPS' +0.518 A(100 ns) → +nan A(25 ns): **undecidable**
-- Q5 96 V 200 W: 'M-S lower than M-B' +0.518 A(100 ns) → +nan A(25 ns): **undecidable**
-- Q5 96 V 300 W: 'M-S lower than SPS' +0.270 A(100 ns) → +nan A(25 ns): **undecidable**
-- Q5 96 V 300 W: 'M-S lower than M-B' +0.270 A(100 ns) → +nan A(25 ns): **undecidable**
-- Q5 97 V 150 W: 'M-B lower than M-S' +0.259 A(100 ns) → +nan A(25 ns): **undecidable**
+- 점 56개(V2 7값 × |P| 8값) 중 Q1 판정 가능 7개 — **잠정**(75 % 미만)
+- Q1 M-S 국소 최적성: 최적 7, 최적 아님 0 → 2단계(재학습): **안 함**
+- Q2 목표 3: M-S가 SPS보다 나쁜 점 2, M-B 2
+- Q3 M-S: 52점 평균 SPS − M-S +0.117 A(중앙값 +0.039), SPS 대비 +4.9 %
+- Q3 M-B: 51점 평균 SPS − M-B +0.116 A(중앙값 +0.038), SPS 대비 +5.4 %
+- Q4 M-S 대 M-B(31점): 개선 3, 같음 23, 열화 3 → **M-S holds**
+- Q5 93 V 100 W: 'SPS lower than M-B' +0.190 A(100 ns) → +0.001 A(25 ns): **gone**
+- Q5 93 V 100 W: 'SPS lower than M-S' +0.050 A(100 ns) → +0.001 A(25 ns): **gone**
+- Q5 93 V 100 W: 'M-S lower than M-B' +0.140 A(100 ns) → -0.000 A(25 ns): **gone**
+- Q5 93 V 150 W: 'SPS lower than M-B' +0.105 A(100 ns) → -0.003 A(25 ns): **gone**
+- Q5 84 V 700 W: 'SPS lower than M-S' +0.095 A(100 ns) → -0.059 A(25 ns): **gone**
+- Q5 84 V 700 W: 'M-B lower than M-S' +0.072 A(100 ns) → -0.029 A(25 ns): **gone**
+- Q5 109.2 V 700 W: 'M-S lower than M-B' +1.003 A(100 ns) → +0.015 A(25 ns): **gone**
+- Q5 95 V 70 W: 'D0.40 lower than SPS' +0.286 A(100 ns) → -0.044 A(25 ns): **reversed**
+- Q5 95 V 100 W: 'D0.40 lower than SPS' +0.149 A(100 ns) → -0.063 A(25 ns): **reversed**
+- Q5 96 V 150 W: 'M-S lower than SPS' +0.581 A(100 ns) → -0.043 A(25 ns): **reversed**
+- Q5 96 V 150 W: 'M-S lower than M-B' +0.581 A(100 ns) → -0.043 A(25 ns): **reversed**
+- Q5 96 V 200 W: 'M-S lower than SPS' +0.518 A(100 ns) → -0.085 A(25 ns): **reversed**
+- Q5 96 V 200 W: 'M-S lower than M-B' +0.518 A(100 ns) → -0.085 A(25 ns): **reversed**
+- Q5 96 V 300 W: 'M-S lower than SPS' +0.270 A(100 ns) → -0.064 A(25 ns): **reversed**
+- Q5 96 V 300 W: 'M-S lower than M-B' +0.270 A(100 ns) → -0.064 A(25 ns): **reversed**
+- Q5 97 V 150 W: 'M-B lower than M-S' +0.259 A(100 ns) → +0.008 A(25 ns): **gone**
 
-**아직 감싸지 못한 후보 값 333개 — 잠정**(`r13_map.py next`).
+**아직 감싸지 못한 후보 값 158개 — 잠정**(`r13_map.py next`).
 
 | V2 | |P| | SPS | M-B | M-S | Q1 | 차(최선) | Q2 M-S | Q2 M-B |
 |---|---|---|---|---|---|---|---|---|
-| 84 | 100 |  1.747 |  1.252 |  1.252 | 판정 불가 | +nan () | better | better |
-| 84 | 150 |  1.872 |  1.527 |  1.526 | 판정 불가 | +nan () | better | better |
-| 84 | 200 |  2.001 |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 84 | 300 |  2.260 |  2.138 |      - | 판정 불가 | +nan () | undecidable | better |
-| 84 | 400 |  2.528 |  2.453 |  2.451 | 판정 불가 | +nan () | better | better |
-| 84 | 600 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 84 | 800 |  3.693 |  3.638 |  3.656 | 판정 불가 | +nan () | same | same |
+| 84 | 100 |  1.747 |  1.252 |  1.252 | 최적(허용오차 안) | +0.000 (M-B) | better | better |
+| 84 | 150 |  1.872 |  1.527 |  1.526 | 최적(허용오차 안) | +0.000 (M-S) | better | better |
+| 84 | 200 |  2.001 |  1.757 |  1.757 | 최적(허용오차 안) | +0.000 (M-B) | better | better |
+| 84 | 300 |  2.260 |  2.138 |  2.136 | 최적(허용오차 안) | +0.000 (M-S) | better | better |
+| 84 | 400 |  2.528 |  2.453 |  2.451 | 최적(허용오차 안) | +0.000 (M-S) | better | better |
+| 84 | 600 |  3.091 |  3.056 |  3.047 | 최적(허용오차 안) | +0.013 (D1+) | same | same |
+| 84 | 800 |  3.693 |  3.638 |  3.656 | 최적(허용오차 안) | +0.019 (D1-) | same | same |
 | 84 | 1000 |  4.345 |  4.300 |  4.300 | 판정 불가 | +nan () | same | same |
-| 88.2 | 100 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 88.2 | 150 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 88.2 | 200 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 88.2 | 300 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 88.2 | 400 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 88.2 | 600 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 88.2 | 800 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 88.2 | 1000 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 92.4 | 100 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 92.4 | 150 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 92.4 | 200 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 92.4 | 300 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 92.4 | 400 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 92.4 | 600 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 92.4 | 800 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 92.4 | 1000 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 96.6 | 100 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 96.6 | 150 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 96.6 | 200 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 96.6 | 300 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 96.6 | 400 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 96.6 | 600 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 96.6 | 800 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 96.6 | 1000 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 100.8 | 100 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 100.8 | 150 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 100.8 | 200 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 100.8 | 300 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 100.8 | 400 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 100.8 | 600 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 100.8 | 800 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 100.8 | 1000 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 105 | 100 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 105 | 150 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 105 | 200 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 105 | 300 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 105 | 400 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 105 | 600 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 105 | 800 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 105 | 1000 |      - |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
+| 88.2 | 100 |  1.174 |  0.981 |  0.981 | 판정 불가 | +nan () | better | better |
+| 88.2 | 150 |  1.299 |  1.191 |  1.191 | 판정 불가 | +nan () | better | better |
+| 88.2 | 200 |  1.428 |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
+| 88.2 | 300 |  1.686 |  1.663 |  1.663 | 판정 불가 | +nan () | same | same |
+| 88.2 | 400 |  1.954 |  1.955 |  1.939 | 판정 불가 | +nan () | same | undecidable |
+| 88.2 | 600 |  2.514 |  2.494 |  2.494 | 판정 불가 | +nan () | same | same |
+| 88.2 | 800 |  3.110 |  3.093 |  3.093 | 판정 불가 | +nan () | same | same |
+| 88.2 | 1000 |  3.754 |  3.740 |  3.740 | 판정 불가 | +nan () | same | same |
+| 92.4 | 100 |  0.601 |  0.596 |  0.595 | 판정 불가 | +nan () | same | same |
+| 92.4 | 150 |  0.728 |  0.730 |  0.730 | 판정 불가 | +nan () | same | same |
+| 92.4 | 200 |  0.857 |  0.854 |  0.854 | 판정 불가 | +nan () | same | same |
+| 92.4 | 300 |  1.114 |  1.162 |  1.162 | 판정 불가 | +nan () | worse | worse |
+| 92.4 | 400 |  1.382 |  1.405 |  1.405 | 판정 불가 | +nan () | same | same |
+| 92.4 | 600 |  1.938 |  1.938 |  1.938 | 판정 불가 | +nan () | same | same |
+| 92.4 | 800 |  2.531 |  2.530 |  2.530 | 판정 불가 | +nan () | same | same |
+| 92.4 | 1000 |  3.165 |  3.166 |  3.166 | 판정 불가 | +nan () | same | same |
+| 96.6 | 100 |  0.521 |  0.535 |  0.656 | 판정 불가 | +nan () | worse | same |
+| 96.6 | 150 |  0.665 |  0.665 |  0.691 | 판정 불가 | +nan () | same | same |
+| 96.6 | 200 |  0.809 |  0.809 |  0.827 | 판정 불가 | +nan () | same | same |
+| 96.6 | 300 |  1.105 |  1.101 |  1.106 | 판정 불가 | +nan () | same | same |
+| 96.6 | 400 |  1.404 |  1.395 |  1.395 | 판정 불가 | +nan () | same | same |
+| 96.6 | 600 |  2.020 |  2.016 |  2.016 | 판정 불가 | +nan () | same | same |
+| 96.6 | 800 |  2.673 |  2.665 |  2.665 | 판정 불가 | +nan () | same | same |
+| 96.6 | 1000 |  3.361 |  3.354 |  3.354 | 판정 불가 | +nan () | same | same |
+| 100.8 | 100 |  1.101 |  1.013 |  1.013 | 판정 불가 | +nan () | better | better |
+| 100.8 | 150 |  1.237 |  1.328 |  1.328 | 판정 불가 | +nan () | undecidable | undecidable |
+| 100.8 | 200 |  1.377 |  1.337 |  1.337 | 판정 불가 | +nan () | better | better |
+| 100.8 | 300 |  1.659 |  1.662 |  1.662 | 판정 불가 | +nan () | same | same |
+| 100.8 | 400 |  1.950 |  1.916 |  1.916 | 판정 불가 | +nan () | same | same |
+| 100.8 | 600 |  2.544 |  2.506 |  2.505 | 판정 불가 | +nan () | same | same |
+| 100.8 | 800 |  3.159 |  3.123 |  3.120 | 판정 불가 | +nan () | same | same |
+| 100.8 | 1000 |  3.814 |  3.776 |  3.776 | 판정 불가 | +nan () | same | same |
+| 105 | 100 |  1.685 |  1.220 |  1.281 | 판정 불가 | +nan () | better | better |
+| 105 | 150 |  1.815 |  1.468 |  1.516 | 판정 불가 | +nan () | better | better |
+| 105 | 200 |  1.949 |  1.844 |  1.779 | 판정 불가 | +nan () | better | better |
+| 105 | 300 |  2.219 |  2.176 |  2.083 | 판정 불가 | +nan () | better | same |
+| 105 | 400 |  2.495 |  2.598 |  2.394 | 판정 불가 | +nan () | better | worse |
+| 105 | 600 |  3.119 |  2.979 |  2.977 | 판정 불가 | +nan () | undecidable | undecidable |
+| 105 | 800 |  3.736 |  3.572 |  3.637 | 판정 불가 | +nan () | undecidable | undecidable |
+| 105 | 1000 |  4.278 |  4.189 |  4.189 | 판정 불가 | +nan () | better | better |
 | 109.2 | 100 |  2.269 |  1.410 |  1.386 | 판정 불가 | +nan () | better | better |
-| 109.2 | 150 |  2.395 |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 109.2 | 200 |  2.524 |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 109.2 | 300 |  2.783 |  2.495 |      - | 판정 불가 | +nan () | undecidable | better |
-| 109.2 | 400 |  3.048 |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
+| 109.2 | 150 |  2.395 |  1.708 |  1.686 | 판정 불가 | +nan () | better | better |
+| 109.2 | 200 |  2.524 |  2.000 |  2.036 | 판정 불가 | +nan () | better | better |
+| 109.2 | 300 |  2.783 |  2.495 |  2.494 | 판정 불가 | +nan () | better | better |
+| 109.2 | 400 |  3.048 |  2.875 |  2.878 | 판정 불가 | +nan () | better | better |
 | 109.2 | 600 |  3.592 |  3.439 |  3.417 | 판정 불가 | +nan () | better | better |
-| 109.2 | 800 |  4.165 |      - |      - | 판정 불가 | +nan () | undecidable | undecidable |
-| 109.2 | 1000 |  4.758 |  4.599 |      - | 판정 불가 | +nan () | undecidable | better |
+| 109.2 | 800 |  4.165 |  4.062 |  4.012 | 판정 불가 | +nan () | better | better |
+| 109.2 | 1000 |  4.758 |  4.599 |  4.602 | 판정 불가 | +nan () | better | better |
 
-표 원본 `out/r13_map.csv`(후보별), `out/r13_points.csv`(점별), 로그 `out/r13_map.log`, 그림 `out/fig_r13_map.png`.
+## 판정 아닌 점검 (규칙 값은 80주기 피크의 최댓값이다; 아래는 결과를 본 뒤 정한 주기 피크 중앙값·손실, `r13_map.py` 머리말 10-30 18:15)
+
+- Q1 중앙값: 판정 가능 7점, 최적 7, 최적 아님 0
+- Q3 중앙값 M-S: 52점 평균 +0.131 A(중앙값 +0.039), SPS 대비 +5.8 %
+- 손실 M-S − SPS: 깨끗한 52점 평균 -1.10 W, Δη +0.328 pp, η가 0.05 pp 넘게 낮은 점 1
+- Q3 중앙값 M-B: 51점 평균 +0.128 A(중앙값 +0.038), SPS 대비 +5.9 %
+- 손실 M-B − SPS: 깨끗한 51점 평균 -1.09 W, Δη +0.329 pp, η가 0.05 pp 넘게 낮은 점 2
+- Q4 중앙값: 개선 3, 열화 1, 평균 +0.009 A
+
+표 원본 `out/r13_map.csv`(후보별), `out/r13_points.csv`(점별), `out/r13_points_med.csv`(중앙값·손실), 로그 `out/r13_map.log`, 그림 `out/fig_r13_map.png`, `out/fig_r13_flicker.png`.

@@ -2,79 +2,79 @@ R11 closed loop (dataset-era Simulink model, PI on the outer phase, finer edge g
 Ipk_ref = R.4 / R8 constant-D0 steady state at the same (ctrl, V2, |P|) (out/efficiency_compare.csv, 100 ns grid); ref25 = the same on the 25 ns grid (GRID sets B / C + R13 map, linear in |P|; - = not measured there)
 
 r1_MB_109.2V_heavy (M-B, 109.2 V, Ts 25 ns, latch 1, Kp 2, Ki 49000; batch 462 s)
-     0-  12 ms   1000 W: Ipk steady 6.137 (median period 4.852) vs ref 4.692 / ref25 4.599 A | |mean i_L| 0.005 A (per period max 0.558) | P error +0.18 % | settle nan ms | overshoot +16655 W | Ipk first 2 ms 24.460 A | phi 29.52 deg
-    12-  24 ms    500 W: Ipk steady 4.092 (median period 3.283) vs ref 3.457 / ref25 nan A | |mean i_L| 0.003 A (per period max 0.148) | P error -0.02 % | settle nan ms | overshoot +1213 W | Ipk first 2 ms 7.040 A | phi 23.62 deg
-    24-  36 ms   1000 W: Ipk steady 6.151 (median period 4.843) vs ref 4.692 / ref25 4.599 A | |mean i_L| 0.000 A (per period max 0.573) | P error +0.11 % | settle 12.00 ms | overshoot +891 W | Ipk first 2 ms 13.746 A | phi 29.44 deg
+     0-  12 ms   1000 W: Ipk steady 6.137 (median period 4.852) vs ref 4.692 / ref25 4.599 A | |mean i_L| 0.005 A (per period max 0.558) | P error +0.18 % | settle nan ms | overshoot +16655 W | Ipk first 2 ms 24.460 A | phi 29.52 deg, p2p 9.10 deg
+    12-  24 ms    500 W: Ipk steady 4.092 (median period 3.283) vs ref 3.457 / ref25 3.157 A | |mean i_L| 0.003 A (per period max 0.148) | P error -0.02 % | settle nan ms | overshoot +1213 W | Ipk first 2 ms 7.040 A | phi 23.62 deg, p2p 9.19 deg
+    24-  36 ms   1000 W: Ipk steady 6.151 (median period 4.843) vs ref 4.692 / ref25 4.599 A | |mean i_L| 0.000 A (per period max 0.573) | P error +0.11 % | settle 12.00 ms | overshoot +891 W | Ipk first 2 ms 13.746 A | phi 29.44 deg, p2p 9.08 deg
 
 r1_MB_109.2V_light (M-B, 109.2 V, Ts 25 ns, latch 1, Kp 2, Ki 49000; batch 462 s)
-     0-  12 ms    300 W: Ipk steady 2.519 (median period 2.416) vs ref 2.521 / ref25 2.495 A | |mean i_L| 0.000 A (per period max 0.034) | P error -0.07 % | settle nan ms | overshoot +17351 W | Ipk first 2 ms 28.567 A | phi 19.62 deg
-    12-  24 ms    100 W: Ipk steady 1.577 (median period 1.368) vs ref 1.764 / ref25 1.410 A | |mean i_L| 0.000 A (per period max 0.020) | P error -0.17 % | settle 0.61 ms | overshoot +202 W | Ipk first 2 ms 2.415 A | phi 12.88 deg
-    24-  36 ms    300 W: Ipk steady 2.519 (median period 2.415) vs ref 2.521 / ref25 2.495 A | |mean i_L| 0.000 A (per period max 0.034) | P error -0.02 % | settle 11.95 ms | overshoot +317 W | Ipk first 2 ms 4.130 A | phi 19.61 deg
+     0-  12 ms    300 W: Ipk steady 2.519 (median period 2.416) vs ref 2.521 / ref25 2.495 A | |mean i_L| 0.000 A (per period max 0.034) | P error -0.07 % | settle nan ms | overshoot +17351 W | Ipk first 2 ms 28.567 A | phi 19.62 deg, p2p 0.58 deg
+    12-  24 ms    100 W: Ipk steady 1.577 (median period 1.368) vs ref 1.764 / ref25 1.410 A | |mean i_L| 0.000 A (per period max 0.020) | P error -0.17 % | settle 0.61 ms | overshoot +202 W | Ipk first 2 ms 2.415 A | phi 12.88 deg, p2p 0.19 deg
+    24-  36 ms    300 W: Ipk steady 2.519 (median period 2.415) vs ref 2.521 / ref25 2.495 A | |mean i_L| 0.000 A (per period max 0.034) | P error -0.02 % | settle 11.95 ms | overshoot +317 W | Ipk first 2 ms 4.130 A | phi 19.61 deg, p2p 0.57 deg
 
 r1_MB_84V_heavy (M-B, 84 V, Ts 25 ns, latch 1, Kp 2, Ki 49000; batch 433 s)
-     0-  12 ms   1000 W: Ipk steady 4.466 (median period 4.294) vs ref 4.340 / ref25 4.300 A | |mean i_L| 0.000 A (per period max 0.087) | P error -0.00 % | settle 2.11 ms | overshoot +9782 W | Ipk first 2 ms 19.898 A | phi 14.94 deg
-    12-  24 ms    500 W: Ipk steady 2.930 (median period 2.784) vs ref 2.831 / ref25 nan A | |mean i_L| 0.000 A (per period max 0.118) | P error +0.08 % | settle 12.00 ms | overshoot +1075 W | Ipk first 2 ms 7.566 A | phi 1.97 deg
-    24-  36 ms   1000 W: Ipk steady 4.466 (median period 4.294) vs ref 4.340 / ref25 4.300 A | |mean i_L| 0.000 A (per period max 0.087) | P error -0.01 % | settle 1.80 ms | overshoot +813 W | Ipk first 2 ms 14.802 A | phi 14.94 deg
+     0-  12 ms   1000 W: Ipk steady 4.466 (median period 4.294) vs ref 4.340 / ref25 4.300 A | |mean i_L| 0.000 A (per period max 0.087) | P error -0.00 % | settle 2.11 ms | overshoot +9782 W | Ipk first 2 ms 19.898 A | phi 14.94 deg, p2p 0.40 deg
+    12-  24 ms    500 W: Ipk steady 2.930 (median period 2.784) vs ref 2.831 / ref25 2.755 A | |mean i_L| 0.000 A (per period max 0.118) | P error +0.08 % | settle 12.00 ms | overshoot +1075 W | Ipk first 2 ms 7.566 A | phi 1.97 deg, p2p 1.23 deg
+    24-  36 ms   1000 W: Ipk steady 4.466 (median period 4.294) vs ref 4.340 / ref25 4.300 A | |mean i_L| 0.000 A (per period max 0.087) | P error -0.01 % | settle 1.80 ms | overshoot +813 W | Ipk first 2 ms 14.802 A | phi 14.94 deg, p2p 0.40 deg
 
 r1_MB_84V_light (M-B, 84 V, Ts 25 ns, latch 1, Kp 2, Ki 49000; batch 433 s)
-     0-  12 ms    300 W: Ipk steady 2.197 (median period 2.175) vs ref 2.263 / ref25 2.138 A | |mean i_L| 0.000 A (per period max 0.043) | P error +0.06 % | settle nan ms | overshoot +10344 W | Ipk first 2 ms 17.525 A | phi 0.84 deg
-    12-  24 ms    100 W: Ipk steady 1.313 (median period 1.215) vs ref 1.317 / ref25 1.252 A | |mean i_L| 0.000 A (per period max 0.040) | P error +0.06 % | settle 11.94 ms | overshoot +327 W | Ipk first 2 ms 3.551 A | phi 0.66 deg
-    24-  36 ms    300 W: Ipk steady 2.197 (median period 2.177) vs ref 2.263 / ref25 2.138 A | |mean i_L| 0.000 A (per period max 0.043) | P error -0.17 % | settle 12.00 ms | overshoot +499 W | Ipk first 2 ms 5.155 A | phi 0.86 deg
+     0-  12 ms    300 W: Ipk steady 2.197 (median period 2.175) vs ref 2.263 / ref25 2.138 A | |mean i_L| 0.000 A (per period max 0.043) | P error +0.06 % | settle nan ms | overshoot +10344 W | Ipk first 2 ms 17.525 A | phi 0.84 deg, p2p 0.72 deg
+    12-  24 ms    100 W: Ipk steady 1.313 (median period 1.215) vs ref 1.317 / ref25 1.252 A | |mean i_L| 0.000 A (per period max 0.040) | P error +0.06 % | settle 11.94 ms | overshoot +327 W | Ipk first 2 ms 3.551 A | phi 0.66 deg, p2p 0.42 deg
+    24-  36 ms    300 W: Ipk steady 2.197 (median period 2.177) vs ref 2.263 / ref25 2.138 A | |mean i_L| 0.000 A (per period max 0.043) | P error -0.17 % | settle 12.00 ms | overshoot +499 W | Ipk first 2 ms 5.155 A | phi 0.86 deg, p2p 0.72 deg
 
 r1_MS_109.2V_heavy (M-S, 109.2 V, Ts 25 ns, latch 1, Kp 2, Ki 49000; batch 462 s)
-     0-  12 ms   1000 W: Ipk steady 6.176 (median period 4.813) vs ref 4.787 / ref25 nan A | |mean i_L| 0.002 A (per period max 0.582) | P error -0.15 % | settle nan ms | overshoot +16661 W | Ipk first 2 ms 24.122 A | phi 28.55 deg
-    12-  24 ms    500 W: Ipk steady 3.875 (median period 3.146) vs ref 3.425 / ref25 nan A | |mean i_L| 0.000 A (per period max 0.096) | P error -1.17 % | settle nan ms | overshoot +972 W | Ipk first 2 ms 5.644 A | phi 25.10 deg
-    24-  36 ms   1000 W: Ipk steady 6.176 (median period 4.870) vs ref 4.787 / ref25 nan A | |mean i_L| 0.003 A (per period max 0.582) | P error +0.12 % | settle nan ms | overshoot +1162 W | Ipk first 2 ms 16.011 A | phi 28.73 deg
+     0-  12 ms   1000 W: Ipk steady 6.176 (median period 4.813) vs ref 4.787 / ref25 4.602 A | |mean i_L| 0.002 A (per period max 0.582) | P error -0.15 % | settle nan ms | overshoot +16661 W | Ipk first 2 ms 24.122 A | phi 28.55 deg, p2p 9.73 deg
+    12-  24 ms    500 W: Ipk steady 3.875 (median period 3.146) vs ref 3.425 / ref25 3.147 A | |mean i_L| 0.000 A (per period max 0.096) | P error -1.17 % | settle nan ms | overshoot +972 W | Ipk first 2 ms 5.644 A | phi 25.10 deg, p2p 8.70 deg
+    24-  36 ms   1000 W: Ipk steady 6.176 (median period 4.870) vs ref 4.787 / ref25 4.602 A | |mean i_L| 0.003 A (per period max 0.582) | P error +0.12 % | settle nan ms | overshoot +1162 W | Ipk first 2 ms 16.011 A | phi 28.73 deg, p2p 9.73 deg
 
 r1_MS_109.2V_light (M-S, 109.2 V, Ts 25 ns, latch 1, Kp 2, Ki 49000; batch 462 s)
-     0-  12 ms    300 W: Ipk steady 2.519 (median period 2.416) vs ref 2.542 / ref25 nan A | |mean i_L| 0.000 A (per period max 0.033) | P error -0.02 % | settle 11.97 ms | overshoot +17352 W | Ipk first 2 ms 28.645 A | phi 19.60 deg
-    12-  24 ms    100 W: Ipk steady 1.577 (median period 1.399) vs ref 1.523 / ref25 1.386 A | |mean i_L| 0.000 A (per period max 0.024) | P error +0.98 % | settle nan ms | overshoot +252 W | Ipk first 2 ms 2.416 A | phi 13.33 deg
-    24-  36 ms    300 W: Ipk steady 2.519 (median period 2.416) vs ref 2.542 / ref25 nan A | |mean i_L| 0.000 A (per period max 0.033) | P error -0.04 % | settle nan ms | overshoot +313 W | Ipk first 2 ms 4.086 A | phi 19.60 deg
+     0-  12 ms    300 W: Ipk steady 2.519 (median period 2.416) vs ref 2.542 / ref25 2.494 A | |mean i_L| 0.000 A (per period max 0.033) | P error -0.02 % | settle 11.97 ms | overshoot +17352 W | Ipk first 2 ms 28.645 A | phi 19.60 deg, p2p 0.57 deg
+    12-  24 ms    100 W: Ipk steady 1.577 (median period 1.399) vs ref 1.523 / ref25 1.386 A | |mean i_L| 0.000 A (per period max 0.024) | P error +0.98 % | settle nan ms | overshoot +252 W | Ipk first 2 ms 2.416 A | phi 13.33 deg, p2p 1.17 deg
+    24-  36 ms    300 W: Ipk steady 2.519 (median period 2.416) vs ref 2.542 / ref25 2.494 A | |mean i_L| 0.000 A (per period max 0.033) | P error -0.04 % | settle nan ms | overshoot +313 W | Ipk first 2 ms 4.086 A | phi 19.60 deg, p2p 0.55 deg
 
 r1_MS_84V_heavy (M-S, 84 V, Ts 25 ns, latch 1, Kp 2, Ki 49000; batch 433 s)
-     0-  12 ms   1000 W: Ipk steady 4.407 (median period 4.337) vs ref 4.340 / ref25 nan A | |mean i_L| 0.001 A (per period max 0.095) | P error -0.05 % | settle 2.26 ms | overshoot +9784 W | Ipk first 2 ms 19.832 A | phi 14.57 deg
-    12-  24 ms    500 W: Ipk steady 3.044 (median period 2.803) vs ref 2.896 / ref25 nan A | |mean i_L| 0.000 A (per period max 0.103) | P error +0.00 % | settle 12.00 ms | overshoot +1100 W | Ipk first 2 ms 7.735 A | phi 2.60 deg
-    24-  36 ms   1000 W: Ipk steady 4.407 (median period 4.338) vs ref 4.340 / ref25 nan A | |mean i_L| 0.002 A (per period max 0.095) | P error -0.04 % | settle 1.67 ms | overshoot +836 W | Ipk first 2 ms 15.239 A | phi 14.59 deg
+     0-  12 ms   1000 W: Ipk steady 4.407 (median period 4.337) vs ref 4.340 / ref25 4.300 A | |mean i_L| 0.001 A (per period max 0.095) | P error -0.05 % | settle 2.26 ms | overshoot +9784 W | Ipk first 2 ms 19.832 A | phi 14.57 deg, p2p 0.68 deg
+    12-  24 ms    500 W: Ipk steady 3.044 (median period 2.803) vs ref 2.896 / ref25 2.749 A | |mean i_L| 0.000 A (per period max 0.103) | P error +0.00 % | settle 12.00 ms | overshoot +1100 W | Ipk first 2 ms 7.735 A | phi 2.60 deg, p2p 2.92 deg
+    24-  36 ms   1000 W: Ipk steady 4.407 (median period 4.338) vs ref 4.340 / ref25 4.300 A | |mean i_L| 0.002 A (per period max 0.095) | P error -0.04 % | settle 1.67 ms | overshoot +836 W | Ipk first 2 ms 15.239 A | phi 14.59 deg, p2p 0.69 deg
 
 r1_MS_84V_light (M-S, 84 V, Ts 25 ns, latch 1, Kp 2, Ki 49000; batch 433 s)
-     0-  12 ms    300 W: Ipk steady 2.152 (median period 2.149) vs ref 2.178 / ref25 2.081 A | |mean i_L| 0.000 A (per period max 0.039) | P error +0.07 % | settle 11.78 ms | overshoot +10380 W | Ipk first 2 ms 17.346 A | phi -4.79 deg
-    12-  24 ms    100 W: Ipk steady 1.341 (median period 1.252) vs ref 1.317 / ref25 nan A | |mean i_L| 0.000 A (per period max 0.041) | P error +0.00 % | settle 0.98 ms | overshoot +415 W | Ipk first 2 ms 4.740 A | phi 0.68 deg
-    24-  36 ms    300 W: Ipk steady 2.152 (median period 2.149) vs ref 2.178 / ref25 2.081 A | |mean i_L| 0.000 A (per period max 0.039) | P error -0.05 % | settle nan ms | overshoot +540 W | Ipk first 2 ms 5.105 A | phi -4.77 deg
+     0-  12 ms    300 W: Ipk steady 2.152 (median period 2.149) vs ref 2.178 / ref25 2.136 A | |mean i_L| 0.000 A (per period max 0.039) | P error +0.07 % | settle 11.78 ms | overshoot +10380 W | Ipk first 2 ms 17.346 A | phi -4.79 deg, p2p 0.70 deg
+    12-  24 ms    100 W: Ipk steady 1.341 (median period 1.252) vs ref 1.317 / ref25 1.252 A | |mean i_L| 0.000 A (per period max 0.041) | P error +0.00 % | settle 0.98 ms | overshoot +415 W | Ipk first 2 ms 4.740 A | phi 0.68 deg, p2p 0.08 deg
+    24-  36 ms    300 W: Ipk steady 2.152 (median period 2.149) vs ref 2.178 / ref25 2.136 A | |mean i_L| 0.000 A (per period max 0.039) | P error -0.05 % | settle nan ms | overshoot +540 W | Ipk first 2 ms 5.105 A | phi -4.77 deg, p2p 0.70 deg
 
 r1_SPS_109.2V_heavy (SPS, 109.2 V, Ts 25 ns, latch 1, Kp 2, Ki 49000; batch 462 s)
-     0-  12 ms   1000 W: Ipk steady 6.445 (median period 5.222) vs ref 4.857 / ref25 4.758 A | |mean i_L| 0.008 A (per period max 0.614) | P error -0.72 % | settle nan ms | overshoot +16737 W | Ipk first 2 ms 21.472 A | phi 18.65 deg
-    12-  24 ms    500 W: Ipk steady 3.637 (median period 3.408) vs ref 4.117 / ref25 nan A | |mean i_L| 0.005 A (per period max 0.186) | P error +0.16 % | settle nan ms | overshoot +1093 W | Ipk first 2 ms 8.344 A | phi 11.03 deg
-    24-  36 ms   1000 W: Ipk steady 6.445 (median period 5.222) vs ref 4.857 / ref25 4.758 A | |mean i_L| 0.009 A (per period max 0.614) | P error +0.74 % | settle nan ms | overshoot +991 W | Ipk first 2 ms 14.884 A | phi 18.67 deg
+     0-  12 ms   1000 W: Ipk steady 6.445 (median period 5.222) vs ref 4.857 / ref25 4.758 A | |mean i_L| 0.008 A (per period max 0.614) | P error -0.72 % | settle nan ms | overshoot +16737 W | Ipk first 2 ms 21.472 A | phi 18.65 deg, p2p 9.81 deg
+    12-  24 ms    500 W: Ipk steady 3.637 (median period 3.408) vs ref 4.117 / ref25 3.320 A | |mean i_L| 0.005 A (per period max 0.186) | P error +0.16 % | settle nan ms | overshoot +1093 W | Ipk first 2 ms 8.344 A | phi 11.03 deg, p2p 1.51 deg
+    24-  36 ms   1000 W: Ipk steady 6.445 (median period 5.222) vs ref 4.857 / ref25 4.758 A | |mean i_L| 0.009 A (per period max 0.614) | P error +0.74 % | settle nan ms | overshoot +991 W | Ipk first 2 ms 14.884 A | phi 18.67 deg, p2p 9.81 deg
 
 r1_SPS_109.2V_light (SPS, 109.2 V, Ts 25 ns, latch 1, Kp 2, Ki 49000; batch 462 s)
-     0-  12 ms    300 W: Ipk steady 3.066 (median period 2.873) vs ref 2.820 / ref25 2.783 A | |mean i_L| 0.005 A (per period max 0.187) | P error -0.27 % | settle nan ms | overshoot +17400 W | Ipk first 2 ms 21.472 A | phi 7.76 deg
-    12-  24 ms    100 W: Ipk steady 3.942 (median period 2.839) vs ref 2.298 / ref25 2.269 A | |mean i_L| 0.011 A (per period max 1.010) | P error -6.04 % | settle nan ms | overshoot +556 W | Ipk first 2 ms 4.507 A | phi 4.44 deg
-    24-  36 ms    300 W: Ipk steady 3.323 (median period 2.945) vs ref 2.820 / ref25 2.783 A | |mean i_L| 0.006 A (per period max 0.313) | P error -0.50 % | settle nan ms | overshoot +502 W | Ipk first 2 ms 5.803 A | phi 7.71 deg
+     0-  12 ms    300 W: Ipk steady 3.066 (median period 2.873) vs ref 2.820 / ref25 2.783 A | |mean i_L| 0.005 A (per period max 0.187) | P error -0.27 % | settle nan ms | overshoot +17400 W | Ipk first 2 ms 21.472 A | phi 7.76 deg, p2p 1.71 deg
+    12-  24 ms    100 W: Ipk steady 3.942 (median period 2.839) vs ref 2.298 / ref25 2.269 A | |mean i_L| 0.011 A (per period max 1.010) | P error -6.04 % | settle nan ms | overshoot +556 W | Ipk first 2 ms 4.507 A | phi 4.44 deg, p2p 8.58 deg
+    24-  36 ms    300 W: Ipk steady 3.323 (median period 2.945) vs ref 2.820 / ref25 2.783 A | |mean i_L| 0.006 A (per period max 0.313) | P error -0.50 % | settle nan ms | overshoot +502 W | Ipk first 2 ms 5.803 A | phi 7.71 deg, p2p 2.97 deg
 
 r1_SPS_84V_heavy (SPS, 84 V, Ts 25 ns, latch 1, Kp 2, Ki 49000; batch 433 s)
-     0-  12 ms   1000 W: Ipk steady 4.505 (median period 4.363) vs ref 4.376 / ref25 4.345 A | |mean i_L| 0.002 A (per period max 0.096) | P error +0.05 % | settle 2.40 ms | overshoot +9745 W | Ipk first 2 ms 21.464 A | phi 22.86 deg
-    12-  24 ms    500 W: Ipk steady 3.009 (median period 2.859) vs ref 2.813 / ref25 nan A | |mean i_L| 0.001 A (per period max 0.099) | P error -0.10 % | settle nan ms | overshoot +1114 W | Ipk first 2 ms 7.994 A | phi 10.23 deg
-    24-  36 ms   1000 W: Ipk steady 4.505 (median period 4.360) vs ref 4.376 / ref25 4.345 A | |mean i_L| 0.001 A (per period max 0.096) | P error -0.04 % | settle 1.79 ms | overshoot +832 W | Ipk first 2 ms 14.905 A | phi 22.87 deg
+     0-  12 ms   1000 W: Ipk steady 4.505 (median period 4.363) vs ref 4.376 / ref25 4.345 A | |mean i_L| 0.002 A (per period max 0.096) | P error +0.05 % | settle 2.40 ms | overshoot +9745 W | Ipk first 2 ms 21.464 A | phi 22.86 deg, p2p 0.72 deg
+    12-  24 ms    500 W: Ipk steady 3.009 (median period 2.859) vs ref 2.813 / ref25 2.809 A | |mean i_L| 0.001 A (per period max 0.099) | P error -0.10 % | settle nan ms | overshoot +1114 W | Ipk first 2 ms 7.994 A | phi 10.23 deg, p2p 1.48 deg
+    24-  36 ms   1000 W: Ipk steady 4.505 (median period 4.360) vs ref 4.376 / ref25 4.345 A | |mean i_L| 0.001 A (per period max 0.096) | P error -0.04 % | settle 1.79 ms | overshoot +832 W | Ipk first 2 ms 14.905 A | phi 22.87 deg, p2p 0.72 deg
 
 r1_SPS_84V_light (SPS, 84 V, Ts 25 ns, latch 1, Kp 2, Ki 49000; batch 433 s)
-     0-  12 ms    300 W: Ipk steady 2.585 (median period 2.354) vs ref 2.253 / ref25 2.260 A | |mean i_L| 0.003 A (per period max 0.192) | P error -0.35 % | settle nan ms | overshoot +10383 W | Ipk first 2 ms 21.464 A | phi 2.86 deg
-    12-  24 ms    100 W: Ipk steady 2.827 (median period 2.184) vs ref 1.732 / ref25 1.747 A | |mean i_L| 0.000 A (per period max 0.724) | P error +0.03 % | settle nan ms | overshoot +588 W | Ipk first 2 ms 5.589 A | phi -1.38 deg
-    24-  36 ms    300 W: Ipk steady 2.585 (median period 2.356) vs ref 2.253 / ref25 2.260 A | |mean i_L| 0.003 A (per period max 0.192) | P error -0.27 % | settle nan ms | overshoot +477 W | Ipk first 2 ms 5.694 A | phi 2.88 deg
+     0-  12 ms    300 W: Ipk steady 2.585 (median period 2.354) vs ref 2.253 / ref25 2.260 A | |mean i_L| 0.003 A (per period max 0.192) | P error -0.35 % | settle nan ms | overshoot +10383 W | Ipk first 2 ms 21.464 A | phi 2.86 deg, p2p 2.27 deg
+    12-  24 ms    100 W: Ipk steady 2.827 (median period 2.184) vs ref 1.732 / ref25 1.747 A | |mean i_L| 0.000 A (per period max 0.724) | P error +0.03 % | settle nan ms | overshoot +588 W | Ipk first 2 ms 5.589 A | phi -1.38 deg, p2p 10.91 deg
+    24-  36 ms    300 W: Ipk steady 2.585 (median period 2.356) vs ref 2.253 / ref25 2.260 A | |mean i_L| 0.003 A (per period max 0.192) | P error -0.27 % | settle nan ms | overshoot +477 W | Ipk first 2 ms 5.694 A | phi 2.88 deg, p2p 2.27 deg
 
 smoke_100ns (SPS, 84 V, Ts 100 ns, latch 0, Kp 2, Ki 49000; batch 183 s)
-     0-  10 ms   1000 W: Ipk steady 5.745 (median period 4.840) vs ref 4.376 / ref25 4.345 A | |mean i_L| 0.005 A (per period max 1.407) | P error -0.00 % | settle 1.71 ms | overshoot +9247 W | Ipk first 2 ms 21.154 A | phi 23.30 deg
+     0-  10 ms   1000 W: Ipk steady 5.745 (median period 4.840) vs ref 4.376 / ref25 4.345 A | |mean i_L| 0.005 A (per period max 1.407) | P error -0.00 % | settle 1.71 ms | overshoot +9247 W | Ipk first 2 ms 21.154 A | phi 23.30 deg, p2p 0.65 deg
 
 smoke_10ns_latch (SPS, 84 V, Ts 10 ns, latch 1, Kp 2, Ki 49000; batch 183 s)
-     0-  10 ms   1000 W: Ipk steady 4.464 (median period 4.386) vs ref 4.376 / ref25 4.345 A | |mean i_L| 0.002 A (per period max 0.125) | P error -0.02 % | settle 2.25 ms | overshoot +9761 W | Ipk first 2 ms 21.458 A | phi 23.06 deg
+     0-  10 ms   1000 W: Ipk steady 4.464 (median period 4.386) vs ref 4.376 / ref25 4.345 A | |mean i_L| 0.002 A (per period max 0.125) | P error -0.02 % | settle 2.25 ms | overshoot +9761 W | Ipk first 2 ms 21.458 A | phi 23.06 deg, p2p 0.39 deg
 
 smoke_25ns_latch_full (SPS, 84 V, Ts 25 ns, latch 1, Kp 2, Ki 49000; batch 183 s)
-     0-  10 ms   1000 W: Ipk steady 4.505 (median period 4.365) vs ref 4.376 / ref25 4.345 A | |mean i_L| 0.002 A (per period max 0.096) | P error -0.01 % | settle 2.40 ms | overshoot +9745 W | Ipk first 2 ms 21.464 A | phi 22.87 deg
+     0-  10 ms   1000 W: Ipk steady 4.505 (median period 4.365) vs ref 4.376 / ref25 4.345 A | |mean i_L| 0.002 A (per period max 0.096) | P error -0.01 % | settle 2.40 ms | overshoot +9745 W | Ipk first 2 ms 21.464 A | phi 22.87 deg, p2p 0.72 deg
 
 smoke_25ns_latch (SPS, 84 V, Ts 25 ns, latch 1, Kp 2, Ki 49000; batch 183 s)
-     0-  10 ms   1000 W: Ipk steady 4.505 (median period 4.365) vs ref 4.376 / ref25 4.345 A | |mean i_L| 0.002 A (per period max 0.096) | P error -0.01 % | settle 2.40 ms | overshoot +9745 W | Ipk first 2 ms 21.464 A | phi 22.87 deg
+     0-  10 ms   1000 W: Ipk steady 4.505 (median period 4.365) vs ref 4.376 / ref25 4.345 A | |mean i_L| 0.002 A (per period max 0.096) | P error -0.01 % | settle 2.40 ms | overshoot +9745 W | Ipk first 2 ms 21.464 A | phi 22.87 deg, p2p 0.72 deg
 
 smoke_25ns (SPS, 84 V, Ts 25 ns, latch 0, Kp 2, Ki 49000; batch 183 s)
-     0-  10 ms   1000 W: Ipk steady 4.478 (median period 4.377) vs ref 4.376 / ref25 4.345 A | |mean i_L| 0.001 A (per period max 0.094) | P error -0.02 % | settle 1.84 ms | overshoot +9350 W | Ipk first 2 ms 21.224 A | phi 22.88 deg
+     0-  10 ms   1000 W: Ipk steady 4.478 (median period 4.377) vs ref 4.376 / ref25 4.345 A | |mean i_L| 0.001 A (per period max 0.094) | P error -0.02 % | settle 1.84 ms | overshoot +9350 W | Ipk first 2 ms 21.224 A | phi 22.88 deg, p2p 0.54 deg
 
 smoke summary: label | Ipk median - ref | Ipk max - ref | window |mean i_L| [A]
   smoke_100ns            +0.464  +1.370  0.005

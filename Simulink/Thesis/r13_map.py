@@ -55,6 +55,14 @@ RULES (registered 2026-10-30 15:20, before any R13 run exists; do not change aft
     python -I -X utf8 Simulink/Thesis/r13_map.py next --part a    (not bracketed -> next round; r13_rounds calls it)
     python -I -X utf8 Simulink/Thesis/r13_map.py compare          -> out/r13_map.{csv,log}, out/r13_points.csv, out/r13_verdict.md
     python -I -X utf8 Simulink/Thesis/r13_map.py selftest         (the rules and the candidate set on made-up numbers)
+
+ADDED 10-30 18:15, AFTER the r13a results were seen, so NOT part of any verdict above (reported beside them; the rules
+and the rule values are untouched): each rule value is the largest of 80 period peaks. r13a shows that 15 % of the runs
+are not periodic in that window (per-period peaks in out/iL_pp/) and that all three Q2 "worse" points have such a run
+in their bracket: a single-period spike of about one grid step V1 Ts / L (0.106 A at 25 ns, 0.42 A at 100 ns), or a slow
+offset cycle of i_L over tens of periods whose window mean stays under the 20 mA "clean" limit. `compare` therefore also
+reports Q1-Q4 on the median period peak, the run classes, and the loss / efficiency at the same interpolation (R8 at
+25 ns), and draws out/fig_r13_flicker.png.
 """
 import argparse
 import glob
@@ -87,6 +95,7 @@ CORE = ("SPS", "M-B", "M-S")
 MIN_ARMS = 2
 STAGE2_MIN = 5
 DECIDABLE_MIN = 0.75
+PLATEAU = 5.0                               # W per level (planning only): below this P(D0) is flat, see extend()
 PRED = os.path.join(OUT, "r13_pred.csv")
 X_PTS = ((93.0, 100.0, ()), (93.0, 150.0, ()), (84.0, 700.0, ()), (109.2, 700.0, ()), (95.0, 70.0, (0.40,)),
          (95.0, 100.0, (0.40,)), (96.0, 150.0, ()), (96.0, 200.0, ()), (96.0, 300.0, ()), (97.0, 150.0, ()))
@@ -304,7 +313,9 @@ def round_no(part):
 def extend(lv, Pd, P, cap=3):
     """levels to add for a configuration whose measured levels do not bracket P: fill a gap between two non-adjacent
     levels that straddle P, else step past the end, as many levels as the end spacing predicts (1 ... cap); nothing
-    if the power falls toward that end (past the first-branch peak: |P| is out of reach)"""
+    if the power falls toward that end (past the first-branch peak: |P| is out of reach). A flat end (|slope| below
+    PLATEAU W per level) is the dead-time plateau of P(D0), one 2.88 deg wide (10-30: 88.2 V 200 W M-B 192.15 / 192.10 W
+    at j -1 / 0, 92.4 V SPS 122.6 / 121.1 W at j 0 / 1), not the peak: one more level"""
     order = np.argsort(lv)
     lv, Pd = np.asarray(lv, int)[order], np.asarray(Pd, float)[order]
     for i in range(len(lv) - 1):
@@ -314,9 +325,10 @@ def extend(lv, Pd, P, cap=3):
     k = 1
     if len(lv) >= 2:
         s = (Pd[-1] - Pd[-2]) / (lv[-1] - lv[-2]) if up else (Pd[1] - Pd[0]) / (lv[1] - lv[0])
-        if not np.isfinite(s) or s <= 1e-6:
+        if not np.isfinite(s) or s <= -PLATEAU:
             return []
-        k = int(np.clip(np.ceil(abs(P - (Pd[-1] if up else Pd[0])) / s), 1, cap))
+        if s >= PLATEAU:
+            k = int(np.clip(np.ceil(abs(P - (Pd[-1] if up else Pd[0])) / s), 1, cap))
     end = int(lv[-1] if up else lv[0])
     return [end + (q if up else -q) for q in range(1, k + 1)]
 
@@ -447,6 +459,8 @@ def selftest():
     chk("extend fills a gap", extend([1, 4], [80, 260], 150), [2, 3])
     chk("extend single level", extend([5], [300], 200), [4])
     chk("extend past the peak -> nothing", extend([3, 4], [150, 140], 200), [])
+    chk("extend dead-time plateau -> one level", extend([-1, 0], [192.15, 192.10], 200), [1])
+    chk("extend small rise is a plateau too", extend([0, 1], [120.0, 122.0], 200), [2])
     print("ALL PASS" if ok else "SOME FAILED")
     return ok
 
@@ -552,6 +566,7 @@ def compare():
           f"   {r['V2']:6g} V {r['P']:5.0f} W  {r['pair']:<22} no 100 ns statement (100 ns {r['d100']:+.3f} A, 25 ns {r['d25']:+.3f} A)")
     nmiss = int(Q["n_missing"].sum())
     o(f"\ncandidate values not bracketed yet: {nmiss} (map), {sum(r['missing'] for r in q5)} (set X pairs)")
+    _, res = _pp_check(per_period(d), pts, o)
     open(os.path.join(OUT, "r13_map.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
     KO = {"optimal": "최적(허용오차 안)", "not optimal": "최적 아님", "undecidable": "판정 불가"}
     md = ["# R13 1단계: 25 ns 격자 Simulink 정상상태 지도 (자동 생성)", "",
@@ -571,10 +586,23 @@ def compare():
     for _, q in Q.iterrows():
         md.append(f"| {q['V2']:g} | {q['P']:.0f} | {f3(q['I_SPS'])} | {f3(q['I_MB'])} | {f3(q['I_MS'])} | {KO[q['q1']]} | "
                   f"{q['gap']:+.3f} ({q['best']}) | {q['q2_MS']} | {q['q2_MB']} |")
-    md += ["", "표 원본 `out/r13_map.csv`(후보별), `out/r13_points.csv`(점별), 로그 `out/r13_map.log`, 그림 `out/fig_r13_map.png`."]
+    md += ["", "## 판정 아닌 점검 (규칙 값은 80주기 피크의 최댓값이다; 아래는 결과를 본 뒤 정한 주기 피크 중앙값·손실, `r13_map.py` 머리말 10-30 18:15)", ""]
+    md.append(f"- Q1 중앙값: 판정 가능 {res['q1'][2]}점, 최적 {res['q1'][0]}, 최적 아님 {res['q1'][1]}")
+    for k, nm in (("MS", "M-S"), ("MB", "M-B")):
+        if f"q3_{k}" in res:
+            n_, mu, med, pc = res[f"q3_{k}"]
+            md.append(f"- Q3 중앙값 {nm}: {n_}점 평균 {mu:+.3f} A(중앙값 {med:+.3f}), SPS 대비 {pc:+.1f} %")
+        if f"eff_{k}" in res:
+            n_, dl, de, nb = res[f"eff_{k}"]
+            md.append(f"- 손실 {nm} − SPS: 깨끗한 {n_}점 평균 {dl:+.2f} W, Δη {de:+.3f} pp, η가 0.05 pp 넘게 낮은 점 {nb}")
+    md.append(f"- Q4 중앙값: 개선 {res['q4'][0]}, 열화 {res['q4'][1]}, 평균 {res['q4'][2]:+.3f} A")
+    md += ["", "표 원본 `out/r13_map.csv`(후보별), `out/r13_points.csv`(점별), `out/r13_points_med.csv`(중앙값·손실), 로그 `out/r13_map.log`,"
+           " 그림 `out/fig_r13_map.png`, `out/fig_r13_flicker.png`."]
     open(os.path.join(OUT, "r13_verdict.md"), "w", encoding="utf-8").write("\n".join(md) + "\n")
     fig(Q)
-    print("wrote out/r13_map.{log,csv}, out/r13_points.csv, out/r13_verdict.md, out/fig_r13_map.png")
+    fig_flicker()
+    print("wrote out/r13_map.{log,csv}, out/r13_points.csv, out/r13_points_med.csv, out/r13_verdict.md, out/fig_r13_map.png, "
+          "out/fig_r13_flicker.png")
 
 
 def fig(Q):
@@ -660,6 +688,161 @@ def q5_rows(d25):
                              d100=abs(d100_) if res else d100_, d25=d25_ * sg if res else d25_,
                              missing=not (np.isfinite(a2[0]) and np.isfinite(b2[0]))))
     return rows
+
+
+# ----------------------------------------------------------------------------------------------------- not a verdict
+PP_N = 80                                   # periods in the last 1 ms
+PERIODIC = 0.005                            # A: peak spread over the 80 periods at or below this = periodic
+CELL = 380.0 * TS / 90e-6                   # A: V1 Ts / L, i_L moved by one grid step at the full V1
+
+
+def per_period(d):
+    """the 25 ns runs d + from out/iL_pp/ (verify_steady_fine.m): pk_med, pk_min, spread = largest - smallest period peak,
+    kind = periodic / cell (a rare spike of up to about 1.5 grid steps over an otherwise constant peak) / slow (the rest)"""
+    import pandas as pd
+    fr = []
+    for pat in ("fine_sweep_r*.csv", "r13a_sweep_r*.csv", "r13b_sweep_r*.csv"):
+        for f in sorted(glob.glob(os.path.join(OUT, "iL_pp", pat))):
+            T = pd.read_csv(f)
+            pk = np.maximum(T[[f"max{i}" for i in range(1, PP_N + 1)]].to_numpy(float),
+                            -T[[f"min{i}" for i in range(1, PP_N + 1)]].to_numpy(float))
+            fr.append(pd.DataFrame(dict(Ts=T["Ts"], V2=T["V2"], level=T["level"], D1=T["D1"].round(9), D2=T["D2"].round(9),
+                                        pk_max=np.nanmax(pk, axis=1), pk_med=np.nanmedian(pk, axis=1),
+                                        pk_min=np.nanmin(pk, axis=1))))
+    P = pd.concat(fr, ignore_index=True)
+    P = P[np.isclose(P["Ts"], TS, rtol=1e-6, atol=0)].drop(columns="Ts")
+    P = P.drop_duplicates(subset=["V2", "level", "D1", "D2"], keep="last")
+    J = d.assign(D1r=d["D1"].round(9), D2r=d["D2"].round(9)).merge(
+        P.rename(columns=dict(D1="D1r", D2="D2r")), on=["V2", "level", "D1r", "D2r"], how="left")
+    J["spread"] = J["pk_max"] - J["pk_min"]
+    J["kind"] = np.where(J["spread"] <= PERIODIC, "periodic",
+                         np.where((J["spread"] <= 1.5 * CELL) & (J["pk_med"] - J["pk_min"] <= 2 * PERIODIC), "cell", "slow"))
+    J["loss"] = J["P_LV"] - J["P_HV"]
+    return J
+
+
+def _at_col(g, p, col):
+    """the rule's interpolation (fg.at_power) applied to another column of the two bracketing runs"""
+    if g.empty:
+        return np.nan, np.nan
+    r = fg.at_power(g.assign(**{f"Ipk_at_{WIN}ms": g[col]}), p)
+    if r[2] is None:
+        return np.nan, np.nan
+    return r[0], float(g[g["level"].isin([r[2], r[2] + 1])]["spread"].max())
+
+
+def _pp_check(J, pts, o):
+    """Q1-Q4 again on the median period peak + the run classes + loss / efficiency -> per-point table"""
+    import pandas as pd
+    rows = []
+    for v, p, cs in pts:
+        by = {c["name"]: c for c in cs}
+        med, rec = {}, dict(V2=v, P=p)
+        for c in cs:
+            own = by[c["alias"]] if c["alias"] else c
+            g = fg.runs_of(J, dict(V2=v, D1=own["D1"], D2=own["D2"]), TS)
+            osc = fg.at_power(g, p)[1] if not g.empty else np.nan
+            m, s = _at_col(g, p, "pk_med")
+            med[c["name"]] = (m, osc)
+            if c["name"] in CORE:
+                k = c["name"].replace("-", "")
+                rec.update({f"med_{k}": m, f"spr_{k}": s, f"loss_{k}": _at_col(g, p, "loss")[0],
+                            f"max_{k}": _at_col(g, p, f"Ipk_at_{WIN}ms")[0], f"osc_{k}": osc})
+        tol = tol_at(med)
+        rec["tol_med"] = tol
+        rec["q1_med"], rec["gap_med"], rec["best_med"] = rule_q1(med, tol)
+        rec["q2_MS_med"], rec["d_MS_med"] = rule_q2(med.get("M-S"), med.get("SPS"), tol)
+        rec["q2_MB_med"], rec["d_MB_med"] = rule_q2(med.get("M-B"), med.get("SPS"), tol)
+        if by["M-S"]["alias"] is None:
+            rec["q4_med"], rec["d4_med"] = rule_q4(med.get("M-S"), med.get("M-B"), tol)
+        else:
+            rec["q4_med"], rec["d4_med"] = "n/a", np.nan
+        rows.append(rec)
+    M = pd.DataFrame(rows)
+    M.to_csv(os.path.join(OUT, "r13_points_med.csv"), index=False, float_format="%.6g")
+    o("\nNOT A VERDICT (the checks of the 10-30 18:15 note in the header, chosen after seeing r13a):")
+    kinds = J["kind"].value_counts()
+    o(f"  runs with per-period peaks: {int(J['pk_max'].notna().sum())}: periodic (spread <= {1e3 * PERIODIC:.0f} mA) "
+      f"{int(kinds.get('periodic', 0))}, single-period spikes (<= 1.5 V1 Ts / L = {1.5 * CELL:.3f} A) "
+      f"{int(kinds.get('cell', 0))}, slow / larger {int(kinds.get('slow', 0))}")
+    t = J.assign(group=np.where(J["ctrl"].isin(CORE), J["ctrl"], "other")).groupby("group")["kind"]
+    o("  not periodic per controller: " + ", ".join(f"{k} {int((g != 'periodic').sum())}/{len(g)}" for k, g in t))
+    t = J.groupby("V2")["kind"]
+    o("  not periodic per V2: " + ", ".join(f"{k:g} V {int((g != 'periodic').sum())}/{len(g)}" for k, g in t))
+    res = dict()
+    q1m = list(M["q1_med"])
+    res["q1"] = (q1m.count("optimal"), q1m.count("not optimal"), sum(c != "undecidable" for c in q1m))
+    o(f"  Q1 on the median: {res['q1'][2]}/{len(M)} decidable, optimal {res['q1'][0]}, not optimal {res['q1'][1]}")
+    for _, q in M[M["q1_med"] == "not optimal"].iterrows():
+        o(f"     {q['V2']:6.1f} V {q['P']:5.0f} W: best {q['best_med']}, {q['gap_med']:.3f} A below M-S")
+    for k, nm in (("MS", "M-S"), ("MB", "M-B")):
+        cc = list(M[f"q2_{k}_med"])
+        o(f"  Q2 on the median, {nm}: worse {cc.count('worse')}, same {cc.count('same')}, better {cc.count('better')}, "
+          f"undecidable {cc.count('undecidable')}")
+        for _, q in M[M[f"q2_{k}_med"] == "worse"].iterrows():
+            o(f"     worse: {q['V2']:6.1f} V {q['P']:5.0f} W +{q[f'd_{k}_med']:.3f} A (tol {q['tol_med']:.3f}), "
+              f"bracket spread {nm} {q[f'spr_{k}']:.3f} A, SPS {q['spr_SPS']:.3f} A")
+        m = M[M[f"q2_{k}_med"] != "undecidable"]
+        if len(m):
+            dI, pc = m["med_SPS"] - m[f"med_{k}"], 100 * (m["med_SPS"] - m[f"med_{k}"]) / m["med_SPS"]
+            res[f"q3_{k}"] = (len(m), dI.mean(), dI.median(), pc.mean())
+            o(f"  Q3 on the median, {nm}: {len(m)} points, mean {dI.mean():+.3f} A (median {dI.median():+.3f}), {pc.mean():+.1f} % of SPS; per V2 "
+              + ", ".join(f"{v:g} V {(m[m['V2'] == v]['med_SPS'] - m[m['V2'] == v][f'med_{k}']).mean():+.3f}" for v in V2S
+                          if (m["V2"] == v).any()))
+    q4m = M[M["q4_med"] != "n/a"]
+    res["q4"] = (int((q4m["q4_med"] == "better").sum()), int((q4m["q4_med"] == "worse").sum()), float(q4m["d4_med"].mean()))
+    o(f"  Q4 on the median, M-S vs M-B ({len(q4m)} points): better {res['q4'][0]}, worse {res['q4'][1]}, mean {res['q4'][2]:+.3f} A")
+    for k, nm in (("MB", "M-B"), ("MS", "M-S")):
+        m = M[(M[f"osc_{k}"] <= OSC) & (M["osc_SPS"] <= OSC) & M[f"loss_{k}"].notna() & M["loss_SPS"].notna()]
+        if not len(m):
+            continue
+        dl = m[f"loss_{k}"] - m["loss_SPS"]
+        eta = lambda L: 100 * m["P"] / (m["P"] + L)  # noqa: E731
+        de = eta(m[f"loss_{k}"]) - eta(m["loss_SPS"])
+        res[f"eff_{k}"] = (len(m), dl.mean(), de.mean(), int((de < -0.05).sum()))
+        o(f"  loss / efficiency at |P| (P_HV in - P_LV out, same interpolation), {nm} vs SPS, {len(m)} clean points: loss {dl.mean():+.2f} W, "
+          f"eta {de.mean():+.3f} pp, lower eta beyond 0.05 pp at {int((de < -0.05).sum())}; per V2 (pp) "
+          + ", ".join(f"{v:g} V {de[m['V2'] == v].mean():+.2f}" for v in V2S if (m["V2"] == v).any()))
+        for _, q in m[de < -0.05].iterrows():
+            o(f"     lower eta: {q['V2']:6.1f} V {q['P']:5.0f} W loss {q[f'loss_{k}']:.2f} vs {q['loss_SPS']:.2f} W")
+    return M, res
+
+
+FLICKER = (("periodic", "M-S", 105.0, 6, 0.4612, 0.4211), ("single-period spikes", "M-S", 109.2, 7, 0.3436, 0.2883),
+           ("slow offset cycle", "M-B", 105.0, 6, 0.4590, 0.4162), ("slow offset cycle", "M-B", 92.4, 2, 0.4865, 0.5000))
+
+
+def fig_flicker():
+    """small multiples: the peak of each of the last 80 periods of four 25 ns runs, same y span, one grid step marked"""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import pandas as pd
+    from evaluate import BLUE, INK, INK2, MUTED, YELLOW, _style
+    _style(plt)
+    fs = [f for pat in ("fine_sweep_r*.csv", "r13a_sweep_r*.csv") for f in sorted(glob.glob(os.path.join(OUT, "iL_pp", pat)))]
+    A = pd.concat([pd.read_csv(f) for f in fs], ignore_index=True)
+    A = A[np.isclose(A["Ts"], TS, rtol=1e-6, atol=0)]
+    fig_, ax = plt.subplots(1, 4, figsize=(13.5, 3.3), sharex=True)
+    span = 0.60
+    for a, (kind, ctrl, v, j, d1, d2) in zip(ax, FLICKER):
+        r = A[np.isclose(A["V2"], v) & (A["level"] == j) & (np.abs(A["D1"] - d1) < 2e-4) & (np.abs(A["D2"] - d2) < 2e-4)].iloc[-1]
+        pk = np.maximum(r[[f"max{i}" for i in range(1, PP_N + 1)]].to_numpy(float),
+                        -r[[f"min{i}" for i in range(1, PP_N + 1)]].to_numpy(float))
+        a.plot(np.arange(1, PP_N + 1), pk, color={"M-B": BLUE, "M-S": YELLOW}.get(ctrl, MUTED), lw=1.6)
+        lo = 0.5 * (pk.max() + pk.min()) - 0.5 * span
+        a.set_ylim(lo, lo + span)
+        a.plot([6, 6], [lo + 0.04, lo + 0.04 + CELL], color=INK, lw=2.5, solid_capstyle="butt")
+        a.text(8, lo + 0.04 + 0.5 * CELL, f"V1 Ts/L = {CELL:.3f} A", va="center", color=INK2, fontsize=8)
+        a.set_title(f"{kind}\n{ctrl} ({d1:.3f}, {d2:.3f}), {v:g} V, level {j}, {-r['P_LV'] if 'P_LV' in r else 0:.0f} W".replace(", 0 W", ""),
+                    fontsize=9, color=INK2)
+        a.set_xlabel("period within the last 1 ms")
+    ax[0].set_ylabel("peak |i_L| of the period [A]")
+    fig_.suptitle("Period peaks of 25 ns Simulink runs (constant D0). Each panel spans 0.6 A; the rule's Ipk is the top of the trace",
+                  fontsize=11)
+    fig_.tight_layout()
+    fig_.savefig(os.path.join(OUT, "fig_r13_flicker.png"), dpi=130)
+    plt.close(fig_)
 
 
 def show():

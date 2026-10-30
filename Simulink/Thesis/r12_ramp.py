@@ -31,8 +31,12 @@ RULE (registered 10-30 14:10, before any R12 run; do not change after results):
 ROUND 2 (registered 10-30 15:45, before the R11 round-2 results that set it): the same profiles, window and rule, with (Kp, Ki)
   scaled by the largest factor of R11 round 2 (0.5, then 0.25) at which every R11 steady segment (last 2 ms) of SPS, M-B and
   M-S has a phase peak-to-peak <= 2 deg; if neither factor qualifies, 0.25 is used and that is reported.
+  (Code added 10-30 18:50, before r11r2 has run: round2_factor() = that rule on out/r11_check.csv, `make --round 2`, labels r2_*
+  in the same out/r12, `compare` judges each round separately: round 2 -> out/r12_check_r2.{csv,log}, out/r12_verdict_r2.md,
+  out/fig_r12_ramp_r2.png.)
 
     python -I -X utf8 Simulink/Thesis/r12_ramp.py make       -> out/r12_points_r1.csv, out/r12_profiles/
+    python -I -X utf8 Simulink/Thesis/r12_ramp.py make --round 2 -> out/r12_points_r2.csv (after `r11_step.py compare` on r11r2)
     python automation/job.py submit r12r1 --interactive --after rob6 -- matlab -batch "cd('Simulink/Thesis'); r11_closed_loop('out/r12_points_r1.csv', 'out/r12')"
       (10-30 13:58: run as r12r1b behind fineR -> r11r1b -> rob6b, on the renamed copy out/r12_points_r1b.csv; same out/r12)
     python -I -X utf8 Simulink/Thesis/r12_ramp.py compare    -> out/r12_check.{csv,log}, out/r12_verdict.md, out/fig_r12_ramp.png
@@ -65,6 +69,7 @@ WIN = (T_HOLD, T_HOLD + T_RAMP)
 ENV_N = 41
 M1_RATIO, E_RATIO, SPIKE_A = 5.0, 2.0, 0.10      # "효과 확인"
 NONE_E, NONE_SPIKE = 1.2, 0.03                  # "효과 없음"
+FACTORS, P2P_MAX, R11_RUNS = (0.5, 0.25), 2.0, 12   # ROUND 2: gain factors in order, deg, R11 runs per factor
 _cache = {}
 
 
@@ -119,9 +124,30 @@ def knots():
 
 
 # ---------------------------------------------------------------- make
-def make():
+def round2_factor(T=None):
+    """the ROUND 2 rule: (factor, {factor: worst steady phase p2p [deg]}) from R11 round 2 (out/r11_check.csv); None if a
+    factor's runs are not all there yet"""
+    import pandas as pd
+    T = pd.read_csv(os.path.join(OUT, "r11_check.csv")) if T is None else T
+    worst = {}
+    for g in FACTORS:
+        x = T[T["label"].str.startswith(f"r2_g{g:g}_") & T["ctrl"].isin(["SPS", "M-B", "M-S"])]
+        if x["label"].nunique() < R11_RUNS or "phi_p2p" not in x:
+            return None, worst
+        worst[g] = float(x["phi_p2p"].max())
+    return next((g for g in FACTORS if worst[g] <= P2P_MAX), FACTORS[-1]), worst
+
+
+def make(rnd=1):
     import pandas as pd
     os.makedirs(PROF, exist_ok=True)
+    gain = 1.0
+    if rnd == 2:
+        gain, worst = round2_factor()
+        if gain is None:
+            sys.exit("R11 round 2 is not complete: run r11r2, then `r11_step.py compare`")
+        print(f"ROUND 2 gain factor {gain:g}, worst steady phase p2p per factor {worst} deg (limit {P2P_MAX:g})"
+              + ("" if worst[gain] <= P2P_MAX else "  -- NEITHER factor qualifies: 0.25 used, as registered"))
     rows = []
     t = knots()
     P = p_ref(t)
@@ -131,12 +157,12 @@ def make():
             name = f"r12_{ctrl.replace('-', '')}_{V2:g}V_ramp"
             path = os.path.join(PROF, f"{name}.csv")
             pd.DataFrame(dict(t=t, P_ref=-P, D1=d1, D2=d2, V2=V2)).to_csv(path, index=False, float_format="%.10g")
-            rows.append(dict(label=name, ctrl=ctrl, V2=V2, Ts=TS, sync=SYNC, Kp=KP, Ki=KI, simTime=T_END,
-                             profile=os.path.relpath(path, HERE).replace(os.sep, "/"), trim=1))
-            print(f"  {name}: m1 (commanded D step) {m1(d1, d2, t):.4f}"
+            rows.append(dict(label=name if rnd == 1 else f"r{rnd}_{ctrl.replace('-', '')}_{V2:g}V_ramp", ctrl=ctrl, V2=V2, Ts=TS, sync=SYNC,
+                             Kp=KP * gain, Ki=KI * gain, simTime=T_END, profile=os.path.relpath(path, HERE).replace(os.sep, "/"), trim=1))
+            print(f"  {rows[-1]['label']}: m1 (commanded D step) {m1(d1, d2, t):.4f}"
                   + (f", ICROS boundary {icros_boundary(V2):.0f} W" if ctrl == "ICROS" else ""))
-    pd.DataFrame(rows).to_csv(os.path.join(OUT, "r12_points_r1.csv"), index=False, float_format="%.10g")
-    print(f"wrote out/r12_points_r1.csv: {len(rows)} runs, {len(t)} knots each")
+    pd.DataFrame(rows).to_csv(os.path.join(OUT, f"r12_points_r{rnd}.csv"), index=False, float_format="%.10g")
+    print(f"wrote out/r12_points_r{rnd}.csv: {len(rows)} runs, {len(t)} knots each, Kp {KP * gain:g}, Ki {KI * gain:g}")
 
 
 # ---------------------------------------------------------------- metrics (the registered rule)
@@ -182,10 +208,10 @@ def verdict(r):
 
 
 # ---------------------------------------------------------------- compare
-def load():
+def load(rnd=1):
     import pandas as pd
     runs = {}
-    for f in sorted(glob.glob(os.path.join(RUNS, "r12_*_summary.csv"))):
+    for f in sorted(glob.glob(os.path.join(RUNS, ("r12_" if rnd == 1 else f"r{rnd}_") + "*_summary.csv"))):
         s = pd.read_csv(f).iloc[0].to_dict()
         pf = f.replace("_summary.csv", "_periods.csv")
         s["periods"] = pd.read_csv(pf) if os.path.isfile(pf) else None
@@ -196,19 +222,27 @@ def load():
 
 
 def compare():
+    compare_round(1)
+    if load(2):
+        compare_round(2)
+
+
+def compare_round(rnd):
     import pandas as pd
-    runs = load()
+    runs = load(rnd)
     lines, rows = [], []
+    tag = "" if rnd == 1 else f"_r{rnd}"
 
     def out(x=""):
         print(x, flush=True)
         lines.append(x)
 
-    out("R12 classifier removal, Simulink closed loop (R11 setup: PI outer phase, 25 ns grid + latch), HV -> LV ramp "
+    gains = sorted({float(s["Kp"]) / KP for s in runs.values()})
+    out(f"R12 classifier removal, round {rnd} (Kp x {', '.join(f'{g:g}' for g in gains)}), Simulink closed loop (R11 setup: PI outer phase, 25 ns grid + latch), HV -> LV ramp "
         f"{P0:.0f} -> {P1:.0f} W in {T_RAMP * 1e3:.0f} ms; window {WIN[0] * 1e3:.0f}-{WIN[1] * 1e3:.0f} ms")
-    out("rule registered 10-30 14:10 before the runs (r12_ramp.py header)")
-    md = ["# R12 분류기 제거 효과 — Simulink 폐루프 전력 램프", "",
-          "생성: `r12_ramp.py compare`. 규칙은 2026-10-30 14:10 실행 전에 이 스크립트 머리말에 정했다. 수치는 모두 Simulink(데이터셋 시기 모델, "
+    out("rule registered 10-30 14:10 before the runs, round 2 gain rule 10-30 15:45 (r12_ramp.py header)")
+    md = [f"# R12 분류기 제거 효과 — Simulink 폐루프 전력 램프, {rnd}라운드 (PI 이득 × {', '.join(f'{g:g}' for g in gains)})", "",
+          "생성: `r12_ramp.py compare`. 규칙은 2026-10-30 14:10 실행 전에(2라운드 이득 선택은 15:45, R11 2라운드 전에) 이 스크립트 머리말에 정했다. 수치는 모두 Simulink(데이터셋 시기 모델, "
           "R11 폐루프: PI가 외부 위상, 25 ns 격자 + 주기 경계 래치)다.", "",
           "| V2 | 제어기 | m1 듀티 한 주기 최대 변화 | 적용 듀티 변화 | 전력 오차 최대 [W] | 전력 오차 RMS [W] | 피크 튐 m3 [A] (시각, 전력) | 램프 중 최대 Ipk [A] | 창 평균 i_L [A] |",
           "|---|---|---|---|---|---|---|---|---|"]
@@ -240,15 +274,15 @@ def compare():
            "", "m1 = 명령 듀티의 한 주기(12.5 µs) 최대 변화, 적용 듀티 변화 = 실행 출력(주기 평균)의 같은 값, 전력 오차 = 주기마다 "
            "(전달 전력 − 기준), 피크 튐 = 주기 피크 − 41주기 이동 중앙값의 최대."]
     if rows:
-        pd.DataFrame(rows).to_csv(os.path.join(OUT, "r12_check.csv"), index=False, float_format="%.6g")
-    open(os.path.join(OUT, "r12_check.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
-    open(os.path.join(OUT, "r12_verdict.md"), "w", encoding="utf-8").write("\n".join(md) + "\n")
+        pd.DataFrame(rows).to_csv(os.path.join(OUT, f"r12_check{tag}.csv"), index=False, float_format="%.6g")
+    open(os.path.join(OUT, f"r12_check{tag}.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
+    open(os.path.join(OUT, f"r12_verdict{tag}.md"), "w", encoding="utf-8").write("\n".join(md) + "\n")
     if runs:
-        fig(runs)
-    print("wrote out/r12_check.{csv,log}, out/r12_verdict.md" + (", out/fig_r12_ramp.png" if runs else ""))
+        fig(runs, tag)
+    print(f"wrote out/r12_check{tag}.{{csv,log}}, out/r12_verdict{tag}.md" + (f", out/fig_r12_ramp{tag}.png" if runs else ""))
 
 
-def fig(runs):
+def fig(runs, tag=""):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -277,7 +311,7 @@ def fig(runs):
     ax[2, 0].legend(frameon=False, fontsize=8)
     f.suptitle("R12: SPS/TPS classifier (ICROS2026 structure) vs single regression, Simulink closed loop", fontsize=11)
     f.tight_layout()
-    f.savefig(os.path.join(OUT, "fig_r12_ramp.png"), dpi=130)
+    f.savefig(os.path.join(OUT, f"fig_r12_ramp{tag}.png"), dpi=130)
     plt.close(f)
 
 
@@ -315,6 +349,16 @@ def selftest():
     r = run_metrics(per, None)
     chk("fake e_max = the 40 W excursion", round(r["e_max"], 6), 40.0)
     chk("fake spike = the 0.3 A burst", round(r["spike"], 3), 0.3)
+
+    def r11(p05, p025):
+        """a fake out/r11_check.csv: 12 runs per factor, worst phase p2p as given"""
+        return pd.DataFrame([dict(label=f"r2_g{g:g}_x{k}", ctrl="SPS", phi_p2p=(w if k == 0 else 0.5)) for g, w in ((0.5, p05), (0.25, p025))
+                             for k in range(R11_RUNS)])
+    chk("round 2: 0.5 qualifies", round2_factor(r11(1.5, 1.0))[0], 0.5)
+    chk("round 2: only 0.25 qualifies", round2_factor(r11(5.0, 1.0))[0], 0.25)
+    chk("round 2: neither -> 0.25", round2_factor(r11(5.0, 4.0))[0], 0.25)
+    chk("round 2: exactly 2 deg qualifies", round2_factor(r11(2.0, 1.0))[0], 0.5)
+    chk("round 2: incomplete -> None", round2_factor(r11(1.0, 1.0).iloc[:-1])[0], None)
     print("ALL PASS" if ok else "FAILED")
     return ok
 
@@ -322,9 +366,10 @@ def selftest():
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=("make", "compare", "selftest"))
+    ap.add_argument("--round", type=int, default=1, help="make: 1 = the R11 gains, 2 = the ROUND 2 gain factor")
     a = ap.parse_args()
     if a.cmd == "make":
-        make()
+        make(a.round)
     elif a.cmd == "compare":
         compare()
     else:

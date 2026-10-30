@@ -1,112 +1,145 @@
 r13_map: Simulink steady state on the 25 ns grid, 20 ms window, Ipk at |P| (A); rules in the file header
     V2   |P| |    SPS    M-B    M-S |    D1-    D1+    D2-    D2+ |   tol Q1 (gap, best) | Q2 M-S, M-B | Q4
-  84.0   100 |  1.747  1.252  1.252 |      -      -      -      - | 0.035 undecidable +nan      | better better | n/a
-  84.0   150 |  1.872  1.527  1.526 |      -      -      -      - | 0.037 undecidable +nan      | better better | same
-  84.0   200 |  2.001      -      - |      -      -      -      - | 0.040 undecidable +nan      | undecidable undecidable | n/a
-  84.0   300 |  2.260  2.138      - |      -      -      -      - | 0.045 undecidable +nan      | undecidable better | undecidable
-  84.0   400 |  2.528  2.453  2.451 |      -      -      -      - | 0.051 undecidable +nan      | better better | same
-  84.0   600 |      -      -      - |      -      -      -      . | 0.030 undecidable +nan      | undecidable undecidable | undecidable
-  84.0   800 |  3.693  3.638  3.656 |      -  3.693      -      . | 0.074 undecidable +nan      | same   same   | same
+  84.0   100 |  1.747  1.252  1.252 |  1.311  1.269  1.256  1.262 | 0.035 optimal     +0.000 M-B  | better better | n/a
+  84.0   150 |  1.872  1.527  1.526 |  1.554  1.542  1.531  1.533 | 0.037 optimal     +0.000 M-S  | better better | same
+  84.0   200 |  2.001  1.757  1.757 |  1.782  1.766  1.757  1.762 | 0.040 optimal     +0.000 M-B  | better better | n/a
+  84.0   300 |  2.260  2.138  2.136 |  2.144  2.152  2.138  2.140 | 0.045 optimal     +0.000 M-S  | better better | same
+  84.0   400 |  2.528  2.453  2.451 |  2.455  2.480  2.461  2.452 | 0.051 optimal     +0.000 M-S  | better better | same
+  84.0   600 |  3.091  3.056  3.047 |  3.084  3.034      -      . | 0.062 optimal     +0.013 D1+  | same   same   | same
+  84.0   800 |  3.693  3.638  3.656 |  3.637  3.693      -      . | 0.074 optimal     +0.019 D1-  | same   same   | same
   84.0  1000 |  4.345  4.300  4.300 |      -      -      -      . | 0.087 undecidable +nan      | same   same   | n/a
-  88.2   100 |      -      -      - |      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | n/a
-  88.2   150 |      -      -      - |      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | n/a
-  88.2   200 |      -      -      - |      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | n/a
-  88.2   300 |      -      -      - |      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | n/a
-  88.2   400 |      -      -      - |      -      -      -      . | 0.030 undecidable +nan      | undecidable undecidable | undecidable
-  88.2   600 |      -      -      - |      -      -      -      . | 0.030 undecidable +nan      | undecidable undecidable | n/a
-  88.2   800 |      -      -      - |      -      -      -      . | 0.030 undecidable +nan      | undecidable undecidable | undecidable
-  88.2  1000 |      -      -      - |      -      -      -      . | 0.030 undecidable +nan      | undecidable undecidable | n/a
-  92.4   100 |      -      -      - |      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | undecidable
-  92.4   150 |      -      -      - |      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | undecidable
-  92.4   200 |      -      -      - |      -      -      -      . | 0.030 undecidable +nan      | undecidable undecidable | n/a
-  92.4   300 |      -      -      - |      -      -      -      . | 0.030 undecidable +nan      | undecidable undecidable | n/a
-  92.4   400 |      -      -      - |      -      -      -      . | 0.030 undecidable +nan      | undecidable undecidable | n/a
-  92.4   600 |      -      -      - |      -      -      -      . | 0.030 undecidable +nan      | undecidable undecidable | n/a
-  92.4   800 |      -      -      - |      -      -      -      . | 0.030 undecidable +nan      | undecidable undecidable | n/a
-  92.4  1000 |      -      -      - |      -      -      -      . | 0.030 undecidable +nan      | undecidable undecidable | n/a
-  96.6   100 |      -      -      - |      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | undecidable
-  96.6   150 |      -      -      - |      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | undecidable
-  96.6   200 |      -      -      - |      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | undecidable
-  96.6   300 |      -      -      - |      -      .      -      - | 0.030 undecidable +nan      | undecidable undecidable | undecidable
-  96.6   400 |      -      -      - |      -      .      -      - | 0.030 undecidable +nan      | undecidable undecidable | n/a
-  96.6   600 |      -      -      - |      -      .      -      - | 0.030 undecidable +nan      | undecidable undecidable | n/a
-  96.6   800 |      -      -      - |      -      .      -      - | 0.030 undecidable +nan      | undecidable undecidable | n/a
-  96.6  1000 |      -      -      - |      -      .      -      - | 0.030 undecidable +nan      | undecidable undecidable | n/a
- 100.8   100 |      -      -      - |      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | n/a
- 100.8   150 |      -      -      - |      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | n/a
- 100.8   200 |      -      -      - |      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | undecidable
- 100.8   300 |      -      -      - |      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | n/a
- 100.8   400 |      -      -      - |      -      .      -      - | 0.030 undecidable +nan      | undecidable undecidable | n/a
- 100.8   600 |      -      -      - |      -      .      -      - | 0.030 undecidable +nan      | undecidable undecidable | undecidable
- 100.8   800 |      -      -      - |      -      .      -      - | 0.030 undecidable +nan      | undecidable undecidable | undecidable
- 100.8  1000 |      -      -      - |      -      .      -      - | 0.030 undecidable +nan      | undecidable undecidable | n/a
- 105.0   100 |      -      -      - |      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | undecidable
- 105.0   150 |      -      -      - |      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | undecidable
- 105.0   200 |      -      -      - |      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | undecidable
- 105.0   300 |      -      -      - |      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | undecidable
- 105.0   400 |      -      -      - |      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | undecidable
- 105.0   600 |      -      -      - |      -      .      -      - | 0.030 undecidable +nan      | undecidable undecidable | undecidable
- 105.0   800 |      -      -      - |      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | undecidable
- 105.0  1000 |      -      -      - |      -      .      -      - | 0.030 undecidable +nan      | undecidable undecidable | n/a
+  88.2   100 |  1.174  0.981  0.981 |      -      -      -      - | 0.030 undecidable +nan      | better better | n/a
+  88.2   150 |  1.299  1.191  1.191 |      -      -      -      - | 0.030 undecidable +nan      | better better | n/a
+  88.2   200 |  1.428      -      - |      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | n/a
+  88.2   300 |  1.686  1.663  1.663 |      -      -      -      - | 0.034 undecidable +nan      | same   same   | n/a
+  88.2   400 |  1.954  1.955~ 1.939 |      -      -      -      . | 0.039 undecidable +nan      | same   undecidable | undecidable
+  88.2   600 |  2.514  2.494  2.494 |      -  2.514      -      . | 0.050 undecidable +nan      | same   same   | n/a
+  88.2   800 |  3.110  3.093  3.093 |      -  3.110      -      . | 0.062 undecidable +nan      | same   same   | same
+  88.2  1000 |  3.754  3.740  3.740 |      -  3.754      -      . | 0.075 undecidable +nan      | same   same   | n/a
+  92.4   100 |  0.601  0.596  0.595 |      -      -      -      - | 0.030 undecidable +nan      | same   same   | same
+  92.4   150 |  0.728  0.730  0.730 |      -      -      -      - | 0.030 undecidable +nan      | same   same   | same
+  92.4   200 |  0.857  0.854  0.854 |      -  0.857      -      . | 0.030 undecidable +nan      | same   same   | n/a
+  92.4   300 |  1.114  1.162  1.162 |      -  1.114      -      . | 0.030 undecidable +nan      | worse  worse  | n/a
+  92.4   400 |  1.382  1.405  1.405 |      -  1.382      -      . | 0.030 undecidable +nan      | same   same   | n/a
+  92.4   600 |  1.938  1.938  1.938 |      -  1.938      -      . | 0.039 undecidable +nan      | same   same   | n/a
+  92.4   800 |  2.531  2.530  2.530 |      -  2.531      -      . | 0.051 undecidable +nan      | same   same   | n/a
+  92.4  1000 |  3.165  3.166  3.166 |      -  3.165      -      . | 0.063 undecidable +nan      | same   same   | n/a
+  96.6   100 |  0.521  0.535  0.656 |      -      -      -      - | 0.030 undecidable +nan      | worse  same   | worse
+  96.6   150 |  0.665  0.665  0.691 |      -      -      -      - | 0.030 undecidable +nan      | same   same   | same
+  96.6   200 |  0.809  0.809  0.827 |      -      -      -      - | 0.030 undecidable +nan      | same   same   | same
+  96.6   300 |  1.105  1.101  1.106 |      -      .      -  1.105 | 0.030 undecidable +nan      | same   same   | same
+  96.6   400 |  1.404  1.395  1.395 |      -      .      -  1.404 | 0.030 undecidable +nan      | same   same   | n/a
+  96.6   600 |  2.020  2.016  2.016 |      -      .      -  2.020 | 0.040 undecidable +nan      | same   same   | n/a
+  96.6   800 |  2.673  2.665  2.665 |      -      .      -  2.673 | 0.053 undecidable +nan      | same   same   | n/a
+  96.6  1000 |  3.361  3.354  3.354 |      -      .      -  3.361 | 0.067 undecidable +nan      | same   same   | n/a
+ 100.8   100 |  1.101  1.013  1.013 |      -      -      -      - | 0.030 undecidable +nan      | better better | n/a
+ 100.8   150 |  1.237  1.328~ 1.328~|      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | n/a
+ 100.8   200 |  1.377  1.337  1.337 |      -      -      -      - | 0.030 undecidable +nan      | better better | same
+ 100.8   300 |  1.659  1.662  1.662 |      -      -      -      - | 0.033 undecidable +nan      | same   same   | n/a
+ 100.8   400 |  1.950  1.916  1.916 |      -      .      -  1.950 | 0.039 undecidable +nan      | same   same   | n/a
+ 100.8   600 |  2.544  2.506  2.505 |      -      .      -  2.544 | 0.051 undecidable +nan      | same   same   | same
+ 100.8   800 |  3.159  3.123  3.120 |      -      .      -  3.159 | 0.063 undecidable +nan      | same   same   | same
+ 100.8  1000 |  3.814  3.776  3.776 |      -      .      -  3.814 | 0.076 undecidable +nan      | same   same   | n/a
+ 105.0   100 |  1.685  1.220  1.281 |      -      -      -      - | 0.034 undecidable +nan      | better better | worse
+ 105.0   150 |  1.815  1.468  1.516 |      -      -      -      - | 0.036 undecidable +nan      | better better | worse
+ 105.0   200 |  1.949  1.844  1.779 |      -      -      -      - | 0.039 undecidable +nan      | better better | better
+ 105.0   300 |  2.219  2.176  2.083 |      -      -      -      - | 0.044 undecidable +nan      | better same   | better
+ 105.0   400 |  2.495  2.598  2.394 |      -      -      -      - | 0.050 undecidable +nan      | better worse  | better
+ 105.0   600 |  3.119~ 2.979  2.977 |      -      .      -      - | 0.060 undecidable +nan      | undecidable undecidable | same
+ 105.0   800 |  3.736~ 3.572  3.637~|      -      -      -      - | 0.030 undecidable +nan      | undecidable undecidable | undecidable
+ 105.0  1000 |  4.278  4.189  4.189 |      -      .      -      - | 0.086 undecidable +nan      | better better | n/a
  109.2   100 |  2.269  1.410  1.386 |      -      -      -      - | 0.045 undecidable +nan      | better better | same
- 109.2   150 |  2.395      -      - |      -      -      -      - | 0.048 undecidable +nan      | undecidable undecidable | undecidable
- 109.2   200 |  2.524      -      - |      -      -      -      - | 0.050 undecidable +nan      | undecidable undecidable | undecidable
- 109.2   300 |  2.783  2.495      - |      -      -      -      - | 0.056 undecidable +nan      | undecidable better | undecidable
- 109.2   400 |  3.048      -      - |      -      -      -      - | 0.061 undecidable +nan      | undecidable undecidable | undecidable
+ 109.2   150 |  2.395  1.708  1.686 |      -      -      -      - | 0.048 undecidable +nan      | better better | same
+ 109.2   200 |  2.524  2.000  2.036 |      -      -      -      - | 0.050 undecidable +nan      | better better | same
+ 109.2   300 |  2.783  2.495  2.494 |      -      -      -      - | 0.056 undecidable +nan      | better better | same
+ 109.2   400 |  3.048  2.875  2.878 |      -      -      -      - | 0.061 undecidable +nan      | better better | same
  109.2   600 |  3.592  3.439  3.417 |      -      .      -      - | 0.072 undecidable +nan      | better better | same
- 109.2   800 |  4.165      -      - |      -      -      -      - | 0.083 undecidable +nan      | undecidable undecidable | undecidable
- 109.2  1000 |  4.758  4.599      - |      -      .      -      - | 0.095 undecidable +nan      | undecidable better | undecidable
+ 109.2   800 |  4.165  4.062  4.012 |      -      -      -      - | 0.083 undecidable +nan      | better better | same
+ 109.2  1000 |  4.758  4.599  4.602 |      -      .      -      - | 0.095 undecidable +nan      | better better | same
 (~ = oscillating, |mean i_L| > 20 mA; . = candidate dropped; - = not bracketed yet)
 
-Q1 local optimality of M-S: 0/56 points decidable -- PROVISIONAL (< 75 %); optimal 0, not optimal 0
+Q1 local optimality of M-S: 7/56 points decidable -- PROVISIONAL (< 75 %); optimal 7, not optimal 0
 => stage 2: no retraining (0 'not optimal' points, trigger >= 5)
 
 Q2 goal 3 (controller vs SPS):
-   M-S: worse 0, same 2, better 5, undecidable 49 -> goal 3 holds on the map
-   M-B: worse 0, same 2, better 8, undecidable 46 -> goal 3 holds on the map
+   M-S: worse 2, same 27, better 23, undecidable 4 -> goal 3 broken on the map
+      worse:   92.4 V   300 W  +0.049 A (tol 0.030)
+      worse:   96.6 V   100 W  +0.135 A (tol 0.030)
+   M-B: worse 2, same 28, better 21, undecidable 5 -> goal 3 broken on the map
+      worse:   92.4 V   300 W  +0.049 A (tol 0.030)
+      worse:  105.0 V   400 W  +0.103 A (tol 0.050)
 
 Q3 headline Ipk(SPS) - Ipk(ctrl), points clean for both:
-   M-S: 7 points, mean +0.294 A (median +0.175), mean +13.7 % of SPS
-        84.0 V: 5 points mean +0.200 A (+10.4 %)
-       109.2 V: 2 points mean +0.529 A (+21.9 %)
-   M-B: 10 points, mean +0.259 A (median +0.155), mean +11.3 % of SPS
-        84.0 V: 6 points mean +0.189 A (+9.6 %)
-       109.2 V: 4 points mean +0.365 A (+13.9 %)
+   M-S: 52 points, mean +0.117 A (median +0.039), mean +4.9 % of SPS
+        84.0 V: 8 points mean +0.176 A (+8.9 %)
+        88.2 V: 7 points mean +0.056 A (+4.1 %)
+        92.4 V: 8 points mean -0.008 A (-0.6 %)
+        96.6 V: 8 points mean -0.019 A (-3.9 %)
+       100.8 V: 7 points mean +0.039 A (+2.3 %)
+       105.0 V: 6 points mean +0.200 A (+10.2 %)
+       109.2 V: 8 points mean +0.378 A (+14.5 %)
+   M-B: 51 points, mean +0.116 A (median +0.038), mean +5.4 % of SPS
+        84.0 V: 8 points mean +0.177 A (+8.9 %)
+        88.2 V: 6 points mean +0.063 A (+4.6 %)
+        92.4 V: 8 points mean -0.008 A (-0.7 %)
+        96.6 V: 8 points mean +0.002 A (-0.1 %)
+       100.8 V: 7 points mean +0.039 A (+2.3 %)
+       105.0 V: 6 points mean +0.158 A (+8.7 %)
+       109.2 V: 8 points mean +0.368 A (+14.2 %)
 
-Q4 M-S vs M-B at the 31 points where they differ: better 0, same 5, worse 0, undecidable 26; mean Ipk(M-B) - Ipk(M-S) +0.006 A -> M-S holds
+Q4 M-S vs M-B at the 31 points where they differ: better 3, same 23, worse 3, undecidable 2; mean Ipk(M-B) - Ipk(M-S) +0.006 A -> M-S holds
 
 Q5 set X: 100 ns statements (20 ms window) re-measured at 25 ns (fine_grid_check.rule_r2):
-       93 V   100 W  SPS lower than M-B     +0.190 A at 100 ns -> +nan A at 25 ns (tol 0.030): undecidable
-       93 V   100 W  SPS lower than M-S     +0.050 A at 100 ns -> +nan A at 25 ns (tol 0.030): undecidable
-       93 V   100 W  M-S lower than M-B     +0.140 A at 100 ns -> +nan A at 25 ns (tol 0.030): undecidable
-       93 V   150 W  SPS lower than M-B     +0.105 A at 100 ns -> +nan A at 25 ns (tol 0.030): undecidable
-       93 V   150 W  M-S vs SPS             no 100 ns statement (100 ns -0.119 A, 25 ns +nan A)
-       93 V   150 W  M-S vs M-B             no 100 ns statement (100 ns -0.014 A, 25 ns +nan A)
-       84 V   700 W  M-B vs SPS             no 100 ns statement (100 ns -0.022 A, 25 ns +nan A)
-       84 V   700 W  SPS lower than M-S     +0.095 A at 100 ns -> +nan A at 25 ns (tol 0.068): undecidable
-       84 V   700 W  M-B lower than M-S     +0.072 A at 100 ns -> +nan A at 25 ns (tol 0.068): undecidable
-    109.2 V   700 W  M-B vs SPS             no 100 ns statement (100 ns +0.015 A, 25 ns +nan A)
-    109.2 V   700 W  M-S vs SPS             no 100 ns statement (100 ns +1.019 A, 25 ns +nan A)
-    109.2 V   700 W  M-S lower than M-B     +1.003 A at 100 ns -> +nan A at 25 ns (tol 0.077): undecidable
-       95 V    70 W  M-B vs SPS             no 100 ns statement (100 ns +0.000 A, 25 ns +nan A)
-       95 V    70 W  M-S vs SPS             no 100 ns statement (100 ns +0.000 A, 25 ns +nan A)
-       95 V    70 W  M-S vs M-B             no 100 ns statement (100 ns +0.000 A, 25 ns +nan A)
-       95 V    70 W  D0.40 lower than SPS   +0.286 A at 100 ns -> +nan A at 25 ns (tol 0.030): undecidable
-       95 V   100 W  M-B vs SPS             no 100 ns statement (100 ns +0.000 A, 25 ns +nan A)
-       95 V   100 W  M-S vs SPS             no 100 ns statement (100 ns +0.000 A, 25 ns +nan A)
-       95 V   100 W  M-S vs M-B             no 100 ns statement (100 ns +0.000 A, 25 ns +nan A)
-       95 V   100 W  D0.40 lower than SPS   +0.149 A at 100 ns -> +nan A at 25 ns (tol 0.030): undecidable
-       96 V   150 W  M-B vs SPS             no 100 ns statement (100 ns +0.000 A, 25 ns +nan A)
-       96 V   150 W  M-S lower than SPS     +0.581 A at 100 ns -> +nan A at 25 ns (tol 0.030): undecidable
-       96 V   150 W  M-S lower than M-B     +0.581 A at 100 ns -> +nan A at 25 ns (tol 0.030): undecidable
-       96 V   200 W  M-B vs SPS             no 100 ns statement (100 ns +0.000 A, 25 ns +nan A)
-       96 V   200 W  M-S lower than SPS     +0.518 A at 100 ns -> +nan A at 25 ns (tol 0.032): undecidable
-       96 V   200 W  M-S lower than M-B     +0.518 A at 100 ns -> +nan A at 25 ns (tol 0.032): undecidable
-       96 V   300 W  M-B vs SPS             no 100 ns statement (100 ns +0.000 A, 25 ns +nan A)
-       96 V   300 W  M-S lower than SPS     +0.270 A at 100 ns -> +nan A at 25 ns (tol 0.030): undecidable
-       96 V   300 W  M-S lower than M-B     +0.270 A at 100 ns -> +nan A at 25 ns (tol 0.030): undecidable
-       97 V   150 W  M-B vs SPS             no 100 ns statement (100 ns +0.709 A, 25 ns +nan A)
-       97 V   150 W  M-S vs SPS             no 100 ns statement (100 ns +0.450 A, 25 ns +nan A)
-       97 V   150 W  M-B lower than M-S     +0.259 A at 100 ns -> +nan A at 25 ns (tol 0.031): undecidable
+       93 V   100 W  SPS lower than M-B     +0.190 A at 100 ns -> +0.001 A at 25 ns (tol 0.030): gone
+       93 V   100 W  SPS lower than M-S     +0.050 A at 100 ns -> +0.001 A at 25 ns (tol 0.030): gone
+       93 V   100 W  M-S lower than M-B     +0.140 A at 100 ns -> -0.000 A at 25 ns (tol 0.030): gone
+       93 V   150 W  SPS lower than M-B     +0.105 A at 100 ns -> -0.003 A at 25 ns (tol 0.030): gone
+       93 V   150 W  M-S vs SPS             no 100 ns statement (100 ns -0.119 A, 25 ns +0.002 A)
+       93 V   150 W  M-S vs M-B             no 100 ns statement (100 ns -0.014 A, 25 ns -0.002 A)
+       84 V   700 W  M-B vs SPS             no 100 ns statement (100 ns -0.022 A, 25 ns +0.030 A)
+       84 V   700 W  SPS lower than M-S     +0.095 A at 100 ns -> -0.059 A at 25 ns (tol 0.068): gone
+       84 V   700 W  M-B lower than M-S     +0.072 A at 100 ns -> -0.029 A at 25 ns (tol 0.068): gone
+    109.2 V   700 W  M-B vs SPS             no 100 ns statement (100 ns +0.015 A, 25 ns +0.150 A)
+    109.2 V   700 W  M-S vs SPS             no 100 ns statement (100 ns +1.019 A, 25 ns +0.165 A)
+    109.2 V   700 W  M-S lower than M-B     +1.003 A at 100 ns -> +0.015 A at 25 ns (tol 0.077): gone
+       95 V    70 W  M-B vs SPS             no 100 ns statement (100 ns +0.000 A, 25 ns +0.000 A)
+       95 V    70 W  M-S vs SPS             no 100 ns statement (100 ns +0.000 A, 25 ns +0.000 A)
+       95 V    70 W  M-S vs M-B             no 100 ns statement (100 ns +0.000 A, 25 ns +0.000 A)
+       95 V    70 W  D0.40 lower than SPS   +0.286 A at 100 ns -> -0.044 A at 25 ns (tol 0.030): reversed
+       95 V   100 W  M-B vs SPS             no 100 ns statement (100 ns +0.000 A, 25 ns +0.000 A)
+       95 V   100 W  M-S vs SPS             no 100 ns statement (100 ns +0.000 A, 25 ns +0.000 A)
+       95 V   100 W  M-S vs M-B             no 100 ns statement (100 ns +0.000 A, 25 ns +0.000 A)
+       95 V   100 W  D0.40 lower than SPS   +0.149 A at 100 ns -> -0.063 A at 25 ns (tol 0.030): reversed
+       96 V   150 W  M-B vs SPS             no 100 ns statement (100 ns +0.000 A, 25 ns +0.000 A)
+       96 V   150 W  M-S lower than SPS     +0.581 A at 100 ns -> -0.043 A at 25 ns (tol 0.030): reversed
+       96 V   150 W  M-S lower than M-B     +0.581 A at 100 ns -> -0.043 A at 25 ns (tol 0.030): reversed
+       96 V   200 W  M-B vs SPS             no 100 ns statement (100 ns +0.000 A, 25 ns +0.000 A)
+       96 V   200 W  M-S lower than SPS     +0.518 A at 100 ns -> -0.085 A at 25 ns (tol 0.030): reversed
+       96 V   200 W  M-S lower than M-B     +0.518 A at 100 ns -> -0.085 A at 25 ns (tol 0.030): reversed
+       96 V   300 W  M-B vs SPS             no 100 ns statement (100 ns +0.000 A, 25 ns +0.000 A)
+       96 V   300 W  M-S lower than SPS     +0.270 A at 100 ns -> -0.064 A at 25 ns (tol 0.030): reversed
+       96 V   300 W  M-S lower than M-B     +0.270 A at 100 ns -> -0.064 A at 25 ns (tol 0.030): reversed
+       97 V   150 W  M-B vs SPS             no 100 ns statement (100 ns +0.709 A, 25 ns -0.007 A)
+       97 V   150 W  M-S vs SPS             no 100 ns statement (100 ns +0.450 A, 25 ns -0.014 A)
+       97 V   150 W  M-B lower than M-S     +0.259 A at 100 ns -> +0.008 A at 25 ns (tol 0.030): gone
 
-candidate values not bracketed yet: 333 (map), 32 (set X pairs)
+candidate values not bracketed yet: 158 (map), 0 (set X pairs)
+
+NOT A VERDICT (the checks of the 10-30 18:15 note in the header, chosen after seeing r13a):
+  runs with per-period peaks: 387: periodic (spread <= 5 mA) 336, single-period spikes (<= 1.5 V1 Ts / L = 0.158 A) 27, slow / larger 24
+  not periodic per controller: M-B 20/121, M-S 14/91, SPS 1/71, other 16/104
+  not periodic per V2: 84 V 2/114, 88.2 V 1/30, 92.4 V 1/31, 93 V 0/12, 95 V 0/6, 96 V 2/10, 96.6 V 1/27, 97 V 0/6, 100.8 V 3/32, 105 V 13/42, 109.2 V 28/77
+  Q1 on the median: 7/56 decidable, optimal 7, not optimal 0
+  Q2 on the median, M-S: worse 2, same 27, better 23, undecidable 4
+     worse:   92.4 V   300 W +0.032 A (tol 0.030), bracket spread M-S 0.083 A, SPS 0.000 A
+     worse:   96.6 V   100 W +0.063 A (tol 0.030), bracket spread M-S 0.200 A, SPS 0.000 A
+  Q3 on the median, M-S: 52 points, mean +0.131 A (median +0.039), +5.8 % of SPS; per V2 84 V +0.176, 88.2 V +0.056, 92.4 V -0.006, 96.6 V -0.010, 100.8 V +0.048, 105 V +0.247, 109.2 V +0.415
+  Q2 on the median, M-B: worse 1, same 28, better 22, undecidable 5
+     worse:   92.4 V   300 W +0.032 A (tol 0.030), bracket spread M-B 0.083 A, SPS 0.000 A
+  Q3 on the median, M-B: 51 points, mean +0.128 A (median +0.038), +5.9 % of SPS; per V2 84 V +0.177, 88.2 V +0.062, 92.4 V -0.006, 96.6 V +0.002, 100.8 V +0.047, 105 V +0.202, 109.2 V +0.403
+  Q4 on the median, M-S vs M-B (31 points): better 3, worse 1, mean +0.009 A
+  loss / efficiency at |P| (P_HV in - P_LV out, same interpolation), M-B vs SPS, 51 clean points: loss -1.09 W, eta +0.329 pp, lower eta beyond 0.05 pp at 2; per V2 (pp) 84 V +0.33, 88.2 V +0.16, 92.4 V +0.11, 96.6 V +0.09, 100.8 V +0.32, 105 V +0.52, 109.2 V +0.78
+     lower eta:   88.2 V   100 W loss 1.55 vs 1.48 W
+     lower eta:   92.4 V   100 W loss 1.15 vs 0.98 W
+  loss / efficiency at |P| (P_HV in - P_LV out, same interpolation), M-S vs SPS, 52 clean points: loss -1.10 W, eta +0.328 pp, lower eta beyond 0.05 pp at 1; per V2 (pp) 84 V +0.35, 88.2 V +0.19, 92.4 V +0.18, 96.6 V +0.17, 100.8 V +0.33, 105 V +0.53, 109.2 V +0.58
+     lower eta:   88.2 V   100 W loss 1.55 vs 1.48 W
