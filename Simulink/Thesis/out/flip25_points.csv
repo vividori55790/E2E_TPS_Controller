@@ -1,0 +1,7 @@
+label,ctrl,V2,Ts,sync,Kp,Ki,simTime,profile,trim
+flip_SPS_84V,SPS,84,2.5e-08,1,1,24500,0.04,out/flip25_profiles/flip_SPS_84V.csv,1
+flip_MB_84V,M-B,84,2.5e-08,1,1,24500,0.04,out/flip25_profiles/flip_MB_84V.csv,1
+flip_SPS_95V,SPS,95,2.5e-08,1,1,24500,0.04,out/flip25_profiles/flip_SPS_95V.csv,1
+flip_MB_95V,M-B,95,2.5e-08,1,1,24500,0.04,out/flip25_profiles/flip_MB_95V.csv,1
+flip_SPS_109.2V,SPS,109.2,2.5e-08,1,1,24500,0.04,out/flip25_profiles/flip_SPS_109.2V.csv,1
+flip_MB_109.2V,M-B,109.2,2.5e-08,1,1,24500,0.04,out/flip25_profiles/flip_MB_109.2V.csv,1

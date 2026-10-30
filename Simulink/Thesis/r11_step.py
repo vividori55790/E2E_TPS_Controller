@@ -48,6 +48,9 @@ V2_WINDOWS = {"v2step": (("hold 84 V", 0.010, 0.012), ("edge up + 2 ms", 0.012, 
               "v2ramp": (("hold 84 V", 0.004, 0.006), ("ramp up", 0.006, 0.016), ("hold 109.2 V", 0.020, 0.022), ("ramp down", 0.022, 0.032),
                          ("hold 84 V", 0.034, 0.036))}
 V2_PW = (300.0, 1000.0)
+V2_MOVED = {"v2step": ((0.0125, 0.0245), (0.025, 0.036)), "v2ramp": ((0.016, 0.022), (0.032, 0.036))}    # (end of a V2 move, start of the next)
+C_LV = 1000e-6                   # [F] Capacitor5, the LV bus cap between the V_LV / I_LV sensors and the bridge (out/plant_params.md):
+                                 # P_LV is the source side of it, P_HV the bridge side, so a moving V2 adds C_LV V dV/dt to the bridge power
 _cache = {}
 
 
@@ -209,6 +212,15 @@ def segments(s):
     return [(a, b, -float(np.interp(a + 1e-6, pr["t"], pr["P_ref"]))) for a, b in zip(ts, te)]
 
 
+def t_settle_ma(g, Pd, P, a, tol):
+    """when the MA_N-period average of the delivered power Pd enters P +- tol for good, counted from a; NaN if it ends outside"""
+    ma = np.convolve(Pd, np.ones(MA_N) / MA_N, mode="valid")    # ma[i] = mean of Pd[i : i + MA_N], known at period i + MA_N - 1
+    if not len(ma) or abs(ma[-1] - P) > tol:
+        return np.nan
+    off = np.where(np.abs(ma - P) > tol)[0]
+    return g["t_end"].iloc[(off[-1] + 1 if len(off) else 0) + MA_N - 1] - a
+
+
 def seg_metrics(per, a, b, P, P0):
     """steady = the last 2 ms of the segment; settling from the step at a; overshoot = the largest excursion beyond the
     target in the step direction after the delivered power first reaches it (P0 = the previous target, 0 at start).
@@ -223,11 +235,7 @@ def seg_metrics(per, a, b, P, P0):
     if not bad[-1]:
         last_bad = np.where(bad)[0]
         t_set = (g["t_end"].iloc[last_bad[-1] + 1] if len(last_bad) else g["t_end"].iloc[0]) - a
-    ma = np.convolve(Pd, np.ones(MA_N) / MA_N, mode="valid")    # ma[i] = mean of Pd[i : i + MA_N], known at period i + MA_N - 1
-    t_ma = np.nan
-    if len(ma) and abs(ma[-1] - P) <= tol:
-        off = np.where(np.abs(ma - P) > tol)[0]
-        t_ma = g["t_end"].iloc[(off[-1] + 1 if len(off) else 0) + MA_N - 1] - a
+    t_ma = t_settle_ma(g, Pd, P, a, tol)
     dev = np.sign(P - P0) * (Pd - P)                            # > 0 = beyond the target in the step direction
     crossed = np.where(dev >= 0)[0]
     # mean i_L over the window = the R.4 criterion (constant-D0 runs: mean over the last 1 ms); the per-period value
@@ -318,17 +326,20 @@ def compare_v2(runs, out):
     v2 = [s for s in runs if s["label"].startswith("r3_") and s["periods"] is not None]
     if not v2:
         return
-    rows = []
+    rows, st = [], []
     for s in v2:
         pname = s["label"].rsplit("_", 1)[-1]
         P = -float(s["prof"]["P_ref"].iloc[0])
-        per = s["periods"]
+        per = s["periods"].assign(P_cap=lambda d: C_LV * d["V_LV"] * np.gradient(d["V_LV"], d["t_end"]))
         for w, a, b in V2_WINDOWS[pname]:
             g = per[(per["t_end"] > a + 1e-9) & (per["t_end"] <= b + 1e-9)]
             e = -g["P_LV"].to_numpy() - P
             rows.append(dict(label=s["label"], ctrl=s["ctrl"], P=P, profile=pname, window=w, t0=a, Ipk_max=g["Ipk"].max(), Ipk_med=g["Ipk"].median(),
                              err_max=float(np.abs(e).max()), err_rms=float(np.sqrt(np.mean(e ** 2))), V_LV=float(g["V_LV"].iloc[-1]),
-                             phi_p2p=float(g["phi"].max() - g["phi"].min())))
+                             phi_p2p=float(g["phi"].max() - g["phi"].min()), P_source=float(-g["P_LV"].mean()), P_bridge=float(-g["P_HV"].mean()), P_cap=float(g["P_cap"].mean())))
+        for a, b in V2_MOVED[pname]:
+            g = per[(per["t_end"] > a + 1e-9) & (per["t_end"] <= b + 1e-9)]
+            st.append(dict(ctrl=s["ctrl"], P=P, profile=pname, t0=a, settle_ms=1e3 * t_settle_ma(g, -g["P_LV"].to_numpy(), P, a, max(SETTLE_TOL * P, 5.0))))
     T = pd.DataFrame(rows)
     T.to_csv(os.path.join(OUT, "r11_v2.csv"), index=False, float_format="%.6g")
     out("\nV2 moves at constant |P| (round 3, reported only): largest / median period peak [A], power error max / rms [W], V_LV at the window end")
@@ -338,6 +349,13 @@ def compare_v2(runs, out):
             z = {r["ctrl"]: r for _, r in y.iterrows()}
             out(f"    {w:18s} V_LV {next(iter(z.values()))['V_LV']:6.2f}: " + " | ".join(
                 f"{c} {z[c]['Ipk_max']:6.3f} / {z[c]['Ipk_med']:6.3f}, {z[c]['err_max']:5.0f} / {z[c]['err_rms']:4.0f}" for c in ("SPS", "M-B", "M-S") if c in z))
+    out("\nthe same runs, added after seeing them (not a verdict): mean bridge power -P_HV, mean source power -P_LV, mean C_LV V dV/dt [W] per window")
+    for (pname, P, w, a), y in T.groupby(["profile", "P", "window", "t0"], sort=False):
+        out(f"  {pname} {P:5.0f} W {w:18s}: " + " | ".join(f"{r.ctrl} {r.P_bridge:6.0f} {r.P_source:6.0f} {r.P_cap:+6.0f}" for r in y.itertuples()))
+    S = pd.DataFrame(st)
+    out(f"settling after each V2 move: the {MA_N * TSW * 1e3:g} ms average power within max({SETTLE_TOL:.0%}, 5 W) of |P| [ms]")
+    for (pname, P, a), y in S.groupby(["profile", "P", "t0"], sort=False):
+        out(f"  {pname} {P:5.0f} W, move ends {a * 1e3:5.1f} ms: " + " | ".join(f"{r.ctrl} {r.settle_ms:5.2f}" for r in y.itertuples()))
     fig_v2(v2)
 
 
@@ -353,7 +371,7 @@ def fig_v2(v2):
         k = (s["label"].rsplit("_", 1)[-1], -float(s["prof"]["P_ref"].iloc[0]))
         if k not in keys:
             keys.append(k)
-    f, ax = plt.subplots(3, len(keys), figsize=(4.2 * len(keys), 7.0), squeeze=False, sharex="col", gridspec_kw=dict(height_ratios=(3, 2, 1)))
+    f, ax = plt.subplots(4, len(keys), figsize=(4.2 * len(keys), 8.8), squeeze=False, sharex="col", gridspec_kw=dict(height_ratios=(3, 2, 2, 1)))
     rank = {"SPS": 0, "M-B": 1, "M-S": 2}
     for j, (pname, P) in enumerate(keys):
         for s in sorted([x for x in v2 if x["label"].endswith(pname) and np.isclose(-float(x["prof"]["P_ref"].iloc[0]), P)], key=lambda x: rank[x["ctrl"]]):
@@ -362,16 +380,20 @@ def fig_v2(v2):
             c = {"SPS": MUTED, "M-B": BLUE, "M-S": YELLOW}[s["ctrl"]]
             ax[0, j].plot(p["t_end"] * 1e3, p["Ipk"], color=c, lw=1.0, label=s["ctrl"])
             ax[1, j].plot(p["t_end"] * 1e3, -p["P_LV"], color=c, lw=1.0)
-            ax[2, j].plot(p["t_end"] * 1e3, p["V_LV"], color="#333333", lw=1.0)
+            ax[2, j].plot(p["t_end"] * 1e3, -p["P_HV"], color=c, lw=1.0)
+            ax[3, j].plot(p["t_end"] * 1e3, p["V_LV"], color="#333333", lw=1.0)
+        ax[2, j].plot(p["t_end"] * 1e3, P + C_LV * p["V_LV"] * np.gradient(p["V_LV"], p["t_end"]), color="#333333", ls="--", lw=0.8)
         ax[1, j].axhline(P, color="#333333", ls="--", lw=0.8)
         ax[1, j].set_ylim(0.5 * P, 1.5 * P)
         ax[0, j].set_title(f"{pname}, {P:.0f} W: Ipk per period", fontsize=9)
-        ax[1, j].set_title("delivered power, one-period average (dashed = command)", fontsize=9)
-        ax[2, j].set_title("measured V2", fontsize=9)
-        ax[2, j].set_xlabel("t [ms]")
+        ax[1, j].set_title("source power -P_LV, one-period average (dashed = command)", fontsize=9)
+        ax[2, j].set_title("bridge power -P_HV (dashed = |P| + C_LV V dV/dt)", fontsize=9)
+        ax[3, j].set_title("measured V2", fontsize=9)
+        ax[3, j].set_xlabel("t [ms]")
     ax[0, 0].set_ylabel("[A]")
     ax[1, 0].set_ylabel("[W]")
-    ax[2, 0].set_ylabel("[V]")
+    ax[2, 0].set_ylabel("[W]")
+    ax[3, 0].set_ylabel("[V]")
     ax[0, 0].legend(frameon=False, fontsize=8)
     f.suptitle("R11 closed loop: V2 moves at constant |P| (25 ns edge grid, period latch, gain x0.5; first 3 ms not shown)", fontsize=11)
     f.tight_layout()

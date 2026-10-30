@@ -857,15 +857,39 @@ def show():
     print(f"run_configs: {len(run_configs())} configurations in run order (set X first, then map core, then arms)")
 
 
+def weighted():
+    """not a verdict (10-31 02:23): the map's |P| grid (100, 150, 200, 300, 400, 600, 800, 1000 W) has 3 of 8 points at or below 200 W, so its
+    point mean leans on light load. The same runs with |P| weighted uniformly over 100-1000 W (trapezoid over the clean points of each V2,
+    then the mean over the 7 equally spaced V2) -> out/r13_weighted.log. Needs out/r13_points.csv, out/r13_points_med.csv (compare)"""
+    import pandas as pd
+    J = pd.read_csv(os.path.join(OUT, "r13_points.csv")).merge(pd.read_csv(os.path.join(OUT, "r13_points_med.csv")), on=["V2", "P"])
+    J = J[(J[["osc_SPS", "osc_MB"]].max(axis=1) <= fg.OSC) & (J["I_SPS"] - J["I_MB"]).notna()].assign(dI=lambda d: d["I_SPS"] - d["I_MB"], dIm=lambda d: d["med_SPS"] - d["med_MB"])
+    J = J.assign(rel=J["dI"] / J["I_SPS"], relm=J["dIm"] / J["med_SPS"])
+    lines = [f"M-B, 25 ns map, {len(J)} clean points. Per grid point: mean dI {J['dI'].mean():+.3f} A (mean relative {100 * J['rel'].mean():+.1f} %), median period peak {J['dIm'].mean():+.3f} A ({100 * J['relm'].mean():+.1f} %)"]
+    R = []
+    for v, g in J.groupby("V2"):
+        g = g.sort_values("P")
+        w = lambda c: float(np.trapezoid(g[c], g["P"]) / (g["P"].iloc[-1] - g["P"].iloc[0]))  # noqa: E731, B023
+        R.append(dict(V2=v, n=len(g), dI=w("dI"), dIm=w("dIm"), rel=w("rel"), relm=w("relm"), grid=g["dI"].mean()))
+        lines.append(f"  {v:6.1f} V: {len(g)} points, uniform in |P| {R[-1]['dI']:+.3f} A ({100 * R[-1]['rel']:+.1f} %), median peak {R[-1]['dIm']:+.3f} A ({100 * R[-1]['relm']:+.1f} %); per grid point {R[-1]['grid']:+.3f} A")
+    R = pd.DataFrame(R)
+    lines.append(f"Uniform in |P|, mean over V2: dI {R['dI'].mean():+.3f} A ({100 * R['rel'].mean():+.1f} %), median period peak {R['dIm'].mean():+.3f} A ({100 * R['relm'].mean():+.1f} %)")
+    for ps in ((100.0, 150.0, 200.0), (300.0, 400.0), (600.0, 800.0, 1000.0)):
+        x = J[J["P"].isin(ps)]
+        lines.append(f"  {ps[0]:.0f}-{ps[-1]:.0f} W: {len(x)} points, mean dI {x['dI'].mean():+.3f} A ({100 * x['rel'].mean():+.1f} %), median peak {x['dIm'].mean():+.3f} A ({100 * x['relm'].mean():+.1f} %)")
+    open(os.path.join(OUT, "r13_weighted.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
+    print("\n".join(lines))
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["predict", "make", "next", "compare", "selftest", "show"])
+    ap.add_argument("cmd", choices=["predict", "make", "next", "compare", "selftest", "show", "weighted"])
     ap.add_argument("--part", choices=["a", "b"], default="a", help="make / next: a = set X + map core, b = map arms")
     a = ap.parse_args()
     if a.cmd in ("make", "next"):
         {"make": make, "next": next_round}[a.cmd](a.part)
     else:
-        {"predict": predict, "compare": compare, "selftest": selftest, "show": show}[a.cmd]()
+        {"predict": predict, "compare": compare, "selftest": selftest, "show": show, "weighted": weighted}[a.cmd]()
 
 
 if __name__ == "__main__":

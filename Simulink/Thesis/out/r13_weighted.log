@@ -1,0 +1,12 @@
+M-B, 25 ns map, 52 clean points. Per grid point: mean dI +0.115 A (mean relative +5.4 %), median period peak +0.127 A (+5.9 %)
+    84.0 V: 8 points, uniform in |P| +0.104 A (+4.6 %), median peak +0.104 A (+4.6 %); per grid point +0.177 A
+    88.2 V: 7 points, uniform in |P| +0.032 A (+2.0 %), median peak +0.032 A (+2.0 %); per grid point +0.062 A
+    92.4 V: 8 points, uniform in |P| -0.009 A (-0.7 %), median peak -0.007 A (-0.6 %); per grid point -0.008 A
+    96.6 V: 8 points, uniform in |P| +0.005 A (+0.2 %), median peak +0.005 A (+0.2 %); per grid point +0.002 A
+   100.8 V: 7 points, uniform in |P| +0.035 A (+1.7 %), median peak +0.039 A (+2.0 %); per grid point +0.039 A
+   105.0 V: 6 points, uniform in |P| +0.036 A (+1.6 %), median peak +0.083 A (+3.7 %); per grid point +0.158 A
+   109.2 V: 8 points, uniform in |P| +0.241 A (+8.3 %), median peak +0.274 A (+9.5 %); per grid point +0.368 A
+Uniform in |P|, mean over V2: dI +0.063 A (+2.5 %), median period peak +0.076 A (+3.0 %)
+  100-200 W: 20 points, mean dI +0.228 A (+11.8 %), median peak +0.241 A (+12.6 %)
+  300-400 W: 13 points, mean dI +0.045 A (+1.5 %), median peak +0.072 A (+2.6 %)
+  600-1000 W: 19 points, mean dI +0.043 A (+1.2 %), median peak +0.043 A (+1.2 %)

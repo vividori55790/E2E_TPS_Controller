@@ -181,6 +181,42 @@ r2_g0.5_SPS_84V_light (SPS, 84 V, Ts 25 ns, latch 1, Kp 1, Ki 24500; batch 450 s
     12-  24 ms    100 W: Ipk steady 1.884 (median period 1.792) vs ref 1.732 / ref25 1.747 A | |mean i_L| 0.000 A (per period max 0.104) | P error -0.08 % | settle nan ms | overshoot +594 W | Ipk first 2 ms 4.890 A | phi -1.40 deg, p2p 0.61 deg
     24-  36 ms    300 W: Ipk steady 2.398 (median period 2.304) vs ref 2.253 / ref25 2.260 A | |mean i_L| 0.001 A (per period max 0.092) | P error +0.13 % | settle nan ms | overshoot +419 W | Ipk first 2 ms 4.818 A | phi 2.87 deg, p2p 0.48 deg
 
+r3_g0.5_MB_1000W_v2ramp (M-B, 84 V, Ts 25 ns, latch 1, Kp 1, Ki 24500; batch 399 s)
+     0-  36 ms   1000 W: Ipk steady 4.466 (median period 4.294) vs ref 4.340 / ref25 4.300 A | |mean i_L| 0.000 A (per period max 0.087) | P error -0.02 % | settle 32.36 ms | overshoot +11575 W | Ipk first 2 ms 19.898 A | phi 15.03 deg, p2p 0.20 deg
+
+r3_g0.5_MB_1000W_v2step (M-B, 84 V, Ts 25 ns, latch 1, Kp 1, Ki 24500; batch 377 s)
+     0-  36 ms   1000 W: Ipk steady 4.466 (median period 4.295) vs ref 4.340 / ref25 4.300 A | |mean i_L| 0.001 A (per period max 0.087) | P error +0.02 % | settle 25.77 ms | overshoot +11575 W | Ipk first 2 ms 19.898 A | phi 15.03 deg, p2p 0.20 deg
+
+r3_g0.5_MB_300W_v2ramp (M-B, 84 V, Ts 25 ns, latch 1, Kp 1, Ki 24500; batch 399 s)
+     0-  36 ms    300 W: Ipk steady 2.221 (median period 2.137) vs ref 2.263 / ref25 2.138 A | |mean i_L| 0.000 A (per period max 0.046) | P error -0.01 % | settle 32.84 ms | overshoot +11914 W | Ipk first 2 ms 19.090 A | phi 0.85 deg, p2p 0.14 deg
+
+r3_g0.5_MB_300W_v2step (M-B, 84 V, Ts 25 ns, latch 1, Kp 1, Ki 24500; batch 377 s)
+     0-  36 ms    300 W: Ipk steady 2.218 (median period 2.137) vs ref 2.263 / ref25 2.138 A | |mean i_L| 0.000 A (per period max 0.044) | P error -0.03 % | settle 25.99 ms | overshoot +11914 W | Ipk first 2 ms 19.090 A | phi 0.85 deg, p2p 0.14 deg
+
+r3_g0.5_MS_1000W_v2ramp (M-S, 84 V, Ts 25 ns, latch 1, Kp 1, Ki 24500; batch 399 s)
+     0-  36 ms   1000 W: Ipk steady 4.407 (median period 4.336) vs ref 4.340 / ref25 4.300 A | |mean i_L| 0.001 A (per period max 0.095) | P error -0.01 % | settle 32.49 ms | overshoot +11574 W | Ipk first 2 ms 19.832 A | phi 14.48 deg, p2p 0.34 deg
+
+r3_g0.5_MS_1000W_v2step (M-S, 84 V, Ts 25 ns, latch 1, Kp 1, Ki 24500; batch 377 s)
+     0-  36 ms   1000 W: Ipk steady 4.407 (median period 4.336) vs ref 4.340 / ref25 4.300 A | |mean i_L| 0.002 A (per period max 0.095) | P error +0.02 % | settle 25.77 ms | overshoot +11574 W | Ipk first 2 ms 19.832 A | phi 14.48 deg, p2p 0.34 deg
+
+r3_g0.5_MS_300W_v2ramp (M-S, 84 V, Ts 25 ns, latch 1, Kp 1, Ki 24500; batch 399 s)
+     0-  36 ms    300 W: Ipk steady 2.155 (median period 2.151) vs ref 2.178 / ref25 2.136 A | |mean i_L| 0.001 A (per period max 0.040) | P error -0.11 % | settle nan ms | overshoot +11987 W | Ipk first 2 ms 18.646 A | phi -4.92 deg, p2p 0.35 deg
+
+r3_g0.5_MS_300W_v2step (M-S, 84 V, Ts 25 ns, latch 1, Kp 1, Ki 24500; batch 377 s)
+     0-  36 ms    300 W: Ipk steady 2.152 (median period 2.149) vs ref 2.178 / ref25 2.136 A | |mean i_L| 0.000 A (per period max 0.039) | P error -0.14 % | settle nan ms | overshoot +11987 W | Ipk first 2 ms 18.646 A | phi -4.92 deg, p2p 0.35 deg
+
+r3_g0.5_SPS_1000W_v2ramp (SPS, 84 V, Ts 25 ns, latch 1, Kp 1, Ki 24500; batch 399 s)
+     0-  36 ms   1000 W: Ipk steady 4.502 (median period 4.361) vs ref 4.376 / ref25 4.345 A | |mean i_L| 0.001 A (per period max 0.093) | P error -0.02 % | settle 32.38 ms | overshoot +11543 W | Ipk first 2 ms 21.464 A | phi 22.97 deg, p2p 0.29 deg
+
+r3_g0.5_SPS_1000W_v2step (SPS, 84 V, Ts 25 ns, latch 1, Kp 1, Ki 24500; batch 377 s)
+     0-  36 ms   1000 W: Ipk steady 4.505 (median period 4.361) vs ref 4.376 / ref25 4.345 A | |mean i_L| 0.002 A (per period max 0.096) | P error -0.03 % | settle 25.77 ms | overshoot +11543 W | Ipk first 2 ms 21.464 A | phi 22.97 deg, p2p 0.35 deg
+
+r3_g0.5_SPS_300W_v2ramp (SPS, 84 V, Ts 25 ns, latch 1, Kp 1, Ki 24500; batch 399 s)
+     0-  36 ms    300 W: Ipk steady 2.398 (median period 2.304) vs ref 2.253 / ref25 2.260 A | |mean i_L| 0.000 A (per period max 0.092) | P error +0.05 % | settle 36.00 ms | overshoot +12013 W | Ipk first 2 ms 21.464 A | phi 2.88 deg, p2p 0.48 deg
+
+r3_g0.5_SPS_300W_v2step (SPS, 84 V, Ts 25 ns, latch 1, Kp 1, Ki 24500; batch 377 s)
+     0-  36 ms    300 W: Ipk steady 2.398 (median period 2.304) vs ref 2.253 / ref25 2.260 A | |mean i_L| 0.001 A (per period max 0.092) | P error -0.02 % | settle nan ms | overshoot +12013 W | Ipk first 2 ms 21.464 A | phi 2.88 deg, p2p 0.48 deg
+
 smoke_100ns (SPS, 84 V, Ts 100 ns, latch 0, Kp 2, Ki 49000; batch 183 s)
      0-  10 ms   1000 W: Ipk steady 5.745 (median period 4.840) vs ref 4.376 / ref25 4.345 A | |mean i_L| 0.005 A (per period max 1.407) | P error -0.00 % | settle 1.71 ms | overshoot +9247 W | Ipk first 2 ms 21.154 A | phi 23.30 deg, p2p 0.65 deg
 
@@ -250,3 +286,60 @@ smoke summary: label | Ipk median - ref | Ipk max - ref | window |mean i_L| [A]
   smoke_25ns_latch_full  -0.011  +0.129  0.002
   smoke_25ns_latch       -0.011  +0.129  0.002
   smoke_25ns             +0.001  +0.102  0.001
+
+V2 moves at constant |P| (round 3, reported only): largest / median period peak [A], power error max / rms [W], V_LV at the window end
+  v2ramp 1000 W
+    hold 84 V          V_LV  84.59: SPS  4.505 /  4.366,    15 /    8 | M-B  4.466 /  4.294,     8 /    4 | M-S  4.407 /  4.336,    14 /    8
+    ramp up            V_LV 109.64: SPS  5.732 /  4.614,   176 /   20 | M-B  5.491 /  4.569,   169 /   23 | M-S  5.460 /  4.575,   183 /   23
+    hold 109.2 V       V_LV 109.66: SPS  4.768 /  4.768,    13 /    5 | M-B  4.624 /  4.608,    13 /    6 | M-S  4.641 /  4.625,    18 /    9
+    ramp down          V_LV  84.62: SPS  4.768 /  3.039,   205 /   28 | M-B  4.608 /  3.047,   218 /   33 | M-S  4.625 /  3.039,   214 /   32
+    hold 84 V          V_LV  84.59: SPS  4.502 /  4.361,    12 /    8 | M-B  4.466 /  4.294,     8 /    4 | M-S  4.407 /  4.336,    14 /    8
+  v2step 1000 W
+    hold 84 V          V_LV  84.59: SPS  4.505 /  4.361,    15 /    8 | M-B  4.466 /  4.295,     8 /    4 | M-S  4.407 /  4.336,    14 /    8
+    edge up + 2 ms     V_LV  95.52: SPS 15.847 /  3.333,  1590 /  530 | M-B 16.133 /  3.266,  1588 /  533 | M-S 16.192 /  3.308,  1588 /  535
+    hold 95 V          V_LV  95.52: SPS  3.378 /  3.219,    18 /   10 | M-B  3.251 /  3.212,     9 /    5 | M-S  3.350 /  3.224,    13 /    8
+    edge down + 2 ms   V_LV  84.59: SPS  5.862 /  4.361,  1496 /  379 | M-B  5.835 /  4.298,  1529 /  386 | M-S  5.801 /  4.334,  1526 /  386
+    hold 84 V          V_LV  84.59: SPS  4.505 /  4.361,    15 /    8 | M-B  4.466 /  4.295,     8 /    4 | M-S  4.407 /  4.336,    14 /    8
+  v2ramp 300 W
+    hold 84 V          V_LV  84.18: SPS  2.398 /  2.303,    18 /   12 | M-B  2.221 /  2.137,     5 /    2 | M-S  2.157 /  2.153,    14 /    6
+    ramp up            V_LV 109.32: SPS  3.584 /  2.386,   163 /   23 | M-B  3.606 /  2.346,   177 /   23 | M-S  3.610 /  2.337,   220 /   30
+    hold 109.2 V       V_LV 109.34: SPS  3.000 /  2.786,    17 /   10 | M-B  2.519 /  2.416,    15 /    7 | M-S  2.418 /  2.416,    14 /    7
+    ramp down          V_LV  84.19: SPS  2.774 /  1.061,   212 /   27 | M-B  2.415 /  1.017,   234 /   29 | M-S  2.416 /  0.974,   241 /   30
+    hold 84 V          V_LV  84.18: SPS  2.398 /  2.305,    18 /   12 | M-B  2.221 /  2.137,     5 /    2 | M-S  2.155 /  2.151,    14 /    6
+  v2step 300 W
+    hold 84 V          V_LV  84.18: SPS  2.398 /  2.304,    18 /   12 | M-B  2.220 /  2.137,     5 /    2 | M-S  2.152 /  2.149,    14 /    6
+    edge up + 2 ms     V_LV  95.14: SPS 11.245 /  1.055,  1794 /  472 | M-B 12.044 /  1.055,  1741 /  463 | M-S 11.907 /  1.056,  1739 /  476
+    hold 95 V          V_LV  95.18: SPS  1.054 /  0.844,    60 /   41 | M-B  1.054 /  0.843,    33 /   19 | M-S  1.025 /  0.943,    10 /    4
+    edge down + 2 ms   V_LV  84.18: SPS  8.698 /  2.343,  1580 /  414 | M-B  8.312 /  2.151,  1574 /  408 | M-S  8.528 /  2.166,  1566 /  407
+    hold 84 V          V_LV  84.18: SPS  2.398 /  2.305,    18 /   12 | M-B  2.218 /  2.137,     5 /    2 | M-S  2.152 /  2.149,    14 /    6
+
+the same runs, added after seeing them (not a verdict): mean bridge power -P_HV, mean source power -P_LV, mean C_LV V dV/dt [W] per window
+  v2ramp  1000 W hold 84 V         : M-B   1021   1000     +0 | M-S   1022   1000     +0 | SPS   1024   1000     -0
+  v2ramp  1000 W ramp up           : M-B   1258    986   +243 | M-S   1258    986   +243 | SPS   1267    993   +244
+  v2ramp  1000 W hold 109.2 V      : M-B   1018   1000     -0 | M-S   1019   1000     +0 | SPS   1022   1000     +0
+  v2ramp  1000 W ramp down         : M-B    785   1015   -243 | M-S    784   1015   -243 | SPS    778   1008   -244
+  v2ramp  1000 W hold 84 V         : M-B   1021   1000     +0 | M-S   1021   1000     -0 | SPS   1024   1000     +0
+  v2step  1000 W hold 84 V         : M-B   1021   1000     -0 | M-S   1021   1000     -1 | SPS   1023   1000     -1
+  v2step  1000 W edge up + 2 ms    : M-B   1381    939   +394 | M-S   1381    938   +394 | SPS   1383    941   +394
+  v2step  1000 W hold 95 V         : M-B   1021   1000     +0 | M-S   1021   1000     -0 | SPS   1021   1000     -0
+  v2step  1000 W edge down + 2 ms  : M-B    654   1028   -394 | M-S    654   1028   -393 | SPS    644   1016   -394
+  v2step  1000 W hold 84 V         : M-B   1021   1000     -0 | M-S   1021   1000     -1 | SPS   1024   1000     +1
+  v2ramp   300 W hold 84 V         : M-B    304    300     -0 | M-S    304    300     -0 | SPS    304    300     -0
+  v2ramp   300 W ramp up           : M-B    538    288   +243 | M-S    536    285   +243 | SPS    546    294   +243
+  v2ramp   300 W hold 109.2 V      : M-B    304    300     +0 | M-S    304    300     -0 | SPS    306    301     -1
+  v2ramp   300 W ramp down         : M-B     72    314   -243 | M-S     72    314   -243 | SPS     64    306   -243
+  v2ramp   300 W hold 84 V         : M-B    304    300     +0 | M-S    303    300     -0 | SPS    305    300     +0
+  v2step   300 W hold 84 V         : M-B    304    300     +0 | M-S    303    299     +0 | SPS    305    300     +1
+  v2step   300 W edge up + 2 ms    : M-B    712    297   +393 | M-S    704    288   +394 | SPS    716    299   +394
+  v2step   300 W hold 95 V         : M-B    304    300     -0 | M-S    303    300     +0 | SPS    301    299     -2
+  v2step   300 W edge down + 2 ms  : M-B    -63    320   -395 | M-S    -56    327   -394 | SPS    -62    317   -393
+  v2step   300 W hold 84 V         : M-B    304    300     +0 | M-S    303    300     -0 | SPS    305    300     +0
+settling after each V2 move: the 0.5 ms average power within max(2%, 5 W) of |P| [ms]
+  v2ramp  1000 W, move ends  16.0 ms: M-B  0.61 | M-S  0.61 | SPS  0.61
+  v2ramp  1000 W, move ends  32.0 ms: M-B  0.63 | M-S  0.61 | SPS  0.61
+  v2step  1000 W, move ends  12.5 ms: M-B  0.95 | M-S  0.95 | SPS  0.95
+  v2step  1000 W, move ends  25.0 ms: M-B  0.87 | M-S  0.87 | SPS  0.87
+  v2ramp   300 W, move ends  16.0 ms: M-B  0.69 | M-S  0.71 | SPS  0.78
+  v2ramp   300 W, move ends  32.0 ms: M-B  1.07 | M-S  0.66 | SPS  0.75
+  v2step   300 W, move ends  12.5 ms: M-B  1.82 | M-S  1.52 | SPS  3.16
+  v2step   300 W, move ends  25.0 ms: M-B  1.35 | M-S  0.92 | SPS  1.17
