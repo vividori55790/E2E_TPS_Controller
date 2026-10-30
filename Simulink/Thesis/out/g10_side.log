@@ -1,0 +1,69 @@
+g12_check: 25 ns statements at 12.5 ns and 10 ns; rules in the file header. Spread = 80-period peak max - min, larger of the two levels
+set     V2   |P|   ctrl | Ipk     25   12.5     10 | spread     25   12.5     10 | median     25   12.5     10
+  W   92.4   300    SPS | Ipk  1.114    nan  1.231 | spread  0.000    nan  0.155 | median  1.114    nan  1.165
+  W   92.4   300    M-B | Ipk  1.162    nan  1.187 | spread  0.083    nan  0.088 | median  1.146    nan  1.129
+  W   96.6   100    SPS | Ipk  0.521    nan  0.599 | spread  0.000    nan  0.092 | median  0.521    nan  0.572
+  W   96.6   100    M-B | Ipk  0.535    nan  0.605 | spread  0.000    nan  0.178 | median  0.535    nan  0.539
+  W   96.6   100    M-S | Ipk  0.656    nan  0.577 | spread  0.200    nan  0.112 | median  0.584    nan  0.521
+  W    105   400    SPS | Ipk  2.495    nan  2.652 | spread  0.000    nan  0.245 | median  2.495    nan  2.525
+  W    105   400    M-B | Ipk  2.598    nan  2.483 | spread  0.254    nan  0.138 | median  2.518    nan  2.415
+  W    105   400    M-S | Ipk  2.394    nan  2.475 | spread  0.000    nan  0.124 | median  2.394    nan  2.419
+  K     95   100    SPS | Ipk  0.297    nan  0.368 | spread  0.000    nan  0.085 | median  0.297    nan  0.316
+  K     95   100  D0.40 | Ipk  0.360    nan  0.418 | spread  0.000    nan  0.102 | median  0.360    nan  0.388
+  K     96   200    SPS | Ipk  0.728    nan  0.802 | spread  0.000    nan  0.092 | median  0.728    nan  0.792
+  K     96   200    M-S | Ipk  0.813    nan  0.826 | spread  0.104    nan  0.168 | median  0.722    nan  0.744
+  H     84   100    SPS | Ipk  1.747    nan  1.792 | spread  0.000    nan  0.057 | median  1.747    nan  1.776
+  H     84   100    M-B | Ipk  1.252    nan  1.262 | spread  0.000    nan  0.080 | median  1.252    nan  1.257
+  H     84   300    SPS | Ipk  2.260    nan  2.382 | spread  0.000    nan  0.154 | median  2.260    nan  2.312
+  H     84   300    M-B | Ipk  2.138    nan  2.164 | spread  0.000    nan  0.097 | median  2.138    nan  2.146
+  H     84  1000    SPS | Ipk  4.345    nan  4.457 | spread  0.000    nan  0.177 | median  4.345    nan  4.385
+  H     84  1000    M-B | Ipk  4.300    nan  4.371 | spread  0.000    nan  0.096 | median  4.300    nan  4.314
+  H  109.2   100    SPS | Ipk  2.269    nan  2.386 | spread  0.000    nan  0.193 | median  2.269    nan  2.307
+  H  109.2   100    M-B | Ipk  1.410    nan  1.455 | spread  0.085    nan  0.135 | median  1.373    nan  1.397
+  H  109.2   300    SPS | Ipk  2.783    nan  2.924 | spread  0.000    nan  0.198 | median  2.783    nan  2.819
+  H  109.2   300    M-B | Ipk  2.495    nan  2.462 | spread  0.104    nan  0.084 | median  2.392    nan  2.379
+  H  109.2  1000    SPS | Ipk  4.758    nan  4.856 | spread  0.000    nan  0.233 | median  4.758    nan  4.747
+  H  109.2  1000    M-B | Ipk  4.599    nan  4.668 | spread  0.000    nan  0.132 | median  4.599    nan  4.616
+  Q   96.6   150    M-S | Ipk  0.691    nan  0.755 | spread  0.000    nan  0.133 | median  0.691    nan  0.708
+  Q   96.6   150    D1+ | Ipk  0.656    nan  0.691 | spread  0.000    nan  0.084 | median  0.656    nan  0.691
+  Q  100.8   100    M-S | Ipk  1.013    nan  1.053 | spread  0.097    nan  0.180 | median  0.955    nan  0.970
+  Q  100.8   100    D1- | Ipk  0.972    nan  1.074 | spread  0.000    nan  0.163 | median  0.972    nan  1.013
+  Q  100.8   300    M-S | Ipk  1.662    nan  1.706 | spread  0.000    nan  0.115 | median  1.662    nan  1.651
+  Q  100.8   300    D1+ | Ipk  1.622    nan  1.655 | spread  0.000    nan  0.084 | median  1.622    nan  1.635
+  Q    105   100    M-S | Ipk  1.281    nan  1.243 | spread  0.105    nan  0.126 | median  1.176    nan  1.207
+  Q    105   100    D1+ | Ipk  1.174    nan  1.249 | spread  0.000    nan  0.088 | median  1.174    nan  1.213
+  Q    105   150    M-S | Ipk  1.516    nan  1.497 | spread  0.104    nan  0.084 | median  1.445    nan  1.466
+  Q    105   150    D2+ | Ipk  1.461    nan  1.520 | spread  0.000    nan  0.089 | median  1.461    nan  1.476
+  Q    105   200    M-S | Ipk  1.779    nan  1.748 | spread  0.104    nan  0.084 | median  1.675    nan  1.684
+  Q    105   200    D2- | Ipk  1.689    nan  1.760 | spread  0.000    nan  0.136 | median  1.689    nan  1.709
+  Q  109.2   200    M-S | Ipk  2.036    nan  2.002 | spread  0.104    nan  0.084 | median  1.945    nan  1.938
+  Q  109.2   200    D1+ | Ipk  1.945    nan  1.995 | spread  0.000    nan  0.145 | median  1.945    nan  1.948
+  Q  109.2   300    M-S | Ipk  2.494    nan  2.430 | spread  0.104    nan  0.083 | median  2.391    nan  2.379
+  Q  109.2   300    D1+ | Ipk  2.388    nan  2.468 | spread  0.000    nan  0.138 | median  2.388    nan  2.399
+  Q  109.2   400    M-S | Ipk  2.878    nan  2.832 | spread  0.104    nan  0.084 | median  2.775    nan  2.790
+  Q  109.2   400    D2- | Ipk  2.771    nan  2.834 | spread  0.000    nan  0.103 | median  2.771    nan  2.779
+spread at 25 ns: 13/42 configurations non-periodic, median 0.000 A, max 0.254 A; V1 Ts / L = 0.106 A
+    SPS: 0/11 non-periodic, median 0.000, range 0.000-0.000 A
+    M-B: 4/9 non-periodic, median 0.000, range 0.000-0.254 A
+    M-S: 9/12 non-periodic, median 0.104, range 0.000-0.200 A
+spread at 10 ns: 42/42 configurations non-periodic, median 0.114 A, max 0.245 A; V1 Ts / L = 0.042 A
+    SPS: 11/11 non-periodic, median 0.155, range 0.057-0.245 A
+    M-B: 9/9 non-periodic, median 0.097, range 0.080-0.178 A
+    M-S: 12/12 non-periodic, median 0.114, range 0.083-0.180 A
+
+M  statements on the median of the 80 period peaks (reported, never a verdict):
+   T2 on medians, 10 ns: 25 ns +0.351 A, 10 ns +0.373 A -> converged
+   W   92.4 V   300 W SPS lower than M-B: +0.032 A at 25 ns -> -0.036 A at 10 ns (tol 0.030): reversed
+   W   96.6 V   100 W SPS lower than M-S: +0.063 A at 25 ns -> -0.051 A at 10 ns (tol 0.030): reversed
+   W   96.6 V   100 W M-B lower than M-S: +0.049 A at 25 ns -> -0.018 A at 10 ns (tol 0.030): gone
+   W    105 V   400 W M-S lower than SPS: +0.100 A at 25 ns -> +0.106 A at 10 ns (tol 0.051): kept
+   W    105 V   400 W M-S lower than M-B: +0.124 A at 25 ns -> -0.005 A at 10 ns (tol 0.051): gone
+   K     95 V   100 W SPS lower than D0.40: +0.063 A at 25 ns -> +0.073 A at 10 ns (tol 0.030): kept
+   H     84 V   100 W M-B lower than SPS: +0.495 A at 25 ns -> +0.518 A at 10 ns (tol 0.036): kept
+   H     84 V   300 W M-B lower than SPS: +0.122 A at 25 ns -> +0.167 A at 10 ns (tol 0.046): kept
+   H  109.2 V   100 W M-B lower than SPS: +0.897 A at 25 ns -> +0.910 A at 10 ns (tol 0.046): kept
+   H  109.2 V   300 W M-B lower than SPS: +0.391 A at 25 ns -> +0.440 A at 10 ns (tol 0.056): kept
+   H  109.2 V  1000 W M-B lower than SPS: +0.158 A at 25 ns -> +0.130 A at 10 ns (tol 0.095): kept
+   Q   96.6 V   150 W D1+ lower than M-S: +0.036 A at 25 ns -> +0.018 A at 10 ns (tol 0.030): gone
+   Q  100.8 V   300 W D1+ lower than M-S: +0.040 A at 25 ns -> +0.016 A at 10 ns (tol 0.033): gone
+   counts at 10 ns: kept 7, gone 4, reversed 2, undecidable 0; Q1 statements kept 0, gone 2, reversed 2, undecidable 0
