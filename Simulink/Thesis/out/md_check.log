@@ -1,0 +1,151 @@
+md_check: M-D at 25 ns, 20 ms window, Ipk at |P| (A); rules in the file header
+set     V2   |P| |    SPS    M-B    M-S    M-D | med:    SPS    M-B    M-S    M-D |   tol vs M-B  vs M-S (rule)
+  H   86.1   125 |  1.523  1.255  1.255  1.254 | med:  1.523  1.255  1.255  1.254 | 0.030 same        same       
+  H   86.1   175 |  1.650  1.476  1.476  1.475 | med:  1.650  1.476  1.476  1.475 | 0.033 same        same       
+  H   86.1   250 |  1.843  1.753  1.752  1.752 | med:  1.843  1.753  1.752  1.752 | 0.037 same        same       
+  H   86.1   350 |  2.106  2.061  2.058  2.059 | med:  2.106  2.061  2.058  2.059 | 0.042 same        same       
+  H   86.1   500 |  2.517  2.499  2.499  2.499 | med:  2.517  2.499  2.499  2.499 | 0.050 same        same       
+  H   86.1   900 |  3.718  3.688  3.687  3.686 | med:  3.718  3.688  3.687  3.686 | 0.074 same        same       
+  H   90.3   125 |  0.950  0.901  0.901  0.901 | med:  0.950  0.901  0.901  0.901 | 0.030 same        same       
+  H   90.3   175 |  1.076  1.059  1.059  1.059 | med:  1.076  1.059  1.059  1.059 | 0.030 same        same       
+  H   90.3   250 |  1.269  1.263  1.263  1.263 | med:  1.269  1.263  1.263  1.263 | 0.030 same        same       
+  H   90.3   350 |  1.534  1.524  1.547  1.524 | med:  1.534  1.524  1.547  1.524 | 0.031 same        same       
+  H   90.3   500 |  1.943  1.956  1.956  1.956 | med:  1.943  1.956  1.956  1.956 | 0.039 same        same       
+  H   90.3   900 |  3.134  3.129  3.129  3.129 | med:  3.134  3.129  3.129  3.129 | 0.063 same        same       
+  H   94.5   125 |  0.383  0.383  0.383  0.383 | med:  0.383  0.383  0.383  0.383 | 0.030 same        same       
+  H   94.5   175 |  0.511  0.511  0.511  0.511 | med:  0.511  0.511  0.511  0.511 | 0.030 same        same       
+  H   94.5   250 |  0.706  0.706  0.706  0.706 | med:  0.706  0.706  0.706  0.706 | 0.030 same        same       
+  H   94.5   350 |  0.995  0.995  0.995  0.995 | med:  0.995  0.995  0.995  0.995 | 0.030 same        same       
+  H   94.5   500 |  1.444  1.444  1.444  1.444 | med:  1.444  1.444  1.444  1.444 | 0.030 same        same       
+  H   94.5   900 |  2.783  2.783  2.783  2.783 | med:  2.783  2.783  2.783  2.783 | 0.056 same        same       
+  H   98.7   125 |  0.879  0.887  0.938  0.859 | med:  0.879  0.885  0.918  0.859 | 0.030 same        better     
+  H   98.7   175 |  1.020  1.120  1.044~ 1.120 | med:  1.020  1.068  1.043  1.068 | 0.030 same        fixes_osc  
+  H   98.7   250 |  1.238  1.255  1.232  1.256 | med:  1.238  1.255  1.232  1.256 | 0.030 same        same       
+  H   98.7   350 |  1.530  1.591  1.591  1.591 | med:  1.530  1.590  1.590  1.590 | 0.031 same        same       
+  H   98.7   500 |  1.976  1.957  1.957  1.957 | med:  1.976  1.957  1.957  1.957 | 0.040 same        same       
+  H   98.7   900 |  3.245  3.224  3.224  3.224 | med:  3.245  3.224  3.224  3.224 | 0.065 same        same       
+  H  102.9   125 |  1.459  1.284~ 1.290  1.284~| med:  1.459  1.228  1.186  1.228 | 0.030 undecidable new_osc    
+  H  102.9   175 |  1.594  1.430  1.472  1.448 | med:  1.594  1.430  1.410  1.416 | 0.032 same        same       
+  H  102.9   250 |  1.800  1.747~ 1.778  1.778 | med:  1.800  1.736  1.692  1.692 | 0.036 fixes_osc   same       
+  H  102.9   350 |  2.079  2.094~ 2.094~ 2.135 | med:  2.079  2.068  2.068  2.105 | 0.042 fixes_osc   fixes_osc  
+  H  102.9   500 |  2.510  2.450  2.559~ 2.559~| med:  2.510  2.450  2.538  2.538 | 0.050 new_osc     undecidable
+  H  102.9   900 |  3.721  3.661  3.659  3.661 | med:  3.721  3.661  3.659  3.661 | 0.074 same        same       
+  H  107.1   125 |  2.041  1.509~ 1.431  1.502 | med:  2.041  1.464  1.431  1.433 | 0.041 fixes_osc   worse      
+  H  107.1   175 |  2.170  1.722  1.695  1.800 | med:  2.170  1.722  1.695  1.699 | 0.043 worse       worse      
+  H  107.1   250 |  2.368  2.053  2.140  2.140 | med:  2.368  2.053  2.036  2.036 | 0.047 worse       same       
+  H  107.1   350 |  2.634  2.457  2.549~ 2.522 | med:  2.634  2.441  2.518  2.419 | 0.053 worse       fixes_osc  
+  H  107.1   500 |  3.044  2.928  2.909  2.923 | med:  3.044  2.928  2.909  2.922 | 0.061 same        same       
+  H  107.1   900 |  4.211  4.090  4.101  4.085 | med:  4.211  4.090  4.101  4.085 | 0.084 same        same       
+  H   95.0   100 |  0.297  0.297  0.297  0.297 | med:  0.297  0.297  0.297  0.297 | 0.030 same        same       
+  H   95.0   300 |  0.895  0.895  0.894  0.894 | med:  0.895  0.895  0.894  0.894 | 0.030 same        same       
+  H   95.0   600 |  1.824  1.824  1.824  1.824 | med:  1.824  1.824  1.824  1.824 | 0.036 same        same       
+  H   95.0  1000 |  3.193  3.193  3.193  3.193 | med:  3.193  3.193  3.193  3.193 | 0.064 same        same       
+  H  108.7   179 |  2.401  1.934  1.810  1.870 | med:  2.401  1.885  1.810  1.812 | 0.048 better      worse      
+  H  106.8   451 |  2.871  2.732  2.750  2.750 | med:  2.871  2.732  2.750  2.750 | 0.057 same        same       
+  H   88.5   212 |  1.418  1.373  1.373  1.373 | med:  1.418  1.373  1.373  1.373 | 0.030 same        same       
+  H   89.3   247 |  1.398  1.381  1.381  1.381 | med:  1.398  1.381  1.381  1.381 | 0.030 same        same       
+  H   85.1   223 |  1.910  1.754  1.752  1.752 | med:  1.910  1.754  1.752  1.752 | 0.038 same        same       
+  H  106.4   974 |  4.356  4.245  4.245  4.245 | med:  4.356  4.245  4.245  4.245 | 0.087 same        same       
+  H   91.3   855 |  2.852  2.850  2.850  2.850 | med:  2.852  2.850  2.850  2.850 | 0.057 same        same       
+  H   84.1   334 |  2.337  2.240  2.264  2.236 | med:  2.337  2.240  2.256  2.236 | 0.047 same        same       
+  M   84.0   100 |  1.747  1.252  1.252  1.252 | med:  1.747  1.252  1.252  1.252 | 0.035 same        same       
+  M   84.0   150 |  1.872  1.527  1.526  1.527 | med:  1.872  1.527  1.526  1.527 | 0.037 same        same       
+  M   84.0   200 |  2.001  1.757  1.757  1.756 | med:  2.001  1.757  1.757  1.756 | 0.040 same        same       
+  M   84.0   300 |  2.260  2.138  2.136  2.134 | med:  2.260  2.138  2.136  2.134 | 0.045 same        same       
+  M   84.0   400 |  2.528  2.453  2.451  2.449 | med:  2.528  2.453  2.451  2.449 | 0.051 same        same       
+  M   84.0   600 |  3.091  3.056  3.047  3.038 | med:  3.091  3.056  3.047  3.038 | 0.062 same        same       
+  M   84.0   800 |  3.693  3.638  3.656  3.648 | med:  3.693  3.638  3.656  3.648 | 0.074 same        same       
+  M   84.0  1000 |  4.345  4.300  4.300  4.300 | med:  4.345  4.300  4.300  4.300 | 0.087 same        same       
+  M   88.2   100 |  1.174  0.981  0.981  0.979 | med:  1.174  0.981  0.981  0.979 | 0.030 same        same       
+  M   88.2   150 |  1.299  1.191  1.191  1.190 | med:  1.299  1.191  1.191  1.190 | 0.030 same        same       
+  M   88.2   200 |  1.428  1.367  1.367  1.367 | med:  1.428  1.367  1.367  1.367 | 0.030 same        same       
+  M   88.2   300 |  1.686  1.663  1.663  1.663 | med:  1.686  1.663  1.663  1.663 | 0.034 same        same       
+  M   88.2   400 |  1.954  1.955~ 1.939  1.939 | med:  1.954  1.942  1.939  1.939 | 0.039 fixes_osc   same       
+  M   88.2   600 |  2.514  2.494  2.494  2.494 | med:  2.514  2.494  2.494  2.494 | 0.050 same        same       
+  M   88.2   800 |  3.110  3.093  3.093  3.093 | med:  3.110  3.093  3.093  3.093 | 0.062 same        same       
+  M   88.2  1000 |  3.754  3.740  3.740  3.740 | med:  3.754  3.740  3.740  3.740 | 0.075 same        same       
+  M   92.4   100 |  0.601  0.596  0.595  0.595 | med:  0.601  0.596  0.595  0.595 | 0.030 same        same       
+  M   92.4   150 |  0.728  0.730  0.730  0.732 | med:  0.728  0.730  0.730  0.732 | 0.030 same        same       
+  M   92.4   200 |  0.857  0.854  0.854  0.857 | med:  0.857  0.854  0.854  0.857 | 0.030 same        same       
+  M   92.4   300 |  1.114  1.162  1.162  1.162 | med:  1.114  1.146  1.146  1.146 | 0.030 same        same       
+  M   92.4   400 |  1.382  1.405  1.405  1.382 | med:  1.382  1.405  1.405  1.382 | 0.030 same        same       
+  M   92.4   600 |  1.938  1.938  1.938  1.938 | med:  1.938  1.938  1.938  1.938 | 0.039 same        same       
+  M   92.4   800 |  2.531  2.530  2.530  2.530 | med:  2.531  2.530  2.530  2.530 | 0.051 same        same       
+  M   92.4  1000 |  3.165  3.166  3.166  3.166 | med:  3.165  3.166  3.166  3.166 | 0.063 same        same       
+  M   96.6   100 |  0.521  0.535  0.656  0.536 | med:  0.521  0.535  0.584  0.536 | 0.030 same        better     
+  M   96.6   150 |  0.665  0.665  0.691  0.676 | med:  0.665  0.665  0.691  0.676 | 0.030 same        same       
+  M   96.6   200 |  0.809  0.809  0.827  0.852~| med:  0.809  0.809  0.827  0.833 | 0.030 new_osc     new_osc    
+  M   96.6   300 |  1.105  1.101  1.106  1.101 | med:  1.105  1.101  1.106  1.101 | 0.030 same        same       
+  M   96.6   400 |  1.404  1.395  1.395  1.395 | med:  1.404  1.395  1.395  1.395 | 0.030 same        same       
+  M   96.6   600 |  2.020  2.016  2.016  2.016 | med:  2.020  2.016  2.016  2.016 | 0.040 same        same       
+  M   96.6   800 |  2.673  2.665  2.665  2.665 | med:  2.673  2.665  2.665  2.665 | 0.053 same        same       
+  M   96.6  1000 |  3.361  3.354  3.354  3.354 | med:  3.361  3.354  3.354  3.354 | 0.067 same        same       
+  M  100.8   100 |  1.101  1.013  1.013  0.934 | med:  1.101  0.955  0.955  0.933 | 0.030 better      better     
+  M  100.8   150 |  1.237  1.328~ 1.328~ 1.299 | med:  1.237  1.243  1.243  1.241 | 0.030 fixes_osc   fixes_osc  
+  M  100.8   200 |  1.377  1.337  1.337  1.337 | med:  1.377  1.337  1.337  1.337 | 0.030 same        same       
+  M  100.8   300 |  1.659  1.662  1.662  1.636 | med:  1.659  1.662  1.662  1.626 | 0.033 same        same       
+  M  100.8   400 |  1.950  1.916  1.916  1.916 | med:  1.950  1.916  1.916  1.916 | 0.039 same        same       
+  M  100.8   600 |  2.544  2.506  2.505  2.505 | med:  2.544  2.506  2.505  2.505 | 0.051 same        same       
+  M  100.8   800 |  3.159  3.123  3.120  3.123 | med:  3.159  3.123  3.120  3.123 | 0.063 same        same       
+  M  100.8  1000 |  3.814  3.776  3.776  3.776 | med:  3.814  3.776  3.776  3.776 | 0.076 same        same       
+  M  105.0   100 |  1.685  1.220  1.281  1.182 | med:  1.685  1.220  1.176  1.177 | 0.034 better      better     
+  M  105.0   150 |  1.815  1.468  1.516  1.549 | med:  1.815  1.468  1.445  1.445 | 0.036 worse       same       
+  M  105.0   200 |  1.949  1.844  1.779  1.777 | med:  1.949  1.696  1.675  1.673 | 0.039 better      same       
+  M  105.0   300 |  2.219  2.176  2.083  2.176 | med:  2.219  2.139  2.083  2.139 | 0.044 same        worse      
+  M  105.0   400 |  2.495  2.598  2.394  2.554 | med:  2.495  2.518  2.394  2.493 | 0.050 same        worse      
+  M  105.0   600 |  3.119~ 2.979  2.977  2.977 | med:  3.117  2.979  2.977  2.977 | 0.060 same        same       
+  M  105.0   800 |  3.736~ 3.572  3.637~ 3.572 | med:  3.734  3.572  3.617  3.572 | 0.071 same        fixes_osc  
+  M  105.0  1000 |  4.278  4.189  4.189  4.189 | med:  4.278  4.189  4.189  4.189 | 0.086 same        same       
+  M  109.2   100 |  2.269  1.410  1.386  1.424 | med:  2.269  1.373  1.386  1.371 | 0.045 same        same       
+  M  109.2   150 |  2.395  1.708  1.686  1.786 | med:  2.395  1.708  1.686  1.682 | 0.048 worse       worse      
+  M  109.2   200 |  2.524  2.000  2.036  1.947 | med:  2.524  1.969  1.945  1.947 | 0.050 better      better     
+  M  109.2   300 |  2.783  2.495  2.494  2.388 | med:  2.783  2.392  2.391  2.388 | 0.056 better      better     
+  M  109.2   400 |  3.048  2.875  2.878  2.771 | med:  3.048  2.772  2.775  2.771 | 0.061 better      better     
+  M  109.2   600 |  3.592  3.439  3.417  3.416 | med:  3.592  3.439  3.417  3.416 | 0.072 same        same       
+  M  109.2   800 |  4.165  4.062  4.012  4.098~| med:  4.165  4.059  4.012  4.043 | 0.083 new_osc     new_osc    
+  M  109.2  1000 |  4.758  4.599  4.602  4.602 | med:  4.758  4.599  4.602  4.602 | 0.095 same        same       
+(~ = oscillating, |mean i_L| > 20 mA; - = not bracketed yet)
+
+Decisive: the hold-out set H
+   H A(M-B, rule): fail; mean gain -0.004 A over 43 points; better 1 + fixes_osc 3 vs worse 3 + new_osc 1, same 39, decidable 47/48
+   H A(M-B, med): fail; mean gain +0.004 A over 43 points; better 1 + fixes_osc 3 vs worse 0 + new_osc 1, same 42, decidable 47/48
+   H A(M-S, rule): fail; mean gain -0.002 A over 43 points; better 1 + fixes_osc 3 vs worse 3 + new_osc 1, same 39, decidable 47/48
+   H A(M-S, med): fail; mean gain +0.002 A over 43 points; better 1 + fixes_osc 3 vs worse 0 + new_osc 1, same 42, decidable 47/48
+
+Reported, not a verdict: the map M (in-sample, anchors picked as the lowest of several candidates)
+   M A(M-B, rule): fail; mean gain +0.008 A over 52 points; better 6 + fixes_osc 2 vs worse 2 + new_osc 2, same 44, decidable 56/56
+   M A(M-B, med): fail; mean gain +0.005 A over 52 points; better 2 + fixes_osc 2 vs worse 0 + new_osc 2, same 50, decidable 56/56
+   M A(M-S, rule): fail; mean gain +0.005 A over 52 points; better 6 + fixes_osc 2 vs worse 3 + new_osc 2, same 43, decidable 56/56
+   M A(M-S, med): fail; mean gain +0.001 A over 52 points; better 2 + fixes_osc 2 vs worse 2 + new_osc 2, same 48, decidable 56/56
+
+Goal 3 on H + M (points above SPS beyond tol):
+   C(rule): M-D 6, M-B 4, M-S 4 -> fails
+      M-B: 98.7 V 175 W (1.120 vs 1.020 A), 98.7 V 350 W (1.591 vs 1.530 A), 92.4 V 300 W (1.162 vs 1.114 A), 105 V 400 W (2.598 vs 2.495 A)
+      M-S: 98.7 V 125 W (0.938 vs 0.879 A), 98.7 V 350 W (1.591 vs 1.530 A), 92.4 V 300 W (1.162 vs 1.114 A), 96.6 V 100 W (0.656 vs 0.521 A)
+      M-D: 98.7 V 175 W (1.120 vs 1.020 A), 98.7 V 350 W (1.591 vs 1.530 A), 102.9 V 350 W (2.135 vs 2.079 A), 92.4 V 300 W (1.162 vs 1.114 A), 100.8 V 150 W (1.299 vs 1.237 A), 105 V 400 W (2.554 vs 2.495 A)
+   C(med): M-D 3, M-B 3, M-S 4 -> holds
+      M-B: 98.7 V 175 W (1.068 vs 1.020 A), 98.7 V 350 W (1.590 vs 1.530 A), 92.4 V 300 W (1.146 vs 1.114 A)
+      M-S: 98.7 V 125 W (0.918 vs 0.879 A), 98.7 V 350 W (1.590 vs 1.530 A), 92.4 V 300 W (1.146 vs 1.114 A), 96.6 V 100 W (0.584 vs 0.521 A)
+      M-D: 98.7 V 175 W (1.068 vs 1.020 A), 98.7 V 350 W (1.590 vs 1.530 A), 92.4 V 300 W (1.146 vs 1.114 A)
+
+VERDICT: no_gain
+
+Reported, not a verdict:
+   H, rule: SPS - M-B over 44 clean points: mean +0.069 A (median +0.019), +3.1 % of SPS; loss -0.88 W
+   H, rule: SPS - M-S over 44 clean points: mean +0.083 A (median +0.020), +3.9 % of SPS; loss -0.88 W
+   H, rule: SPS - M-D over 46 clean points: mean +0.073 A (median +0.019), +3.3 % of SPS; loss -0.90 W
+   H, med: SPS - M-B over 44 clean points: mean +0.072 A (median +0.019), +3.2 % of SPS; loss -0.88 W
+   H, med: SPS - M-S over 44 clean points: mean +0.092 A (median +0.020), +4.4 % of SPS; loss -0.88 W
+   H, med: SPS - M-D over 46 clean points: mean +0.086 A (median +0.019), +4.0 % of SPS; loss -0.90 W
+   H, rule: M-B - M-S (the map's Q4 off the map): mean -0.001 A over 41 points
+   H, med: M-B - M-S (the map's Q4 off the map): mean +0.002 A over 41 points
+   H subset G: 36 points, mean gain against M-B -0.007 A (rule), +0.004 A (median); against M-S -0.002, +0.002 A
+   H subset R4: 4 points, mean gain against M-B +0.000 A (rule), +0.000 A (median); against M-S +0.000, +0.000 A
+   H subset RND: 8 points, mean gain against M-B +0.006 A (rule), +0.007 A (median); against M-S -0.004, +0.002 A
+   H V2 <= 92: 17 points, mean gain against M-B +0.001 A (rule), +0.001 A (median)
+   H 92 < V2 < 100: 16 points, mean gain against M-B +0.002 A (rule), +0.002 A (median)
+   H V2 >= 100: 15 points, mean gain against M-B -0.019 A (rule), +0.014 A (median)
+   H |P| <= 350 W: 31 points, mean gain against M-B -0.005 A (rule), +0.007 A (median)
+   H |P| > 350 W: 17 points, mean gain against M-B -0.000 A (rule), -0.000 A (median)
+   M, rule: M-D - best map candidate over 51 points: mean +0.013 A, median +0.000, largest +0.165 A; above tol at 6 points
+   M, med: M-D - best map candidate over 51 points: mean +0.006 A, median +0.000, largest +0.104 A; above tol at 3 points

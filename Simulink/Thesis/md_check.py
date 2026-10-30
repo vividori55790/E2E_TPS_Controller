@@ -519,6 +519,13 @@ def compare():
         o(f"   H {lab}: {len(m)} points, mean gain against M-B {m['gain_MB_rule'].mean():+.3f} A (rule), {m['gain_MB_med'].mean():+.3f} A (median)")
     for lab, m in (("|P| <= 350 W", H[H["P"] <= 350]), ("|P| > 350 W", H[H["P"] > 350])):
         o(f"   H {lab}: {len(m)} points, mean gain against M-B {m['gain_MB_rule'].mean():+.3f} A (rule), {m['gain_MB_med'].mean():+.3f} A (median)")
+    for kind, pre, name, q1, gp in (("rule", "I", "r13_points.csv", "q1", "gap"), ("med", "med", "r13_points_med.csv", "q1_med", "gap_med")):
+        q = pd.read_csv(os.path.join(OUT, name))
+        q = q[q[q1] != "undecidable"].assign(best_val=lambda x: x[f"{pre}_MS"] - x[gp])[["V2", "P", "best_val"]].merge(M, on=["V2", "P"])
+        q = q[q["osc_MD"] <= OSC]
+        g = q[f"{pre}_MD"] - q["best_val"]
+        o(f"   M, {kind}: M-D - best map candidate over {len(q)} points: mean {g.mean():+.3f} A, median {g.median():+.3f}, largest {g.max():+.3f} A; "
+          f"above tol at {int((g > q[f'tol_{kind}']).sum())} points")
     open(os.path.join(OUT, "md_check.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
     KO = {"adopt": "채택", "partial": "부분", "no_gain": "이득 없음", "undecidable": "판정 불가", "too_rough": "매끄러움 실패"}
     md = ["# R13 2단계: 재학습 곡면 M-D의 판정 (자동 생성)", "",
@@ -582,13 +589,83 @@ def fig(R):
     plt.close(f)
 
 
+def figk():
+    """SPS - M-B against k on the map and the hold-out set together, 22 V2 values instead of 7 (added 10-31 08:12 after the verdict,
+    never a verdict) -> out/fig_md_k.png, out/md_k.log, out/md_k.csv"""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import pandas as pd
+    from matplotlib.lines import Line2D
+    from evaluate import AQUA, BLUE, INK2, MUTED, ORANGE, _style
+    _style(plt)
+    R = pd.read_csv(os.path.join(OUT, "md_check.csv"))
+    R = R[(R["osc_MB"] <= OSC) & (R["osc_SPS"] <= OSC) & R["I_MB"].notna() & R["I_SPS"].notna()].copy()
+    R["k"] = 4 * R["V2"] / 380.0
+    R["x"] = np.abs(1.0 - R["k"])
+    for kind, pre in (("rule", "I"), ("med", "med")):
+        R[f"dI_{kind}"] = R[f"{pre}_SPS"] - R[f"{pre}_MB"]
+    rows, lines = [], []
+
+    def o(x=""):
+        print(x, flush=True)
+        lines.append(x)
+    o("SPS - M-B per V2, map + hold-out, clean points (A); above = M-B above SPS by more than tol, below = M-B below SPS by more than tol")
+    o(f"{'V2':>6} {'k':>6} {'n':>3} | med: {'mean':>7} {'min':>7} {'max':>7} {'above':>5} {'below':>5} | rule: {'mean':>7} {'above':>5} {'below':>5} | {'loss':>6} W | off SPS")
+    for v, g in R.groupby("V2"):
+        rec = dict(V2=v, k=4 * v / 380.0, n=len(g))
+        for kind in ("rule", "med"):
+            d, t = g[f"dI_{kind}"], g[f"tol_{kind}"]
+            rec.update({f"mean_{kind}": d.mean(), f"min_{kind}": d.min(), f"max_{kind}": d.max(), f"above_{kind}": int((d < -t).sum()), f"below_{kind}": int((d > t).sum())})
+        rec["loss"] = (g["loss_MB"] - g["loss_SPS"]).mean()
+        rec["off"] = int((g[["D1_MB", "D2_MB"]].min(axis=1) < 0.497).sum())
+        rows.append(rec)
+        o(f"{v:6g} {rec['k']:6.3f} {len(g):3d} | med: {rec['mean_med']:+7.3f} {rec['min_med']:+7.3f} {rec['max_med']:+7.3f} {rec['above_med']:5d} {rec['below_med']:5d} | "
+          f"rule: {rec['mean_rule']:+7.3f} {rec['above_rule']:5d} {rec['below_rule']:5d} | {rec['loss']:+6.2f} W | {rec['off']}/{len(g)}")
+    pd.DataFrame(rows).to_csv(os.path.join(OUT, "md_k.csv"), index=False, float_format="%.6g")
+    for lim in (0.03, 0.04, 0.05, 0.06):
+        b = R[R["x"] <= lim]
+        o(f"|1 - k| <= {lim:.2f}: {len(b)} points, V2 {b['V2'].min():g}-{b['V2'].max():g} V; median kind mean {b['dI_med'].mean():+.3f} A, above tol {int((b['dI_med'] < -b['tol_med']).sum())}, "
+          f"below tol {int((b['dI_med'] > b['tol_med']).sum())}; rule mean {b['dI_rule'].mean():+.3f} A, above {int((b['dI_rule'] < -b['tol_rule']).sum())}, below {int((b['dI_rule'] > b['tol_rule']).sum())}; "
+          f"loss {(b['loss_MB'] - b['loss_SPS']).mean():+.2f} W")
+    open(os.path.join(OUT, "md_k.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
+    groups = (("|P| ≤ 200 W", R["P"] <= 200, BLUE, "o"), ("250–500 W", (R["P"] > 200) & (R["P"] <= 500), ORANGE, "s"), ("600–1000 W", R["P"] > 500, AQUA, "^"))
+    S = "#fcfcfb"
+    f, ax = plt.subplots(1, 2, figsize=(11.5, 4.6))
+    for a, ylim in zip(ax, ((-0.15, 1.05), (-0.11, 0.11))):
+        a.axhline(0.0, color=MUTED, lw=0.8, zorder=1)
+        a.axhspan(-0.03, 0.03, color="#eeede8", lw=0, zorder=0)
+        for _, mask, c, m in groups:
+            for st, hollow in (("M", False), ("H", True)):
+                g = R[mask & (R["set"] == st)]
+                if hollow:
+                    a.scatter(g["k"], g["dI_med"], s=42, marker=m, facecolors=S, edgecolors=c, linewidths=1.4, zorder=3)
+                else:
+                    a.scatter(g["k"], g["dI_med"], s=42, marker=m, color=c, edgecolors=S, linewidths=0.8, zorder=3)
+        a.set_ylim(*ylim)
+        a.set_xlabel("k = n·V2 / V1")
+    ax[0].set_ylabel("Ipk(SPS) − Ipk(controller B), median period peak [A]")
+    ax[0].set_title("All clean points", loc="left")
+    ax[1].set_xlim(0.93, 1.07)
+    ax[1].set_title("Around k = 1: grey band = ±0.03 A, the smallest tolerance of the rules", loc="left")
+    hs = [Line2D([], [], ls="", marker=m, color=c, markeredgecolor=S, ms=7, label=n) for n, _, c, m in groups]
+    hs += [Line2D([], [], ls="", marker="o", color=INK2, markeredgecolor=S, ms=7, label="map (56 points)"),
+           Line2D([], [], ls="", marker="o", markerfacecolor=S, markeredgecolor=INK2, markeredgewidth=1.4, ms=7, label="hold-out (48 points, never anchors)")]
+    ax[0].legend(handles=hs, fontsize=8.5, frameon=False, loc="upper center")
+    f.suptitle("Simulink steady state, 25 ns grid, HV→LV: no saving within about ±4 % of k = 1, and controller B can sit above SPS there", fontsize=11)
+    f.tight_layout()
+    f.savefig(os.path.join(OUT, "fig_md_k.png"), dpi=130)
+    plt.close(f)
+    print("wrote out/md_k.{log,csv}, out/fig_md_k.png")
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["selftest", "anchors", "smooth", "predict", "make", "next", "compare"])
+    ap.add_argument("cmd", choices=["selftest", "anchors", "smooth", "predict", "make", "next", "compare", "figk"])
     a = ap.parse_args()
     if a.cmd == "selftest":
         sys.exit(0 if selftest() else 1)
-    {"anchors": anchors, "smooth": smooth, "predict": predict, "make": make, "next": next_round, "compare": compare}[a.cmd]()
+    {"anchors": anchors, "smooth": smooth, "predict": predict, "make": make, "next": next_round, "compare": compare, "figk": figk}[a.cmd]()
 
 
 if __name__ == "__main__":

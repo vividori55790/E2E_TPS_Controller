@@ -1,0 +1,55 @@
+label,ctrl,V2,P_target,level,D0,D1,D2,Ts,variant,tp_ns,TT_ns,Ipk_sim,iL_mean,iL_rms,P_LV,P_HV,V_LV,V_HV,Ipk_at_10ms,Ipk_at_15ms,Ipk_at_16ms,Ipk_at_17ms,Ipk_at_18ms,Ipk_at_19ms,Ipk_at_20ms,P_LV_at_10ms,P_LV_at_15ms,P_LV_at_16ms,P_LV_at_17ms,P_LV_at_18ms,P_LV_at_19ms,P_LV_at_20ms,error
+H10 SPS 1000W 109.2V L7 T10 ctl,SPS,109.2,1000,7,20.1599,0.4999999,0.4999999,1e-08,ctl,30,16,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,"'<a href=""matlab:open_and_hilite_hyperlink ('Control_Logic_dataset_era/From Workspace','error')"">Control_Logic_dataset_era/From Workspace</a>'에서 파라미터 'VariableName'에 대한 설정이 유효하지 않습니다.
+원인:
+    '<a href=""matlab:open_and_hilite_hyperlink ('Control_Logic_dataset_era/From Workspace','error')"">Control_Logic_dataset_era/From Workspace</a>'에서 파라미터 <a href=""matlab:Simulink.internal.OpenBlockParamsDialog(['Control_Logic_dataset_era/From Workspace'],'VariableName');"">'VariableName'</a>을(를) 평가하는 중 오류가 발생함
+        'Ref_VH'은(는) 인식할 수 없는 함수 또는 변수입니다.
+            변수 'Ref_VH'이(가) 기본 작업 공간에서 삭제되었습니다. 
+Suggested Actions:
+    • 파일을 기본 작업 공간으로 불러오십시오. - Fix
+    • 새 변수를 생성하십시오. - Fix
+"
+W2 SPS 400W 105V L3 T10 tp35,SPS,105,400,3,8.6399,0.4999999,0.4999999,1e-08,tp35,35,16,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,"'<a href=""matlab:open_and_hilite_hyperlink ('Control_Logic_dataset_era/From Workspace','error')"">Control_Logic_dataset_era/From Workspace</a>'에서 파라미터 'VariableName'에 대한 설정이 유효하지 않습니다.
+원인:
+    '<a href=""matlab:open_and_hilite_hyperlink ('Control_Logic_dataset_era/From Workspace','error')"">Control_Logic_dataset_era/From Workspace</a>'에서 파라미터 <a href=""matlab:Simulink.internal.OpenBlockParamsDialog(['Control_Logic_dataset_era/From Workspace'],'VariableName');"">'VariableName'</a>을(를) 평가하는 중 오류가 발생함
+        'Ref_VH'은(는) 인식할 수 없는 함수 또는 변수입니다.
+            변수 'Ref_VH'이(가) 기본 작업 공간에서 삭제되었습니다. 
+Suggested Actions:
+    • 파일을 기본 작업 공간으로 불러오십시오. - Fix
+    • 새 변수를 생성하십시오. - Fix
+"
+W2 SPS 400W 105V L4 T10 tp35,SPS,105,400,4,11.5199,0.4999999,0.4999999,1e-08,tp35,35,16,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,"'<a href=""matlab:open_and_hilite_hyperlink ('Control_Logic_dataset_era/From Workspace','error')"">Control_Logic_dataset_era/From Workspace</a>'에서 파라미터 'VariableName'에 대한 설정이 유효하지 않습니다.
+원인:
+    '<a href=""matlab:open_and_hilite_hyperlink ('Control_Logic_dataset_era/From Workspace','error')"">Control_Logic_dataset_era/From Workspace</a>'에서 파라미터 <a href=""matlab:Simulink.internal.OpenBlockParamsDialog(['Control_Logic_dataset_era/From Workspace'],'VariableName');"">'VariableName'</a>을(를) 평가하는 중 오류가 발생함
+        'Ref_VH'은(는) 인식할 수 없는 함수 또는 변수입니다.
+            변수 'Ref_VH'이(가) 기본 작업 공간에서 삭제되었습니다. 
+Suggested Actions:
+    • 파일을 기본 작업 공간으로 불러오십시오. - Fix
+    • 새 변수를 생성하십시오. - Fix
+"
+W2 SPS 400W 105V L4 T10 TT0,SPS,105,400,4,11.5199,0.4999999,0.4999999,1e-08,TT0,30,0,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,"'<a href=""matlab:open_and_hilite_hyperlink ('Control_Logic_dataset_era/From Workspace','error')"">Control_Logic_dataset_era/From Workspace</a>'에서 파라미터 'VariableName'에 대한 설정이 유효하지 않습니다.
+원인:
+    '<a href=""matlab:open_and_hilite_hyperlink ('Control_Logic_dataset_era/From Workspace','error')"">Control_Logic_dataset_era/From Workspace</a>'에서 파라미터 <a href=""matlab:Simulink.internal.OpenBlockParamsDialog(['Control_Logic_dataset_era/From Workspace'],'VariableName');"">'VariableName'</a>을(를) 평가하는 중 오류가 발생함
+        'Ref_VH'은(는) 인식할 수 없는 함수 또는 변수입니다.
+            변수 'Ref_VH'이(가) 기본 작업 공간에서 삭제되었습니다. 
+Suggested Actions:
+    • 파일을 기본 작업 공간으로 불러오십시오. - Fix
+    • 새 변수를 생성하십시오. - Fix
+"
+H7 M-B 1000W 84V L5 T10 tp35,M-B,84,1000,5,14.3999,0.451168838,0.499996904,1e-08,tp35,35,16,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,"'<a href=""matlab:open_and_hilite_hyperlink ('Control_Logic_dataset_era/From Workspace','error')"">Control_Logic_dataset_era/From Workspace</a>'에서 파라미터 'VariableName'에 대한 설정이 유효하지 않습니다.
+원인:
+    '<a href=""matlab:open_and_hilite_hyperlink ('Control_Logic_dataset_era/From Workspace','error')"">Control_Logic_dataset_era/From Workspace</a>'에서 파라미터 <a href=""matlab:Simulink.internal.OpenBlockParamsDialog(['Control_Logic_dataset_era/From Workspace'],'VariableName');"">'VariableName'</a>을(를) 평가하는 중 오류가 발생함
+        'Ref_VH'은(는) 인식할 수 없는 함수 또는 변수입니다.
+            변수 'Ref_VH'이(가) 기본 작업 공간에서 삭제되었습니다. 
+Suggested Actions:
+    • 파일을 기본 작업 공간으로 불러오십시오. - Fix
+    • 새 변수를 생성하십시오. - Fix
+"
+H7 M-B 1000W 84V L6 T10 tp35,M-B,84,1000,6,17.2799,0.451168838,0.499996904,1e-08,tp35,35,16,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,"'<a href=""matlab:open_and_hilite_hyperlink ('Control_Logic_dataset_era/From Workspace','error')"">Control_Logic_dataset_era/From Workspace</a>'에서 파라미터 'VariableName'에 대한 설정이 유효하지 않습니다.
+원인:
+    '<a href=""matlab:open_and_hilite_hyperlink ('Control_Logic_dataset_era/From Workspace','error')"">Control_Logic_dataset_era/From Workspace</a>'에서 파라미터 <a href=""matlab:Simulink.internal.OpenBlockParamsDialog(['Control_Logic_dataset_era/From Workspace'],'VariableName');"">'VariableName'</a>을(를) 평가하는 중 오류가 발생함
+        'Ref_VH'은(는) 인식할 수 없는 함수 또는 변수입니다.
+            변수 'Ref_VH'이(가) 기본 작업 공간에서 삭제되었습니다. 
+Suggested Actions:
+    • 파일을 기본 작업 공간으로 불러오십시오. - Fix
+    • 새 변수를 생성하십시오. - Fix
+"
