@@ -84,21 +84,26 @@ def smoke():
     write_points(os.path.join(OUT, "r11_points_smoke.csv"), rows)
 
 
-def make(ts, sync=1):
-    """SPS, M-B and (10-30, the adopted surface) M-S -- M-S only where it differs from M-B by more than SAME at a level"""
+def make(ts, sync=1, gains=(1.0,), rnd=1):
+    """SPS, M-B and (10-30, the adopted surface) M-S -- M-S only where it differs from M-B by more than SAME at a level.
+    gains: scale factors on (Kp, Ki) (round 2, 10-30 15:40: with the R.7 gains the loop limit-cycles at ~4 kHz wherever
+    the phase gain dP/dphi is high -- SPS at light load, every controller at 109.2 V 1 kW); round 1 = gain 1, labels r1_*;
+    other gains are labelled r<rnd>_g<gain>_* and reuse the round-1 profiles"""
     rows = []
-    for V2 in V2S:
-        for pname, levels in PROFILES.items():
-            for ctrl in ("SPS", "M-B", "M-S"):
-                if ctrl == "M-S" and all(max(abs(a - b) for a, b in zip(duties("M-S", P, V2), duties("M-B", P, V2)))
-                                         <= SAME for P in levels):
-                    print(f"  M-S = M-B at {V2:g} V {pname} (every level within {SAME})")
-                    continue
-                name = f"r1_{ctrl.replace('-', '')}_{V2:g}V_{pname}"
-                prof = write_profile(name, ctrl, V2, levels, SEG)
-                rows.append(dict(label=name, ctrl=ctrl, V2=V2, Ts=ts, sync=sync, Kp=KP, Ki=KI,
-                                 simTime=SEG * len(levels), profile=prof, trim=1))
-    write_points(os.path.join(OUT, "r11_points_r1.csv"), rows)
+    for g in gains:
+        for V2 in V2S:
+            for pname, levels in PROFILES.items():
+                for ctrl in ("SPS", "M-B", "M-S"):
+                    if ctrl == "M-S" and all(max(abs(a - b) for a, b in zip(duties("M-S", P, V2), duties("M-B", P, V2)))
+                                             <= SAME for P in levels):
+                        print(f"  M-S = M-B at {V2:g} V {pname} (every level within {SAME})")
+                        continue
+                    name = f"r1_{ctrl.replace('-', '')}_{V2:g}V_{pname}"
+                    prof = write_profile(name, ctrl, V2, levels, SEG)
+                    label = name if g == 1.0 else f"r{rnd}_g{g:g}_{ctrl.replace('-', '')}_{V2:g}V_{pname}"
+                    rows.append(dict(label=label, ctrl=ctrl, V2=V2, Ts=ts, sync=sync, Kp=KP * g, Ki=KI * g,
+                                     simTime=SEG * len(levels), profile=prof, trim=1))
+    write_points(os.path.join(OUT, f"r11_points_r{rnd}.csv"), rows)
 
 
 # ---------------------------------------------------------------- analysis
@@ -126,6 +131,37 @@ def ref_ipk():
     def f(ctrl, V2, P):
         g = e[(e["ctrl"] == ctrl) & np.isclose(e["V2"], V2)].dropna(subset=["Ipk"]).sort_values("P")
         return float(np.interp(P, g["P"], g["Ipk"])) if len(g) and g["P"].min() <= P <= g["P"].max() else np.nan
+    return f
+
+
+def ref_ipk25():
+    """the same constant-D0 steady state on the 25 ns grid (the closed loop's grid; GRID showed 100 ns and 25 ns absolute
+    values differ by 0.1 A and more, fine_grid_check.py 10-30): GRID sets B / C (out/fine_grid_check.csv) and the R13 map
+    (out/r13_map.csv), clean values only, linear in |P| between the powers measured at that V2"""
+    import pandas as pd
+    pts = []
+    p = os.path.join(OUT, "fine_grid_check.csv")
+    if os.path.isfile(p):
+        e = pd.read_csv(p)
+        e = e[e["set"].isin(["B", "C"]) & (e["o25"] <= OSC)]
+        pts += [(r["ctrl"], r["V2"], r["P"], r["I25"]) for _, r in e.iterrows() if np.isfinite(r["I25"])]
+    p = os.path.join(OUT, "r13_map.csv")
+    if os.path.isfile(p):
+        e = pd.read_csv(p)
+        e = e[e["cand"].isin(["SPS", "M-B", "M-S"]) & (e["osc"] <= OSC)]
+        pts += [(r["cand"], r["V2"], r["P"], r["Ipk"]) for _, r in e.iterrows() if np.isfinite(r["Ipk"])]
+    T = pd.DataFrame(pts, columns=["ctrl", "V2", "P", "Ipk"]).drop_duplicates(subset=["ctrl", "V2", "P"], keep="last")
+
+    def f(ctrl, V2, P, span=250.0):
+        """NaN unless |P| is measured or lies between two measured powers at most `span` W apart"""
+        g = T[(T["ctrl"] == ctrl) & np.isclose(T["V2"], V2)].sort_values("P")
+        x = g["P"].to_numpy()
+        if not len(x) or not x[0] <= P <= x[-1]:
+            return np.nan
+        k = int(np.searchsorted(x, P))
+        if not np.isclose(x[min(k, len(x) - 1)], P) and x[k] - x[k - 1] > span:
+            return np.nan
+        return float(np.interp(P, x, g["Ipk"]))
     return f
 
 
@@ -168,7 +204,7 @@ def compare():
     if not runs:
         print("no R11 runs yet (out/r11/)")
         return
-    ref = ref_ipk()
+    ref, ref25 = ref_ipk(), ref_ipk25()
     lines, rows = [], []
 
     def out(x=""):
@@ -177,7 +213,8 @@ def compare():
 
     out("R11 closed loop (dataset-era Simulink model, PI on the outer phase, finer edge grid via r11/ copy); "
         f"steady = last 2 ms of each segment; settled = |P - P*| <= max({SETTLE_TOL:.0%}, 5 W) to the segment end")
-    out("Ipk_ref = R.4 / R8 constant-D0 steady state at the same (ctrl, V2, |P|) (out/efficiency_compare.csv, 100 ns grid)")
+    out("Ipk_ref = R.4 / R8 constant-D0 steady state at the same (ctrl, V2, |P|) (out/efficiency_compare.csv, 100 ns grid);"
+        " ref25 = the same on the 25 ns grid (GRID sets B / C + R13 map, linear in |P|; - = not measured there)")
     for s in runs:
         if not isinstance(s.get("error"), float) and str(s.get("error", "")).strip() not in ("", "nan"):
             out(f"{s['label']}: ERROR {s['error']}")
@@ -192,11 +229,11 @@ def compare():
         for a, b, P in segments(s):
             m = seg_metrics(per, a, b, P, P0)
             P0 = P
-            r = ref(s["ctrl"], s["V2"], P)
+            r, r25 = ref(s["ctrl"], s["V2"], P), ref25(s["ctrl"], s["V2"], P)
             rows.append(dict(label=s["label"], ctrl=s["ctrl"], V2=s["V2"], Ts=s["Ts"], sync=s["sync"], t0=a, t1=b,
-                             Ipk_ref=r, **m))
+                             Ipk_ref=r, Ipk_ref25=r25, **m))
             out(f"  {a * 1e3:4.0f}-{b * 1e3:4.0f} ms {P:6.0f} W: Ipk steady {m['Ipk_steady']:.3f} (median period "
-                f"{m['Ipk_steady_med']:.3f}) vs ref {r:.3f} A | |mean i_L| {m['iL_mean_steady']:.3f} A"
+                f"{m['Ipk_steady_med']:.3f}) vs ref {r:.3f} / ref25 {r25:.3f} A | |mean i_L| {m['iL_mean_steady']:.3f} A"
                 f"{' (osc)' if m['iL_mean_steady'] > OSC else ''} (per period max {m['iL_mean_period_max']:.3f})"
                 f" | P error {m['P_err_pct']:+.2f} % | settle "
                 f"{m['t_settle_ms']:.2f} ms | overshoot {m['overshoot_W']:+.0f} W | Ipk first 2 ms {m['Ipk_transient']:.3f} A"
@@ -225,14 +262,28 @@ def fig(runs):
     cols = groups if groups else [("smoke", "")]
     fig_, ax = plt.subplots(2, len(cols), figsize=(4.4 * len(cols), 6.4), squeeze=False)
     if groups:
+        t0 = 1.0          # [ms] the start-up from 0 W (21-28 A, +-80 kW) would flatten everything else; it is in the log
+        rank = {"SPS": 0, "M-B": 1, "M-S": 2}
         for j, (V2, pname) in enumerate(groups):
-            for s in good:
-                if s["label"].startswith("r1_") and np.isclose(s["V2"], V2) and s["label"].endswith(pname):
-                    p, c = s["periods"], {"SPS": MUTED, "M-B": BLUE, "M-S": YELLOW}.get(s["ctrl"], ORANGE)
-                    ax[0, j].plot(p["t_end"] * 1e3, p["Ipk"], color=c, lw=1.2, label=s["ctrl"])
-                    ax[1, j].plot(p["t_end"] * 1e3, -p["P_LV"], color=c, lw=1.2, label=s["ctrl"])
-            ax[0, j].set_title(f"{V2:g} V, {pname} steps: Ipk per period")
-            ax[1, j].set_title("delivered power (one-period average)")
+            top_i, top_p = 0.0, 0.0
+            sel = [s for s in good if s["label"].startswith("r1_") and np.isclose(s["V2"], V2) and s["label"].endswith(pname)]
+            for s in sorted(sel, key=lambda s: rank.get(s["ctrl"], 9)):           # SPS underneath
+                p, c = s["periods"], {"SPS": MUTED, "M-B": BLUE, "M-S": YELLOW}.get(s["ctrl"], ORANGE)
+                p = p[p["t_end"] * 1e3 >= t0]
+                ax[0, j].plot(p["t_end"] * 1e3, p["Ipk"], color=c, lw=1.0, label=s["ctrl"])
+                ax[1, j].plot(p["t_end"] * 1e3, -p["P_LV"], color=c, lw=1.0, label=s["ctrl"])
+                top_i = max(top_i, float(np.percentile(p["Ipk"], 98)))
+                if s["prof"] is not None:
+                    for a, b, P in segments(s):
+                        ax[1, j].hlines(P, max(a * 1e3, t0), b * 1e3, colors="#333333", linestyles="--", lw=0.8)
+                        top_p = max(top_p, P)
+            ax[0, j].set_ylim(0, 1.25 * top_i)
+            ax[1, j].set_ylim(-0.6 * top_p, 2.0 * top_p)
+            for a in ax[:, j]:
+                a.set_xlim(t0, None)
+            ax[0, j].set_title(f"{V2:g} V, {pname} steps: Ipk per period\n(step spikes clipped; values in out/r11_check.log)",
+                               fontsize=9)
+            ax[1, j].set_title("delivered power, one-period average (dashed = command)", fontsize=9)
     else:
         cmap = [MUTED, BLUE, ORANGE, YELLOW, "#1baf7a"]
         for k, s in enumerate(smoke):
@@ -246,7 +297,8 @@ def fig(runs):
     ax[0, 0].set_ylabel("max |i_L| per period [A]")
     ax[1, 0].set_ylabel("P [W]")
     ax[0, 0].legend(frameon=False, fontsize=8)
-    fig_.suptitle("R11 closed loop in Simulink (PI on the outer phase, finer edge grid)", fontsize=11)
+    fig_.suptitle("R11 closed loop in Simulink (PI on the outer phase, 25 ns edge grid + period latch, Kp 2 / Ki 49000)",
+                  fontsize=11)
     fig_.tight_layout()
     fig_.savefig(os.path.join(OUT, "fig_r11_step.png"), dpi=130)
     plt.close(fig_)
@@ -257,10 +309,12 @@ if __name__ == "__main__":
     ap.add_argument("cmd", choices=("smoke", "make", "compare"))
     ap.add_argument("--ts", type=float, default=2.5e-8)
     ap.add_argument("--sync", type=int, default=1)
+    ap.add_argument("--gains", default="1", help="comma-separated (Kp, Ki) scale factors, e.g. 0.5,0.25")
+    ap.add_argument("--round", type=int, default=1)
     a = ap.parse_args()
     if a.cmd == "smoke":
         smoke()
     elif a.cmd == "make":
-        make(a.ts, a.sync)
+        make(a.ts, a.sync, tuple(float(x) for x in a.gains.split(",")), a.round)
     else:
         compare()

@@ -25,6 +25,12 @@ RULE (registered 10-30 14:10, before any R12 run; do not change after results):
   per V2:  "효과 확인" if m1(ICROS) >= 5 m1(M-B) and (max|e|(ICROS) >= 2 max|e|(M-B) or m3(ICROS) >= m3(M-B) + 0.1 A);
            "효과 없음" if max|e|(ICROS) <= 1.2 max|e|(M-B) and m3(ICROS) <= m3(M-B) + 0.03 A;  otherwise "부분".
   The rule compares ICROS with M-B (the user's R12 wording); M-S and SPS are reported with the same numbers.
+  Round 1 (r12r1b, 10-30 15:41): 90 V "부분", 109.2 V "효과 확인". The fixed PI gains limit-cycle at ~4 kHz wherever the phase
+  gain is high (R11 round 1: SPS at light load, every controller at 109.2 V 1 kW, M-B / M-S at 109.2 V 500 W; on the 90 V ramp
+  M-B / M-S at ~330-580 W), so m2 / m3 mix the PI's limit cycle with the classifier's jumps.
+ROUND 2 (registered 10-30 15:45, before the R11 round-2 results that set it): the same profiles, window and rule, with (Kp, Ki)
+  scaled by the largest factor of R11 round 2 (0.5, then 0.25) at which every R11 steady segment (last 2 ms) of SPS, M-B and
+  M-S has a phase peak-to-peak <= 2 deg; if neither factor qualifies, 0.25 is used and that is reported.
 
     python -I -X utf8 Simulink/Thesis/r12_ramp.py make       -> out/r12_points_r1.csv, out/r12_profiles/
     python automation/job.py submit r12r1 --interactive --after rob6 -- matlab -batch "cd('Simulink/Thesis'); r11_closed_loop('out/r12_points_r1.csv', 'out/r12')"
