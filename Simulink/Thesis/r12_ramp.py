@@ -291,6 +291,7 @@ def fig(runs, tag=""):
     col = {"SPS": MUTED, "ICROS": ORANGE, "M-B": BLUE, "M-S": YELLOW}
     f, ax = plt.subplots(3, len(V2S), figsize=(5.2 * len(V2S), 8.4), squeeze=False, sharex=True)
     for j, V2 in enumerate(V2S):
+        top = 0.0
         for ctrl in CTRLS:
             s = runs.get((ctrl, V2))
             if s is None or s["periods"] is None:
@@ -300,10 +301,13 @@ def fig(runs, tag=""):
             ax[0, j].plot(pr["t"] * 1e3, pr["D2"], color=col[ctrl], lw=1.0, ls="--")
             ax[1, j].plot(p["t_end"] * 1e3, -p["P_LV"] - p_ref(p["t_end"]), color=col[ctrl], lw=0.9, label=ctrl)
             ax[2, j].plot(p["t_end"] * 1e3, p["Ipk"], color=col[ctrl], lw=0.9, label=ctrl)
+            top = max(top, float(p.loc[p["t_end"] >= WIN[0], "Ipk"].max()))
         ax[0, j].set_title(f"{V2:g} V: commanded D1 (solid), D2 (dashed)")
         ax[1, j].set_title("power error P_delivered - P_ref [W]")
-        ax[2, j].set_title("max |i_L| per period [A]")
+        ax[2, j].set_title("max |i_L| per period [A] (start-up clipped)")
         ax[1, j].set_ylim(-150, 150)
+        if top > 0:
+            ax[2, j].set_ylim(0, 1.1 * top)
         for a in ax[:, j]:
             a.axvspan(0, WIN[0] * 1e3, color="0.92", lw=0)
         ax[2, j].set_xlabel("t [ms]  (ramp 100 -> 900 W from 6 to 46 ms)")

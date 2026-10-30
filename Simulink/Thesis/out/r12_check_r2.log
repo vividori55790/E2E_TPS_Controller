@@ -1,0 +1,12 @@
+R12 classifier removal, round 2 (Kp x 0.5), Simulink closed loop (R11 setup: PI outer phase, 25 ns grid + latch), HV -> LV ramp 100 -> 900 W in 40 ms; window 6-46 ms
+rule registered 10-30 14:10 before the runs, round 2 gain rule 10-30 15:45 (r12_ramp.py header)
+ 90.0 V ICROS: m1 0.1703 (applied 0.0853) | e max  263.7 W, rms  18.1 W | spike 1.026 A at 32.26 ms (625 W) | Ipk max 3.546 A | window mean i_L 0.0002 A
+ 90.0 V M-B  : m1 0.0004 (applied 0.0004) | e max   32.6 W, rms   9.7 W | spike 0.184 A at 25.31 ms (486 W) | Ipk max 3.289 A | window mean i_L 0.0001 A
+ 90.0 V M-S  : m1 0.0004 (applied 0.0004) | e max   33.3 W, rms  10.0 W | spike 0.202 A at 27.92 ms (538 W) | Ipk max 3.289 A | window mean i_L 0.0002 A
+ 90.0 V SPS  : m1 0.0000 (applied 0.0000) | e max   25.3 W, rms   9.7 W | spike 0.180 A at 31.27 ms (606 W) | Ipk max 3.307 A | window mean i_L 0.0001 A
+  verdict 90 V: 효과 확인
+109.2 V ICROS: m1 0.1245 (applied 0.0624) | e max  301.2 W, rms  27.5 W | spike 3.176 A at 39.76 ms (775 W) | Ipk max 7.488 A | window mean i_L 0.0002 A
+109.2 V M-B  : m1 0.0002 (applied 0.0002) | e max   46.2 W, rms  11.6 W | spike 0.235 A at 7.05 ms (121 W) | Ipk max 4.399 A | window mean i_L 0.0000 A
+109.2 V M-S  : m1 0.0002 (applied 0.0002) | e max   38.0 W, rms   9.4 W | spike 0.215 A at 45.48 ms (890 W) | Ipk max 4.504 A | window mean i_L 0.0006 A
+109.2 V SPS  : m1 0.0000 (applied 0.0000) | e max   48.3 W, rms  15.2 W | spike 0.226 A at 36.98 ms (720 W) | Ipk max 4.555 A | window mean i_L 0.0001 A
+  verdict 109.2 V: 효과 확인

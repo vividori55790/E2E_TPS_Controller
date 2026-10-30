@@ -151,16 +151,17 @@ def next_round():
         print("every configuration is bracketed")
 
 
-def _pp():
+def _pp(pats=("rob25_sweep_r*.csv",)):
     """(variant, V2, level, D1, D2) -> median period peak, from out/iL_pp/"""
     import pandas as pd
     out = {}
-    for f in sorted(glob.glob(os.path.join(OUT, "iL_pp", "rob25_sweep_r*.csv"))):
-        T = pd.read_csv(f)
-        pk = np.maximum(T[[f"max{i}" for i in range(1, rm.PP_N + 1)]].to_numpy(float),
-                        -T[[f"min{i}" for i in range(1, rm.PP_N + 1)]].to_numpy(float))
-        for r, x in zip(T.itertuples(), pk):
-            out[(r.variant, round(r.V2, 6), int(r.level), round(r.D1, 9), round(r.D2, 9))] = float(np.nanmedian(x))
+    for pat in pats:
+        for f in sorted(glob.glob(os.path.join(OUT, "iL_pp", pat))):
+            T = pd.read_csv(f)
+            pk = np.maximum(T[[f"max{i}" for i in range(1, rm.PP_N + 1)]].to_numpy(float),
+                            -T[[f"min{i}" for i in range(1, rm.PP_N + 1)]].to_numpy(float))
+            for r, x in zip(T.itertuples(), pk):
+                out[(r.variant, round(r.V2, 6), int(r.level), round(r.D1, 9), round(r.D2, 9))] = float(np.nanmedian(x))
     return out
 
 
@@ -237,6 +238,69 @@ def compare(d=None, write_out=True):
     return T, verdict
 
 
+def fig():
+    """reduction against |1 - k|: the 25 ns map (nominal plant) and the V1 variants of this file, 100 / 300 / 1000 W. Not a verdict.
+    -> out/fig_rob25_k.png; the 100 W line is fitted to the decidable points with |1 - k| >= 0.06 (below that the reduction is 0)"""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import pandas as pd
+    from matplotlib.lines import Line2D
+    from evaluate import AQUA, BLUE, INK2, MUTED, ORANGE, _style
+    _style(plt)
+    T = pd.read_csv(os.path.join(OUT, "rob25_check.csv"))
+    T = T[T["variant"].isin(("V1-5", "V1+5"))]
+    Q = pd.read_csv(os.path.join(OUT, "r13_points.csv"))
+    Q = Q[Q["P"].isin(rc.PS)]
+    v1 = {"V1-5": 361.0, "V1+5": 399.0}
+    rows = [dict(k=4 * r.V2 / 380.0, P=r.P, dI=r.I_SPS - r.I_MB, rel=100 * (r.I_SPS - r.I_MB) / r.I_SPS, kind="nom") for r in Q.itertuples() if r.q2_MB != "undecidable"]
+    rows += [dict(k=4 * r.V2 / v1[r.variant], P=r.P, dI=r.dI, rel=100 * r.dI / r.Ipk_SPS, kind="osc" if r.code == "undecided" else "v1") for r in T.itertuples()]
+    R = pd.DataFrame(rows)
+    R["x"] = np.abs(1.0 - R["k"])
+    col = {100.0: BLUE, 300.0: ORANGE, 1000.0: AQUA}
+    S = "#fcfcfb"
+    fig_, ax = plt.subplots(1, 2, figsize=(11.5, 4.6))
+    for a, y in zip(ax, ("dI", "rel")):
+        a.axhline(0.0, color=MUTED, lw=0.8)
+        for P, c in col.items():
+            for lo, m in ((True, "o"), (False, "^")):
+                g = R[(R["P"] == P) & ((R["k"] < 1.0) == lo)]
+                n, h, o = g[g["kind"] == "nom"], g[g["kind"] == "v1"], g[g["kind"] == "osc"]
+                a.scatter(n["x"], n[y], s=46, marker=m, color=c, edgecolors=S, linewidths=0.8, zorder=3)
+                a.scatter(h["x"], h[y], s=46, marker=m, facecolors=S, edgecolors=c, linewidths=1.5, zorder=3)
+                a.scatter(o["x"], o[y], s=46, marker="x", color=c, linewidths=1.5, zorder=3)
+    f = R[(R["P"] == 100.0) & (R["kind"] != "osc") & (R["x"] >= 0.06)]
+    s, b = np.polyfit(f["x"], f["dI"], 1)
+    r2 = np.corrcoef(f["x"], f["dI"])[0, 1] ** 2
+    print(f"100 W line over {len(f)} points: slope {s:.2f} A, intercept {b:.3f} A, zero at |1-k| = {-b / s:.3f}, R2 {r2:.3f}")
+    print(f"  residual max {np.abs(f['dI'] - (s * f['x'] + b)).max():.3f} A")
+    xs = np.array([-b / s, 0.22])
+    ax[0].plot(xs, s * xs + b, color=BLUE, lw=1.2, zorder=2)
+    ax[0].text(0.205, s * 0.205 + b + 0.05, f"100 W fit: {s:.1f} A × (|1−k| − {-b / s:.2f})", color=INK2, fontsize=8.5, ha="right", va="bottom")
+    bound = 380.0 / (4 * 80e3 * 90e-6)
+    xb = np.array([0.0, 0.22])
+    ax[0].plot(xb, bound * xb, color=MUTED, lw=1.0, ls="--", zorder=1)
+    ax[0].text(0.222, bound * 0.205, "bound V1·|1−k|/(4·fs·L), V1 380 V\n(reference, circulating component)", color=INK2, fontsize=8.5, ha="right", va="top")
+    ax[0].set_ylabel("Ipk(SPS) − Ipk(controller B) [A]")
+    ax[1].set_ylabel("reduction, % of Ipk(SPS)")
+    for a in ax:
+        a.set_xlabel("|1 − k|,  k = n·V2 / V1")
+        a.set_xlim(0.0, 0.225)
+    ax[0].set_title("Absolute reduction", loc="left")
+    ax[1].set_title("Relative reduction", loc="left")
+    hs = [Line2D([], [], ls="", marker="o", color=c, markeredgecolor=S, ms=7, label=f"{P:g} W") for P, c in col.items()]
+    hs += [Line2D([], [], ls="", marker="o", color=INK2, markeredgecolor=S, ms=7, label="nominal plant, k < 1"),
+           Line2D([], [], ls="", marker="^", color=INK2, markeredgecolor=S, ms=7, label="nominal plant, k > 1"),
+           Line2D([], [], ls="", marker="o", markerfacecolor=S, markeredgecolor=INK2, markeredgewidth=1.5, ms=7, label="V1 ±5 % at 84 / 109.2 V"),
+           Line2D([], [], ls="", marker="x", color=INK2, markeredgewidth=1.5, ms=7, label="V1 −5 %, controller oscillates")]
+    ax[1].legend(handles=hs, fontsize=8.5, frameon=False, loc="upper left")
+    fig_.suptitle("Simulink steady state, 25 ns grid, HV→LV: the reduction follows |1 − k|, and V1 ±5 % moves along the same trend", fontsize=11)
+    fig_.tight_layout()
+    fig_.savefig(os.path.join(OUT, "fig_rob25_k.png"), dpi=130)
+    plt.close(fig_)
+    return R
+
+
 def selftest():
     """the registered rule (robust_check.classify / verdict) end to end on made-up Simulink runs"""
     import tempfile
@@ -274,11 +338,11 @@ def selftest():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["make", "next", "compare", "selftest"])
+    ap.add_argument("cmd", choices=["make", "next", "compare", "fig", "selftest"])
     a = ap.parse_args()
     if a.cmd == "selftest":
         sys.exit(0 if selftest() else 1)
-    {"make": make, "next": next_round, "compare": compare}[a.cmd]()
+    {"make": make, "next": next_round, "compare": compare, "fig": fig}[a.cmd]()
 
 
 if __name__ == "__main__":
