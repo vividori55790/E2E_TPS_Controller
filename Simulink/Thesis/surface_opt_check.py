@@ -872,21 +872,29 @@ def ms_fig(T, code):
             a.set_visible(False)
             continue
         y = g["gain"].fillna(0.0)
-        a.scatter(g[xk], y, c=[col[c] for c in g["cls"]], s=np.where(g["w"] >= 0.5, 46, 18), zorder=3,
-                  edgecolors="white", linewidths=0.6)
-        for _, r in g.iterrows():
+        num = g["gain"].notna()
+        osc = g["cls"].isin(["fixes_osc", "new_osc"])
+        und = g["cls"].eq("undecidable")
+        a.scatter(g.loc[num, xk], y[num], c=[col[c] for c in g.loc[num, "cls"]], s=np.where(g.loc[num, "w"] >= 0.5, 46, 18),
+                  zorder=3, edgecolors="white", linewidths=0.6)
+        a.scatter(g.loc[osc, xk], y[osc], c=[col[c] for c in g.loc[osc, "cls"]], marker="X",
+                  s=np.where(g.loc[osc, "w"] >= 0.5, 60, 30), zorder=3)             # oscillation class: no gain value
+        a.scatter(g.loc[und, xk], y[und], facecolors="none", edgecolors=MUTED, s=16, linewidths=0.7, zorder=2)
+        for _, r in g[~und].iterrows():
             a.annotate(f"{r['V2']:g}" if fam == "ms" else f"{r['P']:.0f}", (r[xk], 0.0 if not np.isfinite(r["gain"]) else r["gain"]),
                        fontsize=6.5, color=INK2, xytext=(3, 2), textcoords="offset points")
         a.axhline(0, color=MUTED, lw=0.8)
-        a.fill_between(sorted(g[xk]), -g["tol"].max(), g["tol"].max(), color=MUTED, alpha=0.12, lw=0)
+        a.vlines(g.loc[num, xk], -g.loc[num, "tol"], g.loc[num, "tol"], color=MUTED, alpha=0.5, lw=3, zorder=1)  # per-point tol
         a.set_xlabel("|P| [W] (label: V2)" if fam == "ms" else "V2 [V] (label: |P| W)")
         a.set_ylabel("Ipk(M-B) - Ipk(M-S) [A]")
         a.set_title(("knee / ridge anchors: V2 84, 89, 104, 109.2 V" if fam == "ms" else "k = 1 band (40 ms runs)")
                     + "  (big dots: anchor region w >= 0.5)", fontsize=9)
     ax[0].plot([], [], "o", color=AQUA, label="M-S better (or fixes M-B oscillation)")
     ax[0].plot([], [], "o", color=ORANGE, label="M-S worse (or oscillates)")
-    ax[0].plot([], [], "o", color=MUTED, label="same within tolerance")
-    ax[0].legend(fontsize=7.5, frameon=False, loc="lower left")
+    ax[0].plot([], [], "o", color=MUTED, label="same within tolerance (grey bar = that point's tolerance)")
+    ax[0].plot([], [], "X", color=INK2, label="oscillation class (M-B osc fixed / M-S osc new), no gain value")
+    ax[0].plot([], [], "o", mfc="none", mec=MUTED, label="undecidable (not bracketed yet, or both oscillate)")
+    ax[0].legend(fontsize=7.5, frameon=False, loc="upper right")
     f.suptitle(f"OPT4: M-S vs M-B in Simulink -- verdict {code} (rules: ms_verdict.py)", fontsize=10)
     f.savefig(os.path.join(OUT, "fig_ms_check.png"), dpi=130)
     plt.close(f)

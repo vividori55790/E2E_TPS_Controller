@@ -80,6 +80,18 @@
   REPORT 0·5·8·11.1절의 "어디서도 나쁘지 않음"을 고쳤다. eff_points_r2를 다시 만들어 7회(84 V SPS 중복 제거), efficiency compare 59/63.
   **다음 턴**: opt5 끝(약 11:10) → `surface_opt_check.py ms_compare`(1라운드 잠정; M-S가 84 V 400·800 W에서 SPS 이하로 내려오는지가 핵심) →
   RESULTS R.10·REPORT 11.3. msR 끝나면 ms_compare 확정. ZVS는 M-S 실행에도 파형이 있으니 `zvs_check.py`로 M-S 무릎(109.2 V 800 W) 확인 가능.
+- **진행(반복 29, 10-30 10:41–11:45)**: opt5 끝(10:40, 170회 오류 0) → `surface_opt_check.py ms_compare` **잠정 "채택"**(msR 2라운드 ms 46회까지
+  46점 중 31점, 번짐 평균 +0.054 A / 16점; 무릎 앵커 84 V 400·800 W M-S가 SPS 이하, 109.2 V 600·800 W +0.38·+0.28 A; 번짐 84 V 700 W·109.2 V 400 W는 M-S > SPS). `ms_fig`:
+  판정 불가 점을 속 빈 원으로, 진동 분류를 X로, 점별 허용 막대로 고침. **새 발견 [S]**: 듀티 차 0.003–0.008에서 0.16–0.32 A가 오가서
+  `duty_quant_check.py`를 썼다 → 100 ns 격자(제어기·로컬 솔버) 때문에 **Ipk는 듀티 0.004 칸의 계단 함수**(같은 칸 153/153쌍 동일, 한 칸 2/86),
+  같은 전력 1–2칸 이웃 중앙값 0.086 A(해석 모델 0.0006 A). → **격자 세분 점검 GRID**(아래 줄) 준비·제출. RESULTS 0절·R.10, REPORT 0·8·9·11.3·11.4절.
+  **다음 턴**: msR 끝(12:00쯤) → `ms_compare` 확정(msk1 2라운드 포함) → REPORT 11.3 표 갱신. fine1 끝나면 `fine_grid_check.py compare`
+  (감싸지 못한 구성 있으면 `next` → fine2) → R1–R3 결과로 11절·11.3·5절의 0.1 A 단위 서술을 고칠지 정한다.
+- [~] **GRID 격자 세분 점검(10-30 11:07 제출)**: `verify_steady_fine.m`/`verify_steady_fine_batch.m`(verify_steady_state 복사본 + r11 제어기 + 실행마다
+  Ts_ctrl·LocalSolverSampleTime; m_static_check OK), `fine_grid_check.py`(make/next/compare/selftest 19항목 ALL PASS; **규칙 R1–R3은 머리말에 결과 전
+  등록, 바꾸지 말 것**). `out/fine_points_r1.csv` 117회(S 스캔 4개 × 5듀티 × 2계단 × {100, 25 ns}, B 5점 × {SPS, B, M-S}, C 6점 × {SPS, B}; 25 ns D0 =
+  jG − 1e-4°). 잡 **fine1**(`--after r11smoke`, 12회 묶음, 20 ms). 첫 묶음에서 확인할 것: 100 ns 스캔 중심(M-B) 값이 원래 실행의 Ipk_at_20ms와 같은지
+  (복사본 검증), 25 ns 실행 시간·메모리, 오류. 25 ns 실패 시 r11smoke 로그와 함께 원인 파악.
 - [x] OPT0 **판정 규칙 먼저 등록**(결과를 보기 전에): `Simulink/Thesis/surface_opt_verdict.py`에 규칙과 가짜 입력 시험(`test_surface_opt_verdict.py`).
   (반복 22: 19항목 ALL PASS. 후보 = 2.88° 두 계단 정상상태만, 진동(|mean i_L| > 20 mA) 후보 제외, M-B/SPS 진동이면 판정 불가,
   (ii)는 min(D1, D2) < 0.45, (iii)은 같은 쪽 = s(D2*−D1*) ≥ 0 비율 ≥ 75 %·SPS만 최적이면 불일치, 상승 = Spearman ≥ 0.8 & 최대 전력 d* ≥ 0.45.)
@@ -99,7 +111,7 @@
 - [x] OPT3 **M-B 국소 최적성(새 Simulink 실행)**: (84, 109.2 V) × (100, 300, 1000 W)에서 M-B의 (D1, D2)와 ±0.02, ±0.04 십자(9 후보/점) → 같은 방식으로
   같은 전력 Ipk. M-B가 국소 최소(규칙 (i))인지.
 - [~] OPT4 정리(판정문·그림·REPORT 11절·RESULTS R.10은 2라운드로 완료, 10-30 07:20; k = 1 지도 REPORT 11.2, M-S 학습·규칙 등록 REPORT 11.3
-  완료 10-30 08:20, **M-S Simulink 검증 대기**(opt5 → msR → `ms_compare`) — 위 반복 27): `surface_opt_check.py` → `out/surface_opt_check.{csv,log}`, 그림 `out/fig_surface_opt_check.png`(V2별 |P|–D1/D2 단면: M-B 곡선, Simulink
+  완료 10-30 08:20, **M-S Simulink 잠정 "채택"(10-30 11:25, 25/46점), msR 뒤 확정** — 위 반복 27·29): `surface_opt_check.py` → `out/surface_opt_check.{csv,log}`, 그림 `out/fig_surface_opt_check.png`(V2별 |P|–D1/D2 단면: M-B 곡선, Simulink
   격자 최적 점, 허용오차 안 후보 범위 막대; 아래 행 Ipk(M-B) − Ipk(최적)). 판정문 `out/surface_opt_verdict.md`. REPORT.md·RESULTS.md에 절 추가.
   규칙 (i)이 깨지는 점이 있으면 곡면을 고치는 방법(Simulink 격자 최적을 목표로 재학습 = R13 앞당김)을 제안하고 바로 진행.
   (반복 25 설계안, 1라운드 근거): 보정은 경부하 두 곳만. (a) k ≈ 1 경부하 → D1 = D2 ≈ 0.45(범위는 k1map: V2 폭, 어느 계단까지 SPS보다
@@ -120,6 +132,8 @@
   (wP 40 W). (3) k = 1 경부하(k1map 뒤). 모두 wV 5 V → 중간 V2(89/104 V)도 검증. `out/opt4_anchors_r2.csv`. 학습은 `--delta`로.
   84 V 경부하·109.2 V 150 W(거칠기 범위 안)와 M-B 최적점(84 V 200/600/1000, 109.2 V 300/400/1000 W)은 M-B 그대로 두되, 링잉으로 0.003–0.009
   움직이므로 ms 묶음이 그 점들도 다시 잰다.
+- MATLAB 순서(반복 29, 10-30 11:07): msR(10:41 시작, 2라운드 ms 46회 → msk1 38회 → 3–4라운드, 12:00쯤 끝) → rob4(R10 111회) → eff2(7회)
+  → r11smoke(5회) → **fine1**(GRID 117회, 약 2 h 예상).
 - MATLAB 순서(반복 28, 10-30 09:00): zvs2 끝(08:33) → rob2 실패(08:33, 의도) → **opt5**(08:33 시작; 5라운드 08:42 끝; ms 84회 → msk1 86회, 11:10쯤 끝)
   → rob3(곧바로 실패 = 의도) → **msR** → **rob4** → **eff2**(`out/eff_points_r2.csv` 7회로 다시 만듦 — 84 V SPS 3회는 opt5 grid r5가 이미 잼)
   → **r11smoke**(R11 스모크 5회, 10 ms, 25/10 ns 격자).
