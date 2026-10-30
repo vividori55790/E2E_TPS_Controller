@@ -1,0 +1,25 @@
+opt25: duty pairs far from the surface, 25 ns Simulink, 20 ms window, Ipk at |P| (A); rules in the file header
+
+rule value: M-B far better at 9, no at 45, undecidable 2; M-S far better at 9, no at 45, undecidable 2 -> different branch
+     92.4 V   300 W: lowest far (0.500, 0.475) 1.119 A; M-B 1.162 (gap +0.044), M-S 1.162 (gap +0.044), tol 0.030
+     96.6 V   100 W: lowest far (0.450, 0.425) 0.518 A; M-B 0.535 (gap +0.017), M-S 0.656 (gap +0.138), tol 0.030
+    100.8 V   100 W: lowest far (0.275, 0.250) 0.972 A; M-B 1.013 (gap +0.040), M-S 1.013 (gap +0.040), tol 0.030
+    105.0 V   100 W: lowest far (0.275, 0.225) 1.181 A; M-B 1.220 (gap +0.039), M-S 1.281 (gap +0.100), tol 0.034
+    105.0 V   150 W: lowest far (0.300, 0.250) 1.442 A; M-B 1.468 (gap +0.026), M-S 1.516 (gap +0.074), tol 0.036
+    105.0 V   200 W: lowest far (0.375, 0.300) 1.672 A; M-B 1.844 (gap +0.172), M-S 1.779 (gap +0.107), tol 0.039
+    105.0 V   300 W: lowest far (0.425, 0.350) 2.056 A; M-B 2.176 (gap +0.120), M-S 2.083 (gap +0.027), tol 0.044
+    105.0 V   400 W: lowest far (0.500, 0.400) 2.387 A; M-B 2.598 (gap +0.211), M-S 2.394 (gap +0.008), tol 0.050
+    109.2 V   200 W: lowest far (0.325, 0.250) 1.945 A; M-B 2.000 (gap +0.055), M-S 2.036 (gap +0.091), tol 0.050
+    109.2 V   300 W: lowest far (0.400, 0.300) 2.390 A; M-B 2.495 (gap +0.104), M-S 2.494 (gap +0.104), tol 0.056
+    109.2 V   400 W: lowest far (0.450, 0.325) 2.769 A; M-B 2.875 (gap +0.106), M-S 2.878 (gap +0.109), tol 0.061
+
+median period peak: M-B far better at 3, no at 51, undecidable 2; M-S far better at 1, no at 53, undecidable 2 -> isolated points
+     96.6 V   100 W: lowest far (0.450, 0.425) 0.518 A; M-B 0.535 (gap +0.017), M-S 0.584 (gap +0.066), tol 0.030
+    105.0 V   100 W: lowest far (0.275, 0.225) 1.181 A; M-B 1.220 (gap +0.038), M-S 1.176 (gap -0.005), tol 0.034
+    105.0 V   300 W: lowest far (0.425, 0.350) 2.056 A; M-B 2.139 (gap +0.082), M-S 2.083 (gap +0.027), tol 0.044
+    105.0 V   400 W: lowest far (0.500, 0.400) 2.387 A; M-B 2.518 (gap +0.131), M-S 2.394 (gap +0.008), tol 0.050
+
+Not a verdict: plant Ipk vs Simulink over 155 measured far candidates: mean plant - median peak -0.009 A, MAE 0.025 A, r 0.999
+Not a verdict: far candidates clean 150/155; mean median-peak gap to M-B (far - M-B) +0.030 A, lowest -0.131 A
+
+points with far candidates 56/56; the other points: the plant saw no far pair within 0.1 A of the surface

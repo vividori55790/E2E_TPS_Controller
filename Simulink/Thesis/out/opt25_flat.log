@@ -1,0 +1,38 @@
+Not a verdict, median period peak, 25 ns. Far pairs (the plant's lowest) by max |dD| from M-B, Ipk(far) - Ipk(M-B), M-B and the pair clean:
+  0.02-0.05:  72 pairs; within +-0.03 A  61, lower by more  6, higher by more   5; mean +0.002, lowest -0.131, highest +0.092 A
+  0.05-0.10:  31 pairs; within +-0.03 A  14, lower by more  3, higher by more  14; mean +0.021, lowest -0.088, highest +0.091 A
+  0.10-1.00:  41 pairs; within +-0.03 A   5, lower by more  1, higher by more  35; mean +0.086, lowest -0.041, highest +0.228 A
+  lower than M-B by more than 0.03 A:
+     105.0 V   400 W (0.500, 0.400) distance 0.041: -0.131 A
+     105.0 V   400 W (0.425, 0.375) distance 0.041: -0.121 A
+     105.0 V   400 W (0.500, 0.475) distance 0.059: -0.088 A
+     105.0 V   300 W (0.425, 0.350) distance 0.029: -0.082 A
+     105.0 V   300 W (0.450, 0.400) distance 0.054: -0.063 A
+     105.0 V   300 W (0.350, 0.325) distance 0.046: -0.046 A
+     105.0 V   400 W (0.425, 0.300) distance 0.116: -0.041 A
+     105.0 V   100 W (0.275, 0.225) distance 0.051: -0.038 A
+     105.0 V   100 W (0.225, 0.175) distance 0.025: -0.036 A
+     109.2 V   800 W (0.475, 0.425) distance 0.025: -0.033 A
+
+Share of the largest reduction measured, 52 points with SPS and M-B clean (the minimum is biased low):
+  rule: mean SPS - M-B +0.115, SPS - best +0.139 A, share 82.7%; M-B - best mean 0.024, median 0.002, largest 0.211 A
+  med : mean SPS - M-B +0.127, SPS - best +0.140 A, share 90.6%; M-B - best mean 0.013, median 0.002, largest 0.131 A
+          dB  dBest  n
+V2                    
+84.0  +0.177 +0.181  8
+88.2  +0.062 +0.063  7
+92.4  -0.006 +0.001  8
+96.6  +0.002 +0.006  8
+100.8 +0.047 +0.062  7
+105.0 +0.202 +0.254  6
+109.2 +0.403 +0.420  8
+           dB  dBest  n
+P                      
+100.0  +0.312 +0.326  7
+150.0  +0.248 +0.259  6
+200.0  +0.165 +0.177  7
+300.0  +0.084 +0.107  7
+400.0  +0.058 +0.085  6
+600.0  +0.041 +0.050  6
+800.0  +0.037 +0.047  6
+1000.0 +0.050 +0.050  7

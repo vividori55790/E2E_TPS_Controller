@@ -28,12 +28,16 @@ RULES (registered 2026-10-30 22:21, after the plant scan, before any OPT25 Simul
      one grid step of noise (r13_map.py note 18:15, Q1 table): a "far better" on the rule kind alone is that noise until shown otherwise.
   Reported, never a verdict: plant against Simulink over the measured candidates (mean, MAE, correlation), the far candidates' distance above M-B.
 
+NOT A VERDICT, added 2026-10-31 04:55 after the results (the rules above are untouched): "flat" -> how far a pair must move before Ipk rises, and how
+much of the largest reduction measured at each point M-B gets. It reads the same runs and decides nothing.
+
     python -I -X utf8 Simulink/Thesis/opt25.py scan --part k --parts n     -> out/opt25_scan_p<k>.csv (plant, can run beside MATLAB)
     python -I -X utf8 Simulink/Thesis/opt25.py pick                        -> out/opt25_cands.csv, summary
     python -I -X utf8 Simulink/Thesis/opt25.py make                        -> out/opt25_points_r1.csv
     python automation/job.py submit o25r --interactive --after ... -- matlab -batch "cd('Simulink/Thesis'); opt25_rounds(1, 5, '<python.exe>')"
     python -I -X utf8 Simulink/Thesis/opt25.py next                        (not bracketed -> next round; opt25_rounds calls it)
     python -I -X utf8 Simulink/Thesis/opt25.py compare                     -> out/opt25_check.{log,csv}, out/opt25_verdict.md
+    python -I -X utf8 Simulink/Thesis/opt25.py flat                        -> out/opt25_flat.{log,csv}, out/opt25_flat_far.csv, out/fig_opt25.png
     python -I -X utf8 Simulink/Thesis/opt25.py selftest
 """
 import argparse
@@ -261,12 +265,20 @@ def selftest():
 
 
 # ----------------------------------------------------------------------------------------------------- compare
+def value_at(J, own, v, p):
+    """the two kinds of Ipk at |P| of a duty pair: kind -> (Ipk, osc)"""
+    g = fg.runs_of(J, dict(V2=v, D1=own["D1"], D2=own["D2"]), TS)
+    if g.empty:
+        return dict(rule=(np.nan, np.nan), med=(np.nan, np.nan))
+    I, os_, _ = fg.at_power(g, p)
+    return dict(rule=(I, os_), med=(rm._at_col(g, p, "pk_med")[0], os_))
+
+
 def compare():
     import pandas as pd
     d = results()
     J = rm.per_period(d, PATS)
     pl = pd.read_csv(CANDS)
-    Q = pd.read_csv(os.path.join(OUT, "r13_points.csv")).set_index(["V2", "P"])
     tab = {(v, p): cs for v, p, cs in rm.candidates("map")}
     lines, recs, cand_rows = [], [], []
 
@@ -274,12 +286,7 @@ def compare():
         print(x, flush=True)
         lines.append(x)
 
-    def val(own, v, p):
-        g = fg.runs_of(J, dict(V2=v, D1=own["D1"], D2=own["D2"]), TS)
-        if g.empty:
-            return dict(rule=(np.nan, np.nan), med=(np.nan, np.nan))
-        I, os_, _ = fg.at_power(g, p)
-        return dict(rule=(I, os_), med=(rm._at_col(g, p, "pk_med")[0], os_))
+    val = lambda own, v, p: value_at(J, own, v, p)  # noqa: E731
 
     o("opt25: duty pairs far from the surface, 25 ns Simulink, 20 ms window, Ipk at |P| (A); rules in the file header")
     for (v, p), cs in tab.items():
@@ -336,9 +343,104 @@ def compare():
     print("wrote out/opt25_check.{log,csv}, out/opt25_cands_simulink.csv, out/opt25_verdict.md")
 
 
+def flat():
+    """Not a verdict: how far a pair must move from M-B before Ipk rises, and M-B's share of the largest reduction measured at each point. "best" = the
+    lowest clean value among everything measured at the point (SPS, M-B, M-S, the +-0.03 stencil of r13_map.py, the far pairs). Picking a minimum biases
+    it low and unmeasured pairs could be lower still, so the share describes these runs, not the true optimum. The far pairs are the plant's lowest,
+    not a random sample: the counts say such pairs exist, not that most pairs are this flat."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import pandas as pd
+    from evaluate import AQUA, BLUE, INK2, MUTED, ORANGE, _style
+    d = results()
+    J = rm.per_period(d, PATS)
+    pl = pd.read_csv(CANDS)
+    lines, pts, far = [], [], []
+
+    def o(x=""):
+        print(x, flush=True)
+        lines.append(x)
+
+    for v, p, cs in rm.candidates("map"):
+        by = {c["name"]: c for c in cs}
+        own = lambda nm: by[by[nm]["alias"]] if by[nm]["alias"] else by[nm]  # noqa: E731
+        vals = {nm: value_at(J, own(nm), v, p) for nm in by}
+        b = own("M-B")
+        fv = []
+        for _, r in pl[(np.isclose(pl["V2"], v)) & (np.isclose(pl["P"], p))].iterrows():
+            x = value_at(J, dict(D1=r["D1"], D2=r["D2"]), v, p)
+            fv.append(x)
+            far.append(dict(V2=v, P=p, D1=r["D1"], D2=r["D2"], rank=int(r["rank"]), dist=max(abs(r["D1"] - b["D1"]), abs(r["D2"] - b["D2"])), I_med=x["med"][0], I_rule=x["rule"][0],
+                            I_MB=vals["M-B"]["med"][0], usable=rm.clean(x["med"]) and rm.clean(vals["M-B"]["med"])))
+        rec = dict(V2=v, P=p, clean=rm.clean(vals["SPS"]["med"]) and rm.clean(vals["M-B"]["med"]))
+        for kind in KINDS:
+            every = [x[kind][0] for x in list(vals.values()) + fv if rm.clean(x[kind])]
+            rec.update({f"SPS_{kind}": vals["SPS"][kind][0], f"MB_{kind}": vals["M-B"][kind][0], f"best_{kind}": min(every) if every else np.nan})
+        pts.append(rec)
+    T, F = pd.DataFrame(pts), pd.DataFrame(far)
+    T.to_csv(os.path.join(OUT, "opt25_flat.csv"), index=False, float_format="%.6g")
+    F.to_csv(os.path.join(OUT, "opt25_flat_far.csv"), index=False, float_format="%.6g")
+    U = F[F["usable"]].assign(up=lambda x: x["I_med"] - x["I_MB"])
+    o("Not a verdict, median period peak, 25 ns. Far pairs (the plant's lowest) by max |dD| from M-B, Ipk(far) - Ipk(M-B), M-B and the pair clean:")
+    for lo, hi in ((FAR, 0.05), (0.05, 0.10), (0.10, 1.0)):
+        g = U[(U["dist"] >= lo) & (U["dist"] < hi)]
+        o(f"  {lo:.2f}-{hi:.2f}: {len(g):3d} pairs; within +-0.03 A {int((g['up'].abs() <= 0.03).sum()):3d}, lower by more {int((g['up'] < -0.03).sum()):2d}, higher by more {int((g['up'] > 0.03).sum()):3d}; "
+          f"mean {g['up'].mean():+.3f}, lowest {g['up'].min():+.3f}, highest {g['up'].max():+.3f} A")
+    o("  lower than M-B by more than 0.03 A:")
+    for _, r in U[U["up"] < -0.03].sort_values("up").iterrows():
+        o(f"    {r['V2']:6.1f} V {r['P']:5.0f} W ({r['D1']:.3f}, {r['D2']:.3f}) distance {r['dist']:.3f}: {r['up']:+.3f} A")
+    C = T[T["clean"]]
+    o(f"\nShare of the largest reduction measured, {len(C)} points with SPS and M-B clean (the minimum is biased low):")
+    for kind in KINDS:
+        got, best = (C[f"SPS_{kind}"] - C[f"MB_{kind}"]), (C[f"SPS_{kind}"] - C[f"best_{kind}"])
+        o(f"  {kind:4s}: mean SPS - M-B {got.mean():+.3f}, SPS - best {best.mean():+.3f} A, share {got.sum() / best.sum():.1%}; M-B - best mean {(best - got).mean():.3f}, median {(best - got).median():.3f}, largest {(best - got).max():.3f} A")
+    by_v = C.groupby("V2").agg(dB=("SPS_med", lambda s: (s - C.loc[s.index, "MB_med"]).mean()), dBest=("SPS_med", lambda s: (s - C.loc[s.index, "best_med"]).mean()), n=("P", "size"))
+    by_p = C.groupby("P").agg(dB=("SPS_med", lambda s: (s - C.loc[s.index, "MB_med"]).mean()), dBest=("SPS_med", lambda s: (s - C.loc[s.index, "best_med"]).mean()), n=("P", "size"))
+    o(by_v.to_string(float_format=lambda x: f"{x:+.3f}"))
+    o(by_p.to_string(float_format=lambda x: f"{x:+.3f}"))
+    open(os.path.join(OUT, "opt25_flat.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
+
+    _style(plt)
+    S = "#fcfcfb"
+    fig_, ax = plt.subplots(1, 2, figsize=(11.5, 4.6), gridspec_kw=dict(width_ratios=[1.3, 1.0]))
+    a = ax[0]
+    a.axhline(0.0, color=MUTED, lw=0.8, zorder=1)
+    a.axhline(0.03, color=MUTED, lw=0.8, ls="--", zorder=1)
+    a.axhline(-0.03, color=MUTED, lw=0.8, ls="--", zorder=1)
+    for lo, hi, c, m, nm in ((0.0, 250.0, BLUE, "o", "|P| ≤ 200 W"), (250.0, 500.0, ORANGE, "^", "300–400 W"), (500.0, 1e4, AQUA, "s", "≥ 600 W")):
+        g = U[(U["P"] >= lo) & (U["P"] < hi)]
+        a.scatter(g["dist"], g["up"], s=42, marker=m, color=c, edgecolors=S, linewidths=0.8, zorder=3, label=nm)
+    low = U.nsmallest(2, "up")
+    a.annotate(f"{low['V2'].iloc[0]:g} V {low['P'].iloc[0]:g} W: " + ", ".join(f"({r.D1:.3f}, {r.D2:.3f})" for r in low.itertuples()), (low["dist"].iloc[0], low["up"].mean()),
+               xytext=(8, 0), textcoords="offset points", color=INK2, fontsize=8.5, va="center")
+    a.text(U["dist"].max(), 0.033, "±0.03 A, the smallest tolerance", color=INK2, fontsize=8.5, ha="right", va="bottom")
+    a.set_xlabel("distance from controller B, max(|ΔD1|, |ΔD2|)")
+    a.set_ylabel("Ipk(far pair) − Ipk(B) [A]")
+    a.set_title("Pairs away from the surface: flat up to about 0.05, then higher", loc="left")
+    a.legend(fontsize=8.5, frameon=False, loc="upper left")
+    a = ax[1]
+    x = np.arange(len(by_v))
+    w = 0.38
+    a.bar(x - w / 2 - 0.01, by_v["dB"], w, color=BLUE, label="controller B")
+    a.bar(x + w / 2 + 0.01, by_v["dBest"], w, color=ORANGE, label="lowest pair measured at each point")
+    a.axhline(0.0, color=MUTED, lw=0.8)
+    a.set_xticks(x, [f"{v:g}" for v in by_v.index])
+    a.grid(False, axis="x")
+    a.set_xlabel("V2 [V]")
+    a.set_ylabel("mean Ipk(SPS) − Ipk [A]")
+    a.set_title("Reduction against SPS, mean over the clean points", loc="left")
+    a.legend(fontsize=8.5, frameon=False, loc="upper center")
+    fig_.suptitle("Simulink steady state, 25 ns grid, HV→LV, median period peak", fontsize=11)
+    fig_.tight_layout()
+    fig_.savefig(os.path.join(OUT, "fig_opt25.png"), dpi=130)
+    plt.close(fig_)
+    print("wrote out/opt25_flat.{log,csv}, out/opt25_flat_far.csv, out/fig_opt25.png")
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["scan", "pick", "make", "next", "compare", "selftest"])
+    ap.add_argument("cmd", choices=["scan", "pick", "make", "next", "compare", "flat", "selftest"])
     ap.add_argument("--part", type=int, default=0)
     ap.add_argument("--parts", type=int, default=1)
     a = ap.parse_args()
@@ -347,7 +449,7 @@ def main():
     elif a.cmd == "selftest":
         sys.exit(0 if selftest() else 1)
     else:
-        {"pick": pick, "make": make, "next": next_round, "compare": compare}[a.cmd]()
+        {"pick": pick, "make": make, "next": next_round, "compare": compare, "flat": flat}[a.cmd]()
 
 
 if __name__ == "__main__":
