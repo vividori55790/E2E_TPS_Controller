@@ -6,7 +6,8 @@ function r11_closed_loop(pointsCsv, outDir, batch)
 % both run at 100 ns, so every edge sits on a 2.88 deg grid, the PI dithers between two grid levels inside a switching
 % period and the dither leaves DC offsets and +1.2..3 A peaks whatever the gains. Here, per run and without saving the
 % model:
-%   * r11/DAB_Controller_System.m (a copy, first on the path) sizes its one-period averages from Ts_ctrl and can latch
+%   * r11/DAB_Controller_System.m (a copy; first on the path AND the current folder, client and workers) sizes its
+%     one-period averages from Ts_ctrl and can latch
 %     the leg phases once per period (SyncPhaseUpdate, like an MCU timer's preloaded compare registers);
 %   * 'MATLAB System' Ts_ctrl and Solver Configuration2 LocalSolverSampleTime = the points' Ts (e.g. 25 or 10 ns);
 %   * Constant21 (Mode_Select) = 0 -> PI on the outer phase, Constant4 / Constant6 = Kp / Ki;
@@ -46,9 +47,6 @@ function r11_closed_loop(pointsCsv, outDir, batch)
     addpath(simDir); addpath(fullfile(simDir, 'Modules'));
     addpath(eraDir);
     addpath(r11Dir);                                   % last addpath = first on the path: the R11 controller copy
-    w = which('DAB_Controller_System');
-    fprintf('DAB_Controller_System -> %s\n', w);
-    if ~contains(w, [filesep 'r11' filesep]), error('r11 controller copy is not first on the path'); end
     % keep the dataset-era cache (dataset_era/slprj, used by every other job) untouched by the modified class
     cacheDir = fullfile(thesisDir, 'out', 'r11_cache');
     if ~isfolder(cacheDir), mkdir(cacheDir); end
@@ -57,7 +55,13 @@ function r11_closed_loop(pointsCsv, outDir, batch)
     modelName = 'Control_Logic_dataset_era';
     oldDir = pwd;
     cleanup = onCleanup(@() restore(oldDir, oldCache));
-    cd(eraDir);
+    % NOT cd(eraDir): the current folder comes before the path, so dataset_era/ made the original class shadow the
+    % copy (r11smoke 10-30 12:51, all 5 runs: "... 'SyncPhaseUpdate'인 파라미터가 없음"); the model and
+    % Direct_Efficiency_Analyzer.m are found on the path, every file name here is absolute
+    cd(r11Dir);
+    w = which('DAB_Controller_System');
+    fprintf('DAB_Controller_System -> %s\n', w);
+    if ~contains(w, [filesep 'r11' filesep]), error('r11 controller copy is not the one in use'); end
     solverBlk = [modelName '/Solver' char(10) 'Configuration2'];
     trimBlocks = {'To Workspace1', 'To Workspace3', 'To Workspace4', 'To Workspace9', 'To Workspace11', ...
                   'To Workspace12', 'To Workspace13', 'To Workspace14', 'To Workspace15', 'To Workspace16'};
@@ -201,6 +205,10 @@ end
 function workerSetup(spec, eraDir, r11Dir, cacheDir) %#ok<INUSD>
     addpath(eraDir);
     addpath(r11Dir);                                   % parsim workers: the R11 controller copy first on the path
+    cd(r11Dir);                                        % ... and as the current folder (see the cd note above)
+    if ~contains(which('DAB_Controller_System'), [filesep 'r11' filesep])
+        error('worker: r11 controller copy is not the one in use');
+    end
     assignin('base', 'C_HV', 1000e-6);
     assignin('base', 'R_ESR_HV', 0.05);
     assignin('base', 'R_ESR_LV', 0.01);

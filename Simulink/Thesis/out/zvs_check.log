@@ -1,62 +1,62 @@
-runs with a waveform: 553; common frame sigma +1, rho +1, offset c -1.89 deg (per-run best offset -8.64..+4.41); slope correlation in that frame min -0.426, median 0.853; half-wave asymmetry max 1.985
+runs with a waveform: 811; common frame sigma +1, rho +1, offset c -1.89 deg (per-run best offset -8.64..+5.31); slope correlation in that frame min -0.426, median 0.843; half-wave asymmetry max 1.985
 
 ZVS per leg (A, B primary; C, D secondary), Simulink steady state, HV -> LV; Z = ZVS, m = marginal (current reverses inside the dead time), H = hard, h = hard at |i| < 0.2 A (about zero-current switching), ~ = oscillating run, - = no waveform yet
-    V2   |P| |   SPS   |   M-A   |   M-B  
-    84   100 |  ZZHH   |  hZHH   |  HZZZ  
-    84   200 |  ZZHH   |  hZZH   |  HZmZ  
-    84   300 |  ZZHH   |  ZZmH   |  HZZZ  
-    84   400 |  ZZHH   |  ZZZH   |  HZZZ  
-    84   600 |  ZZZZ   |  ZZZH   |  mZZZ  
-    84   800 |  ZZZZ   |  ZZZZ   |  ZZZZ  
-    84  1000 |  ZZZZ   |  ZZZZ   |  ZZZZ  
-    95   100 |  mmZZ   |  HmZZ   |  mmZZ  
-    95   200 |  mmZZ   |  HZZZ   |  mmZZ  
-    95   300 |  ZZZZ   |  HZZZ   |  ZZZZ  
-    95   400 |  ZZZZ   |  hZZH~  |    -   
-    95   600 |  ZZZZ   |  ZZZZ   |  ZZZZ  
-    95   800 |    -    |  ZZZZ   |    -   
-    95  1000 |  ZZZZ   |  ZZZZ   |  ZZZZ  
- 109.2   100 |  HHZZ   |  HhZZ~  |  hhZm  
- 109.2   200 |  HHZZ   |  HhZZ~  |  HhZZ~ 
- 109.2   300 |  HHZZ   |  HHZZ   |  HhZm  
- 109.2   400 |  HHZZ   |  HHZZ~  |  HhZm  
- 109.2   600 |  hhZZ~  |  HhZZ~  |  HhZZ  
- 109.2   800 |  hhZZ~  |    -    |  HHZm  
- 109.2  1000 |  mmZZ   |  mmZZ   |  mmZZ  
+    V2   |P| |   SPS   |   M-A   |   M-B   |   M-S  
+    84   100 |  ZZHH   |  hZHH   |  HZZZ   |    -   
+    84   200 |  ZZHH   |  hZZH   |  HZmZ   |    -   
+    84   300 |  ZZHH   |  ZZmH   |  HZZZ   |    -   
+    84   400 |  ZZHH   |  ZZZH   |  HZZZ   |    -   
+    84   600 |  ZZZZ   |  ZZZH   |  mZZZ   |    -   
+    84   800 |  ZZZZ   |  ZZZZ   |  ZZZZ   |    -   
+    84  1000 |  ZZZZ   |  ZZZZ   |  ZZZZ   |    -   
+    95   100 |  mmZZ   |  HmZZ   |  mmZZ   |    -   
+    95   200 |  mmZZ   |  HZZZ   |  mmZZ   |    -   
+    95   300 |  ZZZZ   |  HZZZ   |  ZZZZ   |    -   
+    95   400 |  ZZZZ   |  hZZH~  |  ZZZZ   |    -   
+    95   600 |  ZZZZ   |  ZZZZ   |  ZZZZ   |    -   
+    95   800 |  ZZZZ   |  ZZZZ   |  ZZZZ   |    -   
+    95  1000 |  ZZZZ   |  ZZZZ   |  ZZZZ   |    -   
+ 109.2   100 |  HHZZ   |  HhZZ~  |  hhZm   |    -   
+ 109.2   200 |  HHZZ   |  HhZZ~  |  HhZZ~  |    -   
+ 109.2   300 |  HHZZ   |  HHZZ   |  HhZm   |    -   
+ 109.2   400 |  HHZZ   |  HHZZ~  |  HhZm   |    -   
+ 109.2   600 |  hhZZ~  |  HhZZ~  |  HhZZ   |    -   
+ 109.2   800 |  hhZZ~  |  HhZZ~  |  HHZm   |    -   
+ 109.2  1000 |  mmZZ   |  mmZZ   |  mmZZ   |    -   
 
 hard-switched legs (clean runs only), count over the measured configurations:
-  SPS: 16 of 72 legs hard, 0 more hard at |i| < 0.2 A, in 18 configurations (A 4, B 4, C 4, D 4)
+  SPS: 16 of 76 legs hard, 0 more hard at |i| < 0.2 A, in 19 configurations (A 4, B 4, C 4, D 4)
   M-A: 11 of 60 legs hard, 2 more hard at |i| < 0.2 A, in 15 configurations (A 4, B 1, C 1, D 5)
-  M-B: 9 of 72 legs hard, 5 more hard at |i| < 0.2 A, in 18 configurations (A 8, B 1, C 0, D 0)
+  M-B: 9 of 80 legs hard, 5 more hard at |i| < 0.2 A, in 20 configurations (A 8, B 1, C 0, D 0)
 
 current switched the wrong way (hard or marginal legs), primary legs at V1 / secondary legs at V2 [A, own side], and the sum of V x I over those legs [VA] -- a proxy for turn-on loss (Simulink has Coss = 0, so it shows no switching loss itself); ~ = oscillating
-    V2   |P| |    SPS pri/sec  VI     |    M-A pri/sec  VI     |    M-B pri/sec  VI    
-    84   100 |  0.00 /  6.19   1039  |  0.00 /  1.28    148  |  0.31 /  0.00    118 
-    84   200 |  0.00 /  6.19   1039  |  0.00 /  0.67     57  |  0.30 /  0.00    113 
-    84   300 |  0.00 /  5.48    921  |  0.00 /  4.90    422  |  0.37 /  0.00    140 
-    84   400 |  0.00 /  3.67    616  |  0.00 /  7.08    595  |  0.39 /  0.00    149 
-    84   600 |  0.00 /  0.00      0  |  0.00 /  6.48    544  |  0.24 /  0.00     91 
-    84   800 |  0.00 /  0.00      0  |  0.00 /  0.00      0  |  0.00 /  0.00      0 
-    84  1000 |  0.00 /  0.00      0  |  0.00 /  0.00      0  |  0.00 /  0.00      0 
-    95   100 |  0.00 /  0.00      0  |  0.77 /  0.00    292  |  0.00 /  0.00      0 
-    95   200 |  0.00 /  0.00      0  |  0.69 /  0.00    261  |  0.00 /  0.00      0 
-    95   300 |  0.00 /  0.00      0  |  0.29 /  0.00    109  |  0.00 /  0.00      0 
-    95   400 |  0.00 /  0.00      0  |  0.07 /  1.30    149~ |           -           
-    95   600 |  0.00 /  0.00      0  |  0.00 /  0.00      0  |  0.00 /  0.00      0 
-    95   800 |           -            |  0.00 /  0.00      0  |           -           
-    95  1000 |  0.00 /  0.00      0  |  0.00 /  0.00      0  |  0.00 /  0.00      0 
- 109.2   100 |  1.88 /  0.00   1429  |  1.02 /  0.00    415~ |  0.16 /  0.78    186 
- 109.2   200 |  1.88 /  0.00   1429  |  1.56 /  0.00    620~ |  0.51 /  0.00    201~
- 109.2   300 |  1.43 /  0.00   1086  |  1.99 /  0.00    882  |  0.29 /  0.03    116 
- 109.2   400 |  1.43 /  0.00   1086  |  1.91 /  0.00    841~ |  0.24 /  0.24    136 
- 109.2   600 |  0.02 /  0.00     17~ |  0.78 /  0.00    360~ |  0.21 /  0.00    117 
- 109.2   800 |  0.02 /  0.00     17~ |           -            |  0.68 /  0.88    616 
- 109.2  1000 |  0.02 /  0.00     13  |  0.02 /  0.00     17  |  0.02 /  0.00     17 
-  M-A vs SPS, both clean (14 configurations): summed V x I 3327 vs 4714 VA; lower in 5, higher in 5
-  M-B vs SPS, both clean (16 configurations): summed V x I 1065 vs 7229 VA; lower in 7, higher in 2
+    V2   |P| |    SPS pri/sec  VI     |    M-A pri/sec  VI     |    M-B pri/sec  VI     |    M-S pri/sec  VI    
+    84   100 |  0.00 /  6.19   1039  |  0.00 /  1.28    148  |  0.31 /  0.00    118  |           -           
+    84   200 |  0.00 /  6.19   1039  |  0.00 /  0.67     57  |  0.30 /  0.00    113  |           -           
+    84   300 |  0.00 /  5.48    921  |  0.00 /  4.90    422  |  0.37 /  0.00    140  |           -           
+    84   400 |  0.00 /  3.67    616  |  0.00 /  7.08    595  |  0.39 /  0.00    149  |           -           
+    84   600 |  0.00 /  0.00      0  |  0.00 /  6.48    544  |  0.24 /  0.00     91  |           -           
+    84   800 |  0.00 /  0.00      0  |  0.00 /  0.00      0  |  0.00 /  0.00      0  |           -           
+    84  1000 |  0.00 /  0.00      0  |  0.00 /  0.00      0  |  0.00 /  0.00      0  |           -           
+    95   100 |  0.00 /  0.00      0  |  0.77 /  0.00    292  |  0.00 /  0.00      0  |           -           
+    95   200 |  0.00 /  0.00      0  |  0.69 /  0.00    261  |  0.00 /  0.00      0  |           -           
+    95   300 |  0.00 /  0.00      0  |  0.29 /  0.00    109  |  0.00 /  0.00      0  |           -           
+    95   400 |  0.00 /  0.00      0  |  0.07 /  1.30    149~ |  0.00 /  0.00      0  |           -           
+    95   600 |  0.00 /  0.00      0  |  0.00 /  0.00      0  |  0.00 /  0.00      0  |           -           
+    95   800 |  0.00 /  0.00      0  |  0.00 /  0.00      0  |  0.00 /  0.00      0  |           -           
+    95  1000 |  0.00 /  0.00      0  |  0.00 /  0.00      0  |  0.00 /  0.00      0  |           -           
+ 109.2   100 |  1.88 /  0.00   1429  |  1.02 /  0.00    415~ |  0.16 /  0.78    186  |           -           
+ 109.2   200 |  1.88 /  0.00   1429  |  1.56 /  0.00    620~ |  0.51 /  0.00    201~ |           -           
+ 109.2   300 |  1.43 /  0.00   1086  |  1.99 /  0.00    882  |  0.29 /  0.03    116  |           -           
+ 109.2   400 |  1.43 /  0.00   1086  |  1.91 /  0.00    841~ |  0.24 /  0.24    136  |           -           
+ 109.2   600 |  0.02 /  0.00     17~ |  0.78 /  0.00    360~ |  0.21 /  0.00    117  |           -           
+ 109.2   800 |  0.02 /  0.00     17~ |  0.74 /  0.00    353~ |  0.68 /  0.88    616  |           -           
+ 109.2  1000 |  0.02 /  0.00     13  |  0.02 /  0.00     17  |  0.02 /  0.00     17  |           -           
+  M-A vs SPS, both clean (15 configurations): summed V x I 3327 vs 4714 VA; lower in 5, higher in 5
+  M-B vs SPS, both clean (18 configurations): summed V x I 1065 vs 7229 VA; lower in 7, higher in 2
 
 frame check: leg verdicts again with the offset c moved from -1.89 deg (each run's own best: the 1 kW all-ZVS runs pick -2.34, runs with hard primary legs about -0.54, since a hard edge moves the voltage step td later)
-  c -2.79 deg: 18 of 59 configurations change; summed hard V*I SPS 8.69 -> 8.69 kVA, M-A 5.71 -> 5.70 kVA, M-B 2.00 -> 1.94 kVA
+  c -2.79 deg: 18 of 63 configurations change; summed hard V*I SPS 8.69 -> 8.69 kVA, M-A 6.06 -> 5.97 kVA, M-B 2.00 -> 1.94 kVA
      SPS 95 V 100 W mmZZ->mmmm
      SPS 95 V 200 W mmZZ->mmmm
      SPS 109.2 V 1000 W mmZZ->ZZZZ
@@ -75,18 +75,18 @@ frame check: leg verdicts again with the offset c moved from -1.89 deg (each run
      M-B 109.2 V 400 W HhZm->HhZH
      M-B 109.2 V 600 W HhZZ->hhZZ
      M-B 109.2 V 1000 W mmZZ->ZZZZ
-  c -2.34 deg: 3 of 59 configurations change; summed hard V*I SPS 8.69 -> 8.69 kVA, M-A 5.71 -> 5.71 kVA, M-B 2.00 -> 1.99 kVA
+  c -2.34 deg: 3 of 63 configurations change; summed hard V*I SPS 8.69 -> 8.69 kVA, M-A 6.06 -> 6.03 kVA, M-B 2.00 -> 1.99 kVA
      M-A 109.2 V 600 W HhZZ->HHZZ
      M-B 84 V 100 W HZZZ->HZZm
      M-B 109.2 V 600 W HhZZ->hhZZ
-  c -1.44 deg: 4 of 59 configurations change; summed hard V*I SPS 8.69 -> 8.70 kVA, M-A 5.71 -> 5.72 kVA, M-B 2.00 -> 1.99 kVA
+  c -1.44 deg: 4 of 63 configurations change; summed hard V*I SPS 8.69 -> 8.70 kVA, M-A 6.06 -> 6.07 kVA, M-B 2.00 -> 1.99 kVA
      SPS 95 V 300 W ZZZZ->mmZZ
      M-B 84 V 100 W HZZZ->HZmZ
      M-B 84 V 800 W ZZZZ->mZZZ
      M-B 95 V 300 W ZZZZ->mmZZ
 
-loss check (reference, a fit over 441 clean runs with a waveform, P > 20 W; Simulink loss = P_HV in - P_LV out):
-  R Irms^2              : coefficients 4.61; R^2 0.878, rms residual 5.20 W
-  R Irms^2 + k RR       : coefficients 4.5, 2.61; R^2 0.892, rms residual 4.91 W
-  R Irms^2 + k RR + c   : coefficients 3.89, -1.19, 5.74; R^2 0.947, rms residual 3.42 W
+loss check (reference, a fit over 652 clean runs with a waveform, P > 20 W; Simulink loss = P_HV in - P_LV out):
+  R Irms^2              : coefficients 4.66; R^2 0.882, rms residual 4.94 W
+  R Irms^2 + k RR       : coefficients 4.56, 2.57; R^2 0.893, rms residual 4.72 W
+  R Irms^2 + k RR + c   : coefficients 3.98, -0.914, 5.03; R^2 0.944, rms residual 3.40 W
   (k = 1 would mean each hard edge costs V * TT * I; a k that changes sign with c means the hard edges are not seen in the Simulink loss -- Coss = 0, ideal channel)

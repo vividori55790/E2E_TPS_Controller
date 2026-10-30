@@ -8,12 +8,16 @@ function verify_steady_fine(pointsCsv, outCsv, simTime)
 % points with Ts = 25 / 10 ns to see whether that roughness (and the OPT / M-S gaps of the same size) survives.
 %
 % Same as verify_steady_state.m (constant D0, last 1 ms, every-ms windows, i_L last period, per-period peaks) plus:
-%   * r11/DAB_Controller_System.m (copy, first on the path): one-period averages sized from Ts_ctrl; SyncPhaseUpdate
-%     stays false (constant phases -- nothing to latch);
+%   * the ORIGINAL controller dataset_era/DAB_Controller_System.m, as in every other job. (Until 10-30 13:00 this copy
+%     put r11/DAB_Controller_System.m first on the path, but the current folder dataset_era/ shadows the path, so the
+%     workers ran the original class and fine1 failed on all 117 runs: "... 'SyncPhaseUpdate'인 파라미터가 없음".)
+%     The r11 copy is not needed here: in manual phase mode (Mode_Select 1, Ctrl_Mode_Ext 3) the controller's
+%     one-period averages (fixed 125 samples) never reach the gates -- no PI, no feed-forward, flux balancing off in
+%     mode 3 -- so Ts_ctrl alone sets the PWM edge grid (phase increment 360 Fs Ts_ctrl);
 %   * per run: 'MATLAB System' Ts_ctrl = Ts and Solver Configuration2 LocalSolverSampleTime = Ts (points column Ts,
 %     default 1e-7). The model's active configuration is variable-step (configSet4), so 25 / 10 ns sample times are
 %     allowed; MATLAB System1 (efficiency analyzer, 500-sample buffer) stays at 100 ns;
-%   * the cache folder is out/r11_cache (dataset_era/slprj, used by every other job, is not touched by the copy).
+%   * the cache folder is out/r11_cache (dataset_era/slprj, used by every other job, keeps its 100 ns build).
 % Nothing is saved into dataset_era/ or Modules/.
 %
 %   python -I -X utf8 Simulink/Thesis/fine_grid_check.py make         -> out/fine_points_r1.csv
@@ -23,7 +27,6 @@ function verify_steady_fine(pointsCsv, outCsv, simTime)
     thesisDir = fileparts(mfilename('fullpath'));
     simDir    = fileparts(thesisDir);
     eraDir    = fullfile(thesisDir, 'dataset_era');
-    r11Dir    = fullfile(thesisDir, 'r11');
     if nargin < 3 || isempty(simTime), simTime = 0.020; end
     pointsCsv = absPath(char(pointsCsv)); outCsv = absPath(char(outCsv));
     fprintf('verify_steady_fine: %s -> %s, %.1f ms per point\n', pointsCsv, outCsv, simTime * 1e3);
@@ -35,11 +38,7 @@ function verify_steady_fine(pointsCsv, outCsv, simTime)
     Kp_val = 0.05; Ki_val = 50.0; Kpv_val = 5.0; Kiv_val = 5000;
 
     addpath(simDir); addpath(fullfile(simDir, 'Modules'));
-    addpath(eraDir);
-    addpath(r11Dir);                                   % last addpath = first on the path: the R11 controller copy
-    w = which('DAB_Controller_System');
-    fprintf('DAB_Controller_System -> %s\n', w);
-    if ~contains(w, [filesep 'r11' filesep]), error('r11 controller copy is not first on the path'); end
+    addpath(eraDir);                                   % last addpath = first on the path: old DAB_Controller_System.m
     cacheDir = fullfile(thesisDir, 'out', 'r11_cache');
     if ~isfolder(cacheDir), mkdir(cacheDir); end
     oldCache = Simulink.fileGenControl('get', 'CacheFolder');
@@ -48,6 +47,9 @@ function verify_steady_fine(pointsCsv, outCsv, simTime)
     oldDir = pwd;
     cleanup = onCleanup(@() restore(oldDir, oldCache));
     cd(eraDir);
+    w = which('DAB_Controller_System');                % checked after the cd: the current folder comes first
+    fprintf('DAB_Controller_System -> %s\n', w);
+    if ~contains(w, [filesep 'dataset_era' filesep]), error('the dataset-era controller is not the one in use'); end
     solverBlk = [modelName '/Solver' char(10) 'Configuration2'];
 
     t_in = [0; simTime];
@@ -76,12 +78,11 @@ function verify_steady_fine(pointsCsv, outCsv, simTime)
         s = s.setVariable('D1_ext_in', timeseries(D1 * ones(2, 1), t_in));
         s = s.setVariable('D2_ext_in', timeseries(D2 * ones(2, 1), t_in));
         s = s.setBlockParameter([modelName '/MATLAB System'], 'Ts_ctrl', num2str(Ts, 10));
-        s = s.setBlockParameter([modelName '/MATLAB System'], 'SyncPhaseUpdate', 'false');
         s = s.setBlockParameter(solverBlk, 'LocalSolverSampleTime', num2str(Ts, 10));
         simIn(k) = s;
     end
 
-    setup = @() workerSetup(Kp_val, Ki_val, Kpv_val, Kiv_val, spec, eraDir, r11Dir);
+    setup = @() workerSetup(Kp_val, Ki_val, Kpv_val, Kiv_val, spec, eraDir);
     t0 = tic;
     usePar = license('test', 'Distrib_Computing_Toolbox') && ~isempty(ver('parallel'));
     if usePar
@@ -194,9 +195,8 @@ function p = absPath(p)
     end
 end
 
-function workerSetup(Kp, Ki, Kpv, Kiv, spec, eraDir, r11Dir)
+function workerSetup(Kp, Ki, Kpv, Kiv, spec, eraDir)
     addpath(eraDir);
-    addpath(r11Dir);                                   % parsim workers: the R11 controller copy first on the path
     assignin('base', 'C_HV', 1000e-6);
     assignin('base', 'R_ESR_HV', 0.05);
     assignin('base', 'R_ESR_LV', 0.01);

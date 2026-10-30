@@ -19,6 +19,15 @@ RULE (registered 10-30, do not change after results):
            "열화 있음" otherwise (list them); "판정 불가" if fewer than 75 % are decidable.
   Reported alongside (not part of the verdict): retention = dI(variant) / dI(nominal) where nominal dI > tol.
 
+ADDED 10-30 13:00, after the rob4 results were seen (so NOT part of the verdict, reported alongside only): "M-Bk" =
+M-B fed the V1-normalised input (|P| (V1n/V1)^2, V2 V1n/V1), V1n = 380 V, which keeps k = n V2 / V1 and the power per
+unit (|P| 2 fs L / (n V1 V2)) of the nominal plant, so the ideal model's optimum maps exactly -- the V1-equivalent
+input already built into smooth_reghdc_infer.m (optional V1) and the C export (RESULTS 6, T14, analytic only until
+now). rob4 showed V1 -5 % at
+84 V 300 W "열화"; the ideal model (reference) predicts it (k 0.884 -> 0.931: the nominal duties are too aggressive) and
+that M-Bk removes it. Run only where V1 moves k toward 1 (V1 -5 % at 84 V, V1 +5 % at 109.2 V): there the normalised
+V2 (88.4 / 104.0 V) is inside the training range 84-109.2 V; the other two cases would extrapolate the encoder.
+
     python -I -X utf8 Simulink/Thesis/robust_check.py make        -> out/robust_points_r1.csv
     python automation/job.py submit rob1 --interactive -- matlab -batch "cd('Simulink/Thesis'); verify_steady_param('out/robust_points_r1.csv', 'out/robust_sweep_r1.csv')"
     python -I -X utf8 Simulink/Thesis/robust_check.py next        -> out/robust_points_r<k+1>.csv (unbracketed)
@@ -36,12 +45,15 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+import controllers as ct  # noqa: E402
 import pi_steady as ps  # noqa: E402
 import plant_full as pf  # noqa: E402
 import simulink_sweep as sw  # noqa: E402
 
 OUT = os.path.join(HERE, "out")
 NOM = dict(L_uH=90.0, td_ns=100.0, V1=380.0)
+EXTRA = "M-Bk"                               # reported alongside only (see the 10-30 13:00 note above)
+EXTRA_CASES = (("V1-5", 84.0), ("V1+5", 109.2))
 VARIANTS = {"L-10": dict(L_uH=81.0), "L+10": dict(L_uH=99.0), "td200": dict(td_ns=200.0),
             "V1-5": dict(V1=361.0), "V1+5": dict(V1=399.0)}
 V2S = (84.0, 109.2)
@@ -59,9 +71,18 @@ def params(var):
     return p
 
 
-def configs():
+def configs(extra=False):
     base = [c for c in sw.configs() if c["ctrl"] in CTRLS and c["V2"] in V2S and c["P"] in PS]
-    return [dict(c, variant=v, **params(v)) for v in VARIANTS for c in base]
+    cf = [dict(c, variant=v, **params(v)) for v in VARIANTS for c in base]
+    if extra:
+        mb = ct.SmoothRegHDC.from_json(os.path.join(OUT, "model_smooth_reghdc_b3.json"))
+        for v, V2 in EXTRA_CASES:
+            r = NOM["V1"] / params(v)["V1"]
+            for P in PS:
+                d1, d2 = mb.predict(np.array([P * r * r]), np.array([V2 * r]))
+                cf.append(dict(ctrl=EXTRA, V2=V2, P=P, D1=round(min(float(np.ravel(d1)[0]), sw.D_SAFE), 9),
+                               D2=round(min(float(np.ravel(d2)[0]), sw.D_SAFE), 9), variant=v, **params(v)))
+    return cf
 
 
 def predicted_levels(cf):
@@ -151,18 +172,32 @@ def next_round():
     d = results()
     if d is None:
         sys.exit("no out/robust_sweep_r*.csv yet")
-    cf, pts = configs(), []
+    cf, pts = configs(extra=True), []
     fresh = [c for c in cf if runs_of(d, c).empty]
     for c, (j0, j1) in zip(fresh, predicted_levels(fresh) if fresh else []):
-        pts += [point(c, j0), point(c, j1)]
+        # + one level above: in rob4 every configuration the prediction missed was short of |P| (17/17)
+        pts += [point(c, j0), point(c, j1), point(c, j1 + 1)]
     for c in cf:
         g = runs_of(d, c)
         if g.empty:
             continue
         b, way = sw.bracket(g, c["P"])
-        if b is None:
+        below = g[(g["Pd"] > 0) & (g["Pd"] <= c["P"])]
+        if b is None and way < 0 and not below.empty:
+            # |P| in a gap between non-adjacent measured levels (the surface_opt_check.plan() fix of 10-30)
+            j = int(below["level"].max())
+            pts += [point(c, j + 1), point(c, j + 2)]
+        elif b is None:
             j = int(g["level"].max() + 1) if way > 0 else int(g["level"].min() - 1)
-            pts += [point(c, j), point(c, j + way)]
+            n = 2
+            e = g.iloc[-2:] if way > 0 else g.iloc[:2]
+            if way > 0 and len(e) == 2:
+                # rob4 (10-30): the variant plants move the power per level, so extend by the last measured step
+                # far enough to reach |P| in this round (at most 4 levels), not always by two
+                step = (e["Pd"].iloc[1] - e["Pd"].iloc[0]) / (e["level"].iloc[1] - e["level"].iloc[0])
+                if step > 0:
+                    n = int(np.clip(np.ceil((c["P"] - e["Pd"].iloc[1]) / step) + 1, 2, 4))
+            pts += [point(c, j + way * i) for i in range(n)]
     if pts:
         write(os.path.join(OUT, f"robust_points_r{round_no()}.csv"), pts,
               [(r.variant, r.V2, r.D0, r.D1, r.D2) for r in d.itertuples()])
@@ -230,22 +265,25 @@ VERDICT_TXT = {"robust": "**견고하다**: 다섯 변형 어디서도 제어기
 def compare(d=None, write_out=True):
     import pandas as pd
     d = results() if d is None else d
-    cf = configs()
+    cf = configs(extra=True)
     M = measure(d, cf)
     nom = nominal()
     rows = []
     for v in VARIANTS:
         for V2 in V2S:
             for P in PS:
-                s = next((m for m in M if m["variant"] == v and m["V2"] == V2 and m["P"] == P and m["ctrl"] == "SPS"), None)
-                b = next((m for m in M if m["variant"] == v and m["V2"] == V2 and m["P"] == P and m["ctrl"] == "M-B"), None)
+                s, b, k = (next((m for m in M if m["variant"] == v and m["V2"] == V2 and m["P"] == P and m["ctrl"] == c), None)
+                           for c in ("SPS", "M-B", EXTRA))
                 code, dI, tol = classify(s["Ipk"], b["Ipk"], s["osc"], b["osc"])
                 n_s, n_b, n_clean = nom.get((V2, P), (np.nan, np.nan, False))
                 dI0 = n_s - n_b
                 ret = dI / dI0 if np.isfinite(dI) and np.isfinite(dI0) and dI0 > max(TOL_A, TOL_REL * n_s) else np.nan
+                k = k or dict(Ipk=np.nan, osc=np.nan, D1=np.nan, D2=np.nan)
+                code_k, dI_k, _ = classify(s["Ipk"], k["Ipk"], s["osc"], k["osc"])
                 rows.append(dict(variant=v, V2=V2, P=P, Ipk_SPS=s["Ipk"], Ipk_MB=b["Ipk"], osc_SPS=s["osc"], osc_MB=b["osc"],
                                  dI=dI, tol=tol, code=code, dI_nominal=dI0, nominal_clean=n_clean, retention=ret,
-                                 D1=b["D1"], D2=b["D2"]))
+                                 D1=b["D1"], D2=b["D2"], Ipk_MBk=k["Ipk"], osc_MBk=k["osc"], dI_k=dI_k,
+                                 code_k=code_k if (v, V2) in EXTRA_CASES else "", D1k=k["D1"], D2k=k["D2"]))
     T = pd.DataFrame(rows)
     v = verdict(list(T["code"]))
     lines = ["robust_check: R10 parameter robustness, Simulink (dataset-era model), HV->LV, dI = Ipk(SPS) - Ipk(M-B) [A]",
@@ -271,6 +309,27 @@ def compare(d=None, write_out=True):
     md += ["", "° 공칭 R.4 기준이 진동한 점.", "", "**판정**: " + VERDICT_TXT[v]
            + (": " + ", ".join(f"{r.variant} {r.V2:g} V {r.P:.0f} W ({r.dI:+.3f} A)" for r in T.itertuples() if r.code == "worse")
               if v == "worse" else "") + f". 판정 가능 {len(dec)}/{len(T)}."]
+    n_open = int((~np.isfinite(T["Ipk_SPS"]) | ~np.isfinite(T["Ipk_MB"])).sum())
+    if n_open:      # wording only (10-30): unbracketed cases are still to be measured, not undecidable
+        md.append(f"※ 아직 감싸지 못한 경우 {n_open}개 — **잠정**(다음 라운드 `robust_check.py next` 뒤 다시 판정).")
+        lines.append(f"{n_open} cases not bracketed yet -> provisional")
+    X = T[T["code_k"] != ""]
+    if len(X):
+        lines += ["", f"alongside, NOT part of the verdict (added 10-30 13:00 after rob4): {EXTRA} = M-B at (|P| (380/V1)^2,"
+                  " V2 380/V1), only where V1 moves k toward 1", " variant    V2     |P| |  SPS    M-B    M-Bk  | dI(M-B) dI(M-Bk)"
+                  "  tol  | code(M-Bk)  | D1k    D2k"]
+        for r in X.itertuples():
+            lines.append(f" {r.variant:7s} {r.V2:6.1f} {r.P:6.0f} | {r.Ipk_SPS:5.3f}  {r.Ipk_MB:5.3f}  {r.Ipk_MBk:5.3f} | {r.dI:+6.3f}"
+                         f"  {r.dI_k:+6.3f}  {r.tol:5.3f} | {r.code_k:11s} | {r.D1k:.3f}  {r.D2k:.3f}")
+        md += ["", "## 판정 밖 보고: V1 정규화 입력 (M-Bk)", "",
+               "rob4 결과를 본 뒤(10-30 13:00) 더한 점검이라 **위 판정에 들어가지 않는다**. M-Bk = 제어기 B에 측정 V1으로 정규화한 입력 "
+               "(|P|·(380/V1)², V2·380/V1)을 넣은 것(k = nV2/V1과 단위 전력을 공칭 플랜트와 같게 맞추는 상사 변환). V1이 k를 1 쪽으로 "
+               "옮기는 두 경우만 쟀다(정규화 V2 88.4 / 104.0 V가 학습 범위 84–109.2 V 안).", "",
+               "| 변형 | V2 | \\|P\\| | SPS [A] | B [A] | M-Bk [A] | ΔI B | ΔI M-Bk | 허용오차 | M-Bk 분류 | M-Bk (D1, D2) |",
+               "|---|---|---|---|---|---|---|---|---|---|---|"]
+        for r in X.itertuples():
+            md.append(f"| {r.variant} | {r.V2:g} V | {r.P:.0f} W | {r.Ipk_SPS:.3f} | {r.Ipk_MB:.3f} | {r.Ipk_MBk:.3f} | {r.dI:+.3f} | "
+                      f"{r.dI_k:+.3f} | {r.tol:.3f} | {CODE_TXT[r.code_k]} | ({r.D1k:.3f}, {r.D2k:.3f}) |")
     if write_out:
         T.to_csv(os.path.join(OUT, "robust_check.csv"), index=False, float_format="%.5g")
         with open(os.path.join(OUT, "robust_check.log"), "w", encoding="utf-8") as f:

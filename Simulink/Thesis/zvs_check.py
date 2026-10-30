@@ -179,6 +179,11 @@ def load_runs(keep_waves=False):
             print(f"no result file for {f}, skipped")
             continue
         w, r = pd.read_csv(f), pd.read_csv(res)
+        if "variant" in r.columns or "Ts" in r.columns:
+            # 10-30 13:10: R10 runs (L / td / V1 variants, robust_sweep_*) and GRID runs (25 ns, fine_sweep_*) share
+            # (V2, D0, D1, D2) with nominal runs but not the plant or the time grid; the dedupe below (keep last) had let
+            # robust_sweep_r1 replace nominal runs (84 V 400 W SPS, 84 V 300 W M-B changed verdict)
+            continue
         if len(w) != len(r):
             print(f"{f}: {len(w)} waveforms vs {len(r)} result rows, skipped")
             continue

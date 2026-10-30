@@ -2,6 +2,41 @@
 
 <!-- 새 항목은 이 줄 바로 아래에 -->
 
+## 2026-10-30 12:45–13:25 (반복 31) — R10 잠정(열화 1 = V1 −5 % 84 V 300 W) / V1 정규화 첫 Simulink 시험 / 효율·ZVS 63/63 / fine1·r11smoke 실패 원인(현재 폴더가 경로를 가림) 고쳐 재제출
+- **rob4 끝(12:44, exit 0, 111회 오류 0)**. 러너가 이것으로 깨웠다. 그사이 eff2(12:45–12:50, 7회 오류 0), r11smoke(12:51, 5회 전부 오류), fine1(12:51–12:54,
+  117회 전부 오류)이 끝났다.
+- **R10 `robust_check.py compare`(잠정)** → `out/robust_check.{csv,log}`, `out/robust_verdict.md`: 판정 가능 14/30, 저감 7·같음 6·**열화 1 = V1 −5 %, 84 V 300 W
+  (SPS 1.784, B 1.875, −0.090 / 허용 0.036)**. 해석 모델(참고, %TEMP%\r10_v1norm_ref.py, 저장소 밖)도 같은 점 −0.052 A 예측 — k 0.884 → 0.931이라 공칭 듀티가
+  너무 공격적. 저감은 k가 1에서 멀어지는 변형에서 커짐(V1 +5 % 84 V 100 W +0.805 = 공칭의 194 %). 109.2 V는 17구성 모두 목표보다 낮은 쪽에서 미포착.
+  판정문에 "감싸지 못한 경우 N개 — 잠정" 문구 추가(규칙 아님; 지난 턴 ms_verdict_md 고친 것과 같은 종류).
+- **`next_round()` 보강**: surface_opt_check.plan()의 빈칸 채우기 + 마지막 두 계단 전력 간격으로 외삽(2–4계단). 새 구성은 예측 두 계단 + 한 계단 위(rob4에서
+  예측이 빗나간 17/17이 목표보다 낮았음). → `out/robust_points_r2.csv` 37회.
+- **V1 정규화 입력 M-Bk(판정 밖, 머리말 10-30 13:00 메모)**: RESULTS 6절(T14)에서 이미 설계·구현한 (|P|(380/V1)², V2·380/V1)의 첫 Simulink 시험.
+  V1이 k를 1 쪽으로 옮기는 두 경우(V1 −5 % 84 V, V1 +5 % 109.2 V; 정규화 V2 88.4/104.0 V가 학습 범위 안) × 3전력 18회. 반대쪽은 80.0/114.9 V로 인코더 외삽이라
+  뺐다. `configs(extra=True)`, compare에 M-Bk 열·표. 합쳐 55회 → 잡 **rob5**(`--after fine1`) — fine1이 12:54에 끝나 rob5가 12:54:07에 시작했고, 점 파일은
+  12:54:00에 다시 써져 55회를 읽었다(로그 "runs 1-24 of 55" 확인).
+- **M-Bk 첫 결과(rob5 첫 묶음 13:09, 18회 전부)**: 84 V V1 −5 % 100 W 0.973(SPS 1.104, B 1.107 → +0.131 저감), 300 W 1.855(−0.071, 여전히 열화), 1 kW 3.925(+0.006).
+  109.2 V V1 +5 % 1 kW 4.237(SPS 4.131, B 4.174 → −0.106, 정규화가 오히려 나쁨), 100·300 W는 SPS 계단 진동(0.065 A)이라 판정 불가(M-Bk 1.617/2.497 대 SPS
+  1.953/3.262). 해석 모델은 두 무릎 점에서 정규화가 +0.081·+0.013 A 낫다고 예측 → Simulink에서는 경부하만 먹힘 = 11절 무릎 현상과 같은 모양.
+- **eff2 → R8 63/63**: `efficiency_sweep.py compare` — B 깨끗한 18구성 ΔIpk +0.088 A, 손실 −2.81 W, Δη +0.425 pp(최악 84 V 100 W −1.31 pp); M-A 15구성
+  −0.112 A, −0.124 pp; M-S 20/21(9 = B), 17구성 +0.132 A, +0.321 pp; 같은 16구성 B/M-S Δη +0.387/+0.266 pp(차 0.12 pp, 11:55엔 0.14). 그림 다시 그림.
+- **ZVS 63/63 + 결함 발견**: 첫 `zvs_check.py compare`가 18구성 1267 대 6663 VA(−81 %)를 냈는데 84 V 400 W SPS가 ZZHH → ZZmm, 84 V 300 W B가 HZZZ → ZZHH로
+  바뀌어 있었다. 원인: `load_runs()`가 `out/iL_wave/*.csv`를 전부 읽고 (V2, D0, D1, D2)로 중복 제거(keep last) → rob4의 변형 플랜트 실행(같은 R.4 듀티·계단)이
+  공칭 실행을 덮어씀. `variant`·`Ts` 열이 있는 결과를 빼도록 고침 → 811실행, **1065 대 7229 VA(−85 %, 18구성)** = 59/63 때 결론 그대로(새 B 95 V 400·800 W는
+  0 대 0). 다른 분석 도구는 공칭 묶음 이름만 glob(확인: efficiency_sweep, surface_opt_check, duty_quant_check, fine_grid_check, k1_map은 접두어 필터).
+- **fine1·r11smoke 실패 원인**: 오류 "DAB_Controller_System block (mask)에 이름이 'SyncPhaseUpdate'인 파라미터가 없음"(117 + 5회). 두 러너 모두 경로에서
+  `which`로 r11 복사본을 확인한 **뒤에** `cd(eraDir)`를 했고, MATLAB은 현재 폴더를 경로보다 먼저 찾으므로 dataset_era/의 원본 클래스가 쓰였다(parsim 워커는
+  풀 시작 때 클라이언트 폴더를 따름). 고침: (1) `verify_steady_fine.m` = 원본 제어기(r11 경로·SyncPhaseUpdate 줄 삭제, cd 뒤 which가 dataset_era인지 확인) —
+  수동 위상 모드(Mode_Select 1, Ctrl_Mode_Ext 3)에서는 이동평균이 게이트에 닿지 않으므로(PI 분기 밖, Phi_FF는 PI 분기에서만 더함, 모드 3에서 자속 균형 꺼짐;
+  원본 STAGE 3–5 읽어 확인) 복사본 불필요. (2) `r11_closed_loop.m` = `cd(r11Dir)`(모델·Direct_Efficiency_Analyzer는 경로, 파일 이름은 절대 경로) + cd 뒤 which 확인
+  + workerSetup에서 cd(r11Dir)·확인. m_static_check ALL PASS. 실패 출력(있으면 건너뛰는 재시작 규칙 때문)을 `out/failed_1030/{fine1,r11smoke}/`로 옮김(os.rename).
+  잡 **r11smoke2**(`--after rob5`) → **fine1b**(`--after r11smoke2`). LocalSolverSampleTime setBlockParameter는 아직 한 번도 적용된 적 없음(두 잡 모두 그 앞 줄에서 멈춤).
+- RESULTS: 머리말 13:10 메모, 0절(ZVS 63/63, fine1b), R.9 63/63, R.10 격자(fine1 실패·고침, MATLAB 순서), R.11 63/63 + 결함, **R.12 새 절(견고성 잠정 표, 읽는 법,
+  열화 한 점, V1 정규화 첫 결과, 2라운드 계획)**. REPORT: 0절 표 셋·남은 것, 5절 효율 표(95 V·109.2 V 400 W 줄)·문단·M-S 효율·ZVS 표(63/63)·문단, 8절 표 여섯 줄,
+  **8.1절 새로 씀**, 9절 명령(r11smoke2, fine1b, rob5), 11.3·11.4절 fine1b.
+- 다음: rob5 끝(약 13:35) → `robust_check.py next`/`compare` → R.12·8.1 확정 또는 r3. r11smoke2 끝(약 13:50) → 로그의 `DAB_Controller_System -> ...\r11\...`, 오류 확인 →
+  `r11_step.py compare` → `make --ts` → 잡 r11r1. fine1b 첫 묶음(약 14:05) → 오류·100 ns 재현 확인, 끝(약 16:00) → `fine_grid_check.py compare`.
+
 ## 2026-10-30 11:41–12:00 (반복 30) — M-S 확정 "채택"(43/46) / B의 새 목표 3 위반 93 V 100·150 W / 듀티 이동 거리별 점검 / 효율에 M-S·그림
 - **msR 끝(11:40:30, exit 0, 84회 오류 0)**: 2라운드 ms 46회·msk1 38회, 3라운드는 "nothing to run"(ms 49·msk1 63구성 모두 감쌈). rob4가 11:41에 시작.
 - **`surface_opt_check.py ms_compare` 확정**: 46점 중 43점 판정(104 V 200 W, 98 V 100·150 W는 M-S·B 함께 진동). A 앵커 12점 평균 이득 +0.198 A(8점; 개선 6·

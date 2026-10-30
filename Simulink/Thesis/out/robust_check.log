@@ -1,0 +1,47 @@
+robust_check: R10 parameter robustness, Simulink (dataset-era model), HV->LV, dI = Ipk(SPS) - Ipk(M-B) [A]
+rule registered 10-30 before results: tol = max(0.03 A, 2 % Ipk_SPS); osc > 0.02 A = undecided
+
+ variant    V2     |P| |  SPS    M-B     dI    tol  | code        | nominal dI  retention
+ L-10      84.0    100 | 1.890  1.343  +0.547 0.038 | better      | +0.414     132 %
+ L-10      84.0    300 | 2.405  2.303  +0.101 0.048 | better      | -0.011      –
+ L-10      84.0   1000 | 4.459  4.488  -0.029 0.089 | same        | +0.035      –
+ L-10     109.2    100 | 2.530  1.576  +0.954 0.051 | undecided   | +0.533     179 %
+ L-10     109.2    300 | 3.054    nan    +nan   nan | undecided   | +0.299      –
+ L-10     109.2   1000 | 5.145    nan    +nan   nan | undecided   | +0.165      –
+ L+10      84.0    100 | 1.601  1.506  +0.095 0.032 | better      | +0.414      23 %
+ L+10      84.0    300 | 2.128  2.161  -0.032 0.043 | same        | -0.011      –
+ L+10      84.0   1000 | 4.322  4.288  +0.034 0.086 | same        | +0.035      –
+ L+10     109.2    100 | 2.108    nan    +nan   nan | undecided   | +0.533      –
+ L+10     109.2    300 | 2.629    nan    +nan   nan | undecided   | +0.299      –
+ L+10     109.2   1000 |   nan  4.532    +nan   nan | undecided   | +0.165      –
+ td200     84.0    100 | 1.730  1.346  +0.384 0.035 | better      | +0.414      93 %
+ td200     84.0    300 | 2.252  2.251  +0.001 0.045 | same        | -0.011      –
+ td200     84.0   1000 | 4.376    nan    +nan   nan | undecided   | +0.035      –
+ td200    109.2    100 | 2.302    nan    +nan   nan | undecided   | +0.533      –
+ td200    109.2    300 | 2.824    nan    +nan   nan | undecided   | +0.299      –
+ td200    109.2   1000 |   nan    nan    +nan   nan | undecided   | +0.165      –
+ V1-5      84.0    100 | 1.104  1.107  -0.003 0.030 | same        | +0.414      -1 %
+ V1-5      84.0    300 | 1.784  1.875  -0.090 0.036 | worse       | -0.011      –
+ V1-5      84.0   1000 | 3.931  3.999  -0.068 0.079 | same        | +0.035      –
+ V1-5     109.2    100 | 2.979  2.064  +0.915 0.060 | undecided   | +0.533     172 %
+ V1-5     109.2    300 | 3.503  3.689  -0.186 0.070 | undecided   | +0.299     -62 %
+ V1-5     109.2   1000 |   nan    nan    +nan   nan | undecided   | +0.165      –
+ V1+5      84.0    100 | 2.362  1.557  +0.805 0.047 | better      | +0.414     194 %
+ V1+5      84.0    300 | 2.856  2.655  +0.201 0.057 | better      | -0.011      –
+ V1+5      84.0   1000 | 4.845  4.739  +0.105 0.097 | better      | +0.035      –
+ V1+5     109.2    100 | 1.953    nan    +nan   nan | undecided   | +0.533      –
+ V1+5     109.2    300 | 3.262    nan    +nan   nan | undecided   | +0.299      –
+ V1+5     109.2   1000 | 4.131  4.174  -0.042 0.083 | same        | +0.165     -26 %
+
+decidable 15/30; worse 1, same 7, better 7; verdict: undecided
+° nominal R.4 point not clean (oscillating reference)
+12 cases not bracketed yet -> provisional
+
+alongside, NOT part of the verdict (added 10-30 13:00 after rob4): M-Bk = M-B at (|P| (380/V1)^2, V2 380/V1), only where V1 moves k toward 1
+ variant    V2     |P| |  SPS    M-B    M-Bk  | dI(M-B) dI(M-Bk)  tol  | code(M-Bk)  | D1k    D2k
+ V1-5      84.0    100 | 1.104  1.107  0.973 | -0.003  +0.131  0.030 | better      | 0.283  0.309
+ V1-5      84.0    300 | 1.784  1.875  1.855 | -0.090  -0.071  0.036 | worse       | 0.461  0.498
+ V1-5      84.0   1000 | 3.931  3.999  3.925 | -0.068  +0.006  0.079 | same        | 0.473  0.500
+ V1+5     109.2    100 | 1.953    nan  1.617 |   +nan  +0.336    nan | undecided   | 0.224  0.202
+ V1+5     109.2    300 | 3.262    nan  2.497 |   +nan  +0.765    nan | undecided   | 0.396  0.362
+ V1+5     109.2   1000 | 4.131  4.174  4.237 | -0.042  -0.106  0.083 | worse       | 0.500  0.462

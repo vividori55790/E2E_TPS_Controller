@@ -97,11 +97,25 @@
   **다음 턴**: rob4 끝(약 13:00) → `robust_check.py next`(감싸지 못한 구성 → r2) / `compare` → `out/robust_verdict.md` → R10(RESULTS·REPORT 8절).
   eff2 끝 → `efficiency_sweep.py compare` + `zvs_check.py compare`(63/63) → R8 그림(Fig. 26–28 형식: Ipk·η 대 P, V2별; M-S 곡선도 — M-S 실행에 P_LV·P_HV
   있음). r11smoke 끝 → `r11_step.py compare`(25 ns 실행 시간 → fine1 소요 추정). fine1 끝 → `fine_grid_check.py compare`.
+- **진행(반복 31, 10-30 12:45–13:30)**: rob4 끝(12:44, 111회 오류 0) → `robust_check.py compare` **R10 잠정**(14/30 판정 가능, 열화 1 = V1 −5 % 84 V 300 W
+  −0.090 A; 해석 모델도 −0.052 A 예측 = V1 민감도, k 0.884 → 0.931). `next_round()`에 빈칸 채우기 + 계단 간격 외삽(최대 4계단) → `out/robust_points_r2.csv`
+  37회 + **V1 정규화 입력 M-Bk 18회**(이미 구현된 `smooth_reghdc_v1_equiv`의 첫 Simulink 시험, 판정 밖 보고, 머리말 10-30 13:00 메모; V1 −5 % 84 V·V1 +5 %
+  109.2 V × 3전력) = 잡 **rob5**(12:54 시작, 55회 읽음 확인). eff2 끝(12:50) → **효율 63/63**(B 18구성 +0.088 A, −2.81 W, +0.425 pp; M-S 0.12 pp 작음),
+  **ZVS 63/63**(1065 대 7229 VA 그대로) — 그 과정에서 **zvs_check 결함**(rob4 변형 플랜트 실행이 공칭 실행을 덮어씀) 찾아 고침. **r11smoke·fine1 전부 실패**
+  (현재 폴더 dataset_era/의 원본 클래스가 경로의 r11 복사본을 가림 → 'SyncPhaseUpdate' 파라미터 없음): fine은 원본 제어기로(수동 위상 모드에서 이동평균은
+  게이트에 안 닿음), r11 러너는 cd(r11Dir) + 워커 확인으로 고침. 실패 출력 → `out/failed_1030/`. 잡 **r11smoke2**(`--after rob5`) → **fine1b**(`--after r11smoke2`).
+  M-Bk 첫 묶음(13:09, 18회 전부): 경부하 개선(84 V 100 W +0.131 A), 무릎 근처는 못 고침(84 V 300 W −0.071, 109.2 V 1 kW −0.106 A; 해석은 둘 다 개선 예측)
+  → RESULTS R.12·REPORT 8.1에 적음. **선택 과제(결정 보류)**: 채택된 곡면은 M-S이므로 M-S의 견고성(같은 30경우, 약 60–90회)도 재볼 가치가 있다 — fine1b
+  결과(M-S 이득이 25 ns에서 남는지)를 본 뒤 정할 것. R10 규칙은 B에 대해 등록됐으니 M-S는 "같은 규칙 적용, 판정 밖"으로.
+  **다음 턴**: rob5 끝(약 13:35) → `robust_check.py next`(남으면 r3) / `compare` → R.12·REPORT 8.1(M-Bk 결과 포함). r11smoke2 끝 → 로그에서 `DAB_Controller_System ->
+  ...\r11\...`·오류 확인 → `r11_step.py compare`. fine1b 첫 묶음 → 오류 없음·100 ns 재현 확인(LocalSolverSampleTime 설정은 첫 시험) → 끝나면 `fine_grid_check.py compare`.
 - [~] **GRID 격자 세분 점검(10-30 11:07 제출)**: `verify_steady_fine.m`/`verify_steady_fine_batch.m`(verify_steady_state 복사본 + r11 제어기 + 실행마다
   Ts_ctrl·LocalSolverSampleTime; m_static_check OK), `fine_grid_check.py`(make/next/compare/selftest 19항목 ALL PASS; **규칙 R1–R3은 머리말에 결과 전
   등록, 바꾸지 말 것**). `out/fine_points_r1.csv` 117회(S 스캔 4개 × 5듀티 × 2계단 × {100, 25 ns}, B 5점 × {SPS, B, M-S}, C 6점 × {SPS, B}; 25 ns D0 =
   jG − 1e-4°). 잡 **fine1**(`--after r11smoke`, 12회 묶음, 20 ms). 첫 묶음에서 확인할 것: 100 ns 스캔 중심(M-B) 값이 원래 실행의 Ipk_at_20ms와 같은지
   (복사본 검증), 25 ns 실행 시간·메모리, 오류. 25 ns 실패 시 r11smoke 로그와 함께 원인 파악.
+  **(반복 31) fine1 117회 전부 실패(12:54, 'SyncPhaseUpdate' 파라미터 없음 = 현재 폴더의 원본 클래스) → verify_steady_fine.m을 원본 제어기로(r11 경로·
+  SyncPhaseUpdate 줄 삭제, cd 뒤 which 확인; m_static_check OK), 실패 출력 `out/failed_1030/fine1/` → 잡 `fine1b`(같은 점·출력, `--after r11smoke2`).**
 - [x] OPT0 **판정 규칙 먼저 등록**(결과를 보기 전에): `Simulink/Thesis/surface_opt_verdict.py`에 규칙과 가짜 입력 시험(`test_surface_opt_verdict.py`).
   (반복 22: 19항목 ALL PASS. 후보 = 2.88° 두 계단 정상상태만, 진동(|mean i_L| > 20 mA) 후보 제외, M-B/SPS 진동이면 판정 불가,
   (ii)는 min(D1, D2) < 0.45, (iii)은 같은 쪽 = s(D2*−D1*) ≥ 0 비율 ≥ 75 %·SPS만 최적이면 불일치, 상승 = Spearman ≥ 0.8 & 최대 전력 d* ≥ 0.45.)
@@ -142,6 +156,8 @@
   (wP 40 W). (3) k = 1 경부하(k1map 뒤). 모두 wV 5 V → 중간 V2(89/104 V)도 검증. `out/opt4_anchors_r2.csv`. 학습은 `--delta`로.
   84 V 경부하·109.2 V 150 W(거칠기 범위 안)와 M-B 최적점(84 V 200/600/1000, 109.2 V 300/400/1000 W)은 M-B 그대로 두되, 링잉으로 0.003–0.009
   움직이므로 ms 묶음이 그 점들도 다시 잰다.
+- MATLAB 순서(반복 31, 10-30 13:00): rob4 끝(12:44) → eff2(12:45–12:50) → r11smoke 실패(12:51) → fine1 실패(12:54) → **rob5**(12:54 시작, R10 2라운드
+  + M-Bk 55회, 약 13:35 끝) → **r11smoke2**(5회, 약 15분) → **fine1b**(GRID 117회, 약 2 h). 대기 중인 대화형 잡을 kill하지 말 것.
 - MATLAB 순서(반복 30, 10-30 11:50): msR 끝(11:40) → **rob4**(11:41 시작, R10 111회, 약 13:00 끝) → eff2(7회) → r11smoke(5회) → **fine1**(GRID 117회,
   약 2 h 예상). 대기 중인 대화형 잡을 kill하지 말 것(순서 바꿀 때는 입력 파일 옮기기).
 - MATLAB 순서(반복 29, 10-30 11:07): msR(10:41 시작, 2라운드 ms 46회 → msk1 38회 → 3–4라운드, 12:00쯤 끝) → rob4(R10 111회) → eff2(7회)
@@ -190,6 +206,8 @@ MATLAB은 한 번에 잡 하나(병렬 풀 6워커)만. 지금 `r5r6` 실행 중
   V1 200 V, V2 160–230 V, n 1, fs 20 kHz, L 140 µH) 비교 — 상대 저감은 같은 범위, [1] Fig. 15 곡면도 V2 가장자리에서 깊고 k = 1은 SPS
   근처, [1] Fig. 14(a) 200 V 100 W의 얕은 골(D 0.84–0.85 / 1) / 8 한계와 미검증 목록(상태 표) / 9 재현 방법(명령, 파일) /
   10 논문 장 구성 제안. 그림은 out/의 PNG를 상대 경로로 넣는다. 새 Simulink 결과가 나올 때마다 이 문서를 갱신한다.
+- [x] (반복 31, 10-30 13:00) **R8 완료 63/63구성**(eff2 7회): B 깨끗한 18구성 ΔIpk +0.088 A, 손실 −2.81 W, Δη +0.425 pp; M-S 20/21; 그림 `out/fig_efficiency.png`
+  다시 그림. RESULTS R.9, REPORT 5절. (아래는 이력.)
 - [~] (반복 21) R8 부분 완료: `efficiency_sweep.py compare`가 기존 R.4 실행을 재사용해 43/63구성의 η·손실을 낸다
   (`out/efficiency_compare.log`, RESULTS R.9, REPORT 5절). 남은 20구성 38회는 `out/eff_points_r1.csv`에 있다. **r5r6가 끝나면**
   `python automation/job.py submit eff1 --interactive -- matlab -batch "cd('Simulink/Thesis'); verify_steady_batch('out/eff_points_r1.csv', 'out/eff_sweep_r1.csv', 24, 0.030)"`
@@ -218,6 +236,8 @@ MATLAB은 한 번에 잡 하나(병렬 풀 6워커)만. 지금 `r5r6` 실행 중
   손실 적합(참고), 그림 `out/fig_zvs_check.png`을 더했다. 결과: SPS 교과서 패턴, M-B는 경부하 hard 전환을 1차 다리 하나 0.16–0.51 A로 줄임
   (V·I 1065 대 7229 VA, 16구성), 예외 109.2 V 800 W(616 대 17 VA). hard 엣지는 이 모델 손실에 안 보임(R² 0.878 → 0.892, 상수항 넣으면 계수 부호
   바뀜). RESULTS R.11, REPORT 5절. selftest PASS.
+  **(반복 31) 63/63구성(811실행) — 결론 그대로(18구성 1065 대 7229 VA). `load_runs()`가 rob4 변형 플랜트 실행을 공칭으로 섞던 결함을 고침(`variant`·`Ts` 열 있는
+  결과 제외).**
 - [~] (반복 24) R10 준비 완료. 규칙을 결과 전에 `robust_check.py` 머리말에 등록했다(selftest ALL PASS). 변형은 L 81/99 µH, td 200 ns,
   V1 361/399 V(하나씩)이고, 점은 V2 84/109.2 × |P| 100/300/1000 W × {SPS, M-B(R.4 듀티)}다. 공칭은 R.4다. 점마다 허용오차 max(0.03 A, SPS 2 %)를
   넘게 나쁘면 "열화"다. 진동(|mean i_L| > 20 mA)이나 감싸지 못한 경우는 "판정 불가"다. 75 % 이상 판정 가능하고 열화가 없으면 "견고"다.
@@ -231,6 +251,8 @@ MATLAB은 한 번에 잡 하나(병렬 풀 6워커)만. 지금 `r5r6` 실행 중
   300 W 등은 목표 전력을 못 감싼다 → rob4 끝나면 `robust_check.py next` → `out/robust_points_r2.csv` → 잡 **rob5**를 `--after fine1`로(격자 점검이 R10의
   0.03 A 판정 해석에도 필요해서 fine1을 먼저). 그다음 `compare` → `out/robust_verdict.md` → RESULTS·REPORT 8절. 0.03–0.1 A 크기 "열화"는 11.4절 격자
   거칠기와 같은 크기라는 단서를 판정문 옆에 적을 것(규칙은 그대로).)
+  (반복 31: rob4 끝 → 잠정 14/30, 열화 1(V1 −5 % 84 V 300 W −0.090 A, 해석 모델도 예측). r2 37회 + M-Bk 18회 → **rob5**(12:54 시작). 판정문에 "감싸지 못한
+  경우 N개 — 잠정" 문구 추가(규칙 아님). RESULTS R.12, REPORT 8.1. rob5 끝나면 `next`(r3 필요하면 잡) → `compare` → 확정.)
 - [ ] R10 (개선 5) **파라미터 견고성(Simulink)**: L ±10 %, 데드타임 100→200 ns, V1 ±5 %(블록/변수 값을 시뮬레이션 입력으로만 바꿈, 모델 저장 금지)
   × 대표 6점 × {SPS, M-B}(가능하면 M-A) — 상수 D0 두 계단 보간. M-B가 어디서도 SPS보다 의미 있게 나빠지지 않는지.
 - [~] (반복 28, 10-30 09:00) R11 준비 + 스모크 대기. **복사본** `Simulink/Thesis/r11/DAB_Controller_System.m`(경로 맨 앞에 두어 원본을 가림; 바뀐 것 둘:
@@ -245,6 +267,10 @@ MATLAB은 한 번에 잡 하나(병렬 풀 6워커)만. 지금 `r5r6` 실행 중
   래치가 R.4 정상상태(4.376 A)에 가깝고 |평균 i_L| < 20 mA면 → `r11_step.py make --ts <고른 값>`(84/109.2 V × SPS/M-B × heavy 1000→500→1000 W,
   light 300→100→300 W, 12 ms씩, 8회) → 잡 `r11r1`. 'Commented' 설정이 SimulationInput에서 거부되면 trim 0으로. V2 계단은 LV가 이상 전압원이라
   순간 계단은 비현실적 → 램프로 따로(미정).
+  **(반복 31) r11smoke 5회 모두 실패(12:51): 'SyncPhaseUpdate' 파라미터 없음. 원인 = `which` 확인 뒤 `cd(eraDir)` → 현재 폴더의 원본 클래스가 경로의 복사본을
+  가림(parsim 워커도 클라이언트 폴더). 고침: `cd(r11Dir)`(모델·효율 분석기는 경로로 찾음, 파일 이름은 모두 절대 경로) + cd 뒤 which 확인 + workerSetup에서
+  cd(r11Dir)·확인(m_static_check OK). 실패 요약 → `out/failed_1030/r11smoke/`. 잡 `r11smoke2`(`--after rob5`). 로그에 `DAB_Controller_System -> ...\r11\...`가
+  찍히는지, 워커 오류(→ 순차 실행 대체)가 없는지 확인.**
 - [ ] R11 (개선 4) **동특성: PI 폐루프 계단 응답**: `dataset_era/`의 DAB_Controller_System.m **복사본**에서 위상 분해능 문제(100 ns, 2.88°)를
   해결(예: 위상 갱신을 주기 동기로, 분해능 향상 또는 엣지 시각 보간)한 뒤, D0 = PI, D1/D2 = 제어기 출력으로 전력 계단(1000→500→1000 W)과
   V2 계단(예 84↔95 V) 응답. 정착 시간, 오버슈트, 과도 중 Ipk. SPS vs M-B. 모델 원본은 수정하지 않는다.
