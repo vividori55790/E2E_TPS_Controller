@@ -1,0 +1,7 @@
+[PASS] IFT dIpk/dD1 = re-solved FD: median |g| 0.003 A/unit, median err 2.71e-05, 0 of 2000 off (kinks), 0 tangential skipped
+[PASS] IFT dIpk/dD2 = re-solved FD: median |g| 0.036 A/unit, median err 3.32e-05, 0 of 2000 off (kinks), 0 tangential skipped
+[PASS] loss_grad dL/dM = FD (gamma=0, margin=0): max rel err 0.000801 over 5 entries; parts {'main': np.float64(-0.09160458207154096), 'deg': np.float64(0.0001437391182718459), 'inf': 0.0, 'smooth': np.float64(0.0), 'n_inf': 0, 'n_skip': 0}
+[PASS] loss_grad dL/dM = FD (gamma=0.001, margin=0): max rel err 0.0603 over 5 entries; parts {'main': np.float64(-0.09160458207154096), 'deg': np.float64(0.0001437391182718459), 'inf': 0.0, 'smooth': np.float64(0.000984410579141835), 'n_inf': 0, 'n_skip': 0}
+[PASS] loss_grad dL/dM = FD (gamma=0, margin=0.025): max rel err 0.000124 over 5 entries; parts {'main': np.float64(-0.0695322864790815), 'deg': np.float64(0.018491232415083523), 'inf': 0.0, 'smooth': np.float64(0.0), 'n_inf': 0, 'n_skip': 0}
+[PASS] departure cost: cost [0.         0.02314316 0.025     ], grad at 0 [5. 5.]
+ALL PASS

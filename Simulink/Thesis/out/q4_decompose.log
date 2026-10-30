@@ -1,0 +1,16 @@
+q4_decompose: R.8 Q4 rule 2 (fixed - M-B) split, HV->LV, k != 1, R.4 oscillating point excluded. Simulink only.
+  gap = (SPS stair - SPS steady) + (M-B steady - best TPS stair)  [A]
+
+   V2     |P| |   gap = SPS part + ctrl part | SPS stair/steady | M-B steady  best stair (D1, D2)
+  84.0    100  |  +0.05 =  +0.01 +  +0.05    |    1.74 /  1.73  |   1.317     1.269 (0.232, 0.232)
+  84.0    300  |  +0.29 =  +0.18 +  +0.11    |    2.43 /  2.25  |   2.263     2.153 (0.421, 0.453)
+  84.0    600  |  -0.04 =  +0.02 +  -0.05    |    3.11 /  3.09  |   3.055     3.108 (0.484, 0.453)
+  84.0   1000  |  +0.12 =  +0.14 +  -0.02    |    4.52 /  4.38  |   4.341     4.357 (0.453, 0.500)
+ 109.2    100  |  +0.51 =  +0.21 +  +0.30    |    2.51 /  2.30  |   1.765     1.468 (0.263, 0.200)
+ 109.2    300  |  +1.88 =  +1.80 +  +0.08    |    4.62 /  2.82  |   2.521     2.442 (0.389, 0.295)
+ 109.2   1000  |  -0.04 =  +0.06 +  -0.10    |    4.92 /  4.86  |   4.692     4.791 (0.484, 0.421)
+
+mean over 7 points: gap +0.398 = SPS part +0.346 (87 %) + ctrl part +0.052 A
+ctrl part max +0.297 A @ 109.2 V 100 W, min -0.100 A; points with ctrl part > 0.10 A: 84 V 300 W, 109.2 V 100 W
+Without the 109.2 V 300 W cell (true-staircase SPS 4.62 A vs steady 2.82 A): gap +0.151 A.
+best stair = a 1 ms staircase window, not a steady state; OPT1 (grid family) measures it at 30 ms.

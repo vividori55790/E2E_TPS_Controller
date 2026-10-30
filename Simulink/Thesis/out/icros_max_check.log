@@ -1,0 +1,5 @@
+|P|  150.0 W  V2  110.0 V : steady SPS 2.429 A, best TPS 1.686 A at D1 0.2425 D2 0.2025 -> reduction 0.743 A   | dataset SPS 4.736 A: 3.392 A would need 1.344 A
+|P|  200.0 W  V2  110.0 V : steady SPS 2.546 A, best TPS 1.946 A at D1 0.2800 D2 0.2325 -> reduction 0.600 A   | dataset SPS 4.907 A: 3.392 A would need 1.515 A
+|P|  150.0 W  V2  109.2 V : steady SPS 2.320 A, best TPS 1.646 A at D1 0.2800 D2 0.2075 -> reduction 0.674 A
+|P|   50.0 W  V2  110.0 V : steady SPS 2.197 A, best TPS 0.973 A at D1 0.1500 D2 0.1175 -> reduction 1.224 A
+|P|    0.0 W  V2  109.2 V : steady SPS 1.972 A, best TPS 0.394 A at D1 0.1000 D2 0.1000 -> reduction 1.578 A

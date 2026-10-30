@@ -12,6 +12,9 @@ import re
 import sys
 
 OPEN = {"function", "if", "for", "parfor", "while", "switch", "try", "spmd"}
+# (2026-10-30) classdef files: these open a block only as the first word of a statement in a file that starts with
+# `classdef` (elsewhere `methods(obj)` is an ordinary call)
+CLASS_OPEN = {"classdef", "properties", "methods", "events", "enumeration"}
 PAIR = {")": "(", "]": "[", "}": "{"}
 
 
@@ -49,7 +52,9 @@ def strip_line(line):
 def check(path):
     errs, depth_stack, brackets = [], [], []
     in_block = False
-    for ln, raw in enumerate(open(path, encoding="utf-8", errors="replace").read().splitlines(), 1):
+    text = open(path, encoding="utf-8", errors="replace").read()
+    is_class = re.search(r"^\s*classdef\b", text, re.M) is not None
+    for ln, raw in enumerate(text.splitlines(), 1):
         s = raw.strip()
         if s == "%{":
             in_block = True
@@ -81,6 +86,8 @@ def check(path):
                 else:
                     depth_stack.pop()
             elif t in OPEN and not code[:m.start()].rstrip().endswith("."):
+                depth_stack.append((t, ln))
+            elif is_class and t in CLASS_OPEN and not code[:m.start()].strip():
                 depth_stack.append((t, ln))
         if not cont and any(b[0] == "(" for b in brackets):
             # () may span lines only with `...` ([] and {} literals may: a newline is a row separator there)

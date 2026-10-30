@@ -1,0 +1,6 @@
+dataset Simulink\Data\TPS_Dataset_20260316_021229.csv SPS rows vs Simulink steady-state SPS (out/simulink_steady.csv) at the same measured P_LV; diff = dataset Ipk - steady Ipk
+    V2      dir |   P range [W]    n | diff min    mean     max | example
+  84.0   LV->HV |   261- 1427     9 |    +0.10   +0.69   +1.45 | worst at 504 W: dataset 4.51 A vs steady 3.06 A
+  84.0   HV->LV |   475- 1357     9 |    -0.15   +0.86   +2.34 | worst at 1354 W: dataset 8.12 A vs steady 5.78 A
+ 109.2   LV->HV |   730- 1908     8 |    -0.02   +0.94   +2.54 | worst at 1610 W: dataset 8.57 A vs steady 6.03 A
+ 109.2   HV->LV |   234- 1714     9 |    -0.36   +0.78   +1.79 | worst at 1684 W: dataset 9.06 A vs steady 7.28 A

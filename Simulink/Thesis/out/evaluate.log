@@ -1,0 +1,23 @@
+16 controllers; b* = Smooth RegHDC (b3) (0 s)
+SPS                                | test dI mean -0.0000 gain-reg -0.0000 min     -0.0 mA deg  0.00% loss  81.94 mA (p99  856.8) inf 0 | dense min     -0.0 mA deg  0.00% | step 0.000 grad u    0.0 v    0.0 | 0 B (1 s)
+ICROS2026 surface (P>0)            | test dI mean -0.0526 gain-reg -0.0120 min  -1120.7 mA deg 32.05% loss 134.58 mA (p99  915.3) inf 0 | dense min  -1105.8 mA deg 31.35% | step 0.038 grad u    1.8 v    0.1 | 916 B (2 s)
+ICROS2026 surface (P<0)            | test dI mean -0.0577 gain-reg -0.0271 min  -1230.9 mA deg 28.32% loss 139.68 mA (p99 1021.7) inf 0 | dense min  -1234.2 mA deg 28.00% | step 0.032 grad u    1.5 v    0.0 | 916 B (3 s)
+ICROS2026 RegHDC (P>0)             | test dI mean -0.2730 gain-reg -0.0893 min  -4537.4 mA deg 59.23% loss 355.12 mA (p99 2776.8) inf 23 | dense min  -4734.9 mA deg 57.07% | step 0.144 grad u   15.6 v    9.1 | 4160 B (5 s)
+ICROS2026 RegHDC (P<0)             | test dI mean -0.3020 gain-reg -0.1532 min  -2804.5 mA deg 73.76% loss 383.98 mA (p99 1905.4) inf 0 | dense min  -2811.9 mA deg 73.50% | step 0.170 grad u   20.4 v   10.5 | 4160 B (6 s)
+Legacy RegHDC (v2 surface)         | test dI mean 0.0483 gain-reg 0.0792 min   -635.9 mA deg 17.23% loss  33.65 mA (p99  358.3) inf 0 | dense min   -641.3 mA deg 16.50% | step 0.134 grad u   16.1 v    6.6 | 4160 B (7 s)
+LUT v2 49x22                       | test dI mean 0.0812 gain-reg 0.1034 min     -2.5 mA deg  0.00% loss   0.73 mA (p99   13.6) inf 0 | dense min     -2.4 mA deg  0.00% | step 0.090 grad u    1.9 v    1.9 | 4328 B (8 s)
+LUT v2 25x11                       | test dI mean 0.0809 gain-reg 0.1032 min    -11.3 mA deg  0.23% loss   0.99 mA (p99   18.2) inf 0 | dense min    -15.0 mA deg  0.27% | step 0.085 grad u    1.9 v    1.8 | 1116 B (9 s)
+Smooth RegHDC (a)                  | test dI mean 0.0814 gain-reg 0.1037 min     -7.4 mA deg  0.08% loss   0.52 mA (p99    8.1) inf 0 | dense min    -10.1 mA deg  0.10% | step 0.113 grad u    2.8 v    2.5 | 5128 B (10 s)
+Smooth RegHDC (b1)                 | test dI mean 0.0815 gain-reg 0.1038 min     -4.9 mA deg  0.00% loss   0.43 mA (p99    5.7) inf 0 | dense min     -3.9 mA deg  0.00% | step 0.115 grad u    2.8 v    2.6 | 5128 B (11 s)
+Smooth RegHDC (b2)                 | test dI mean 0.0814 gain-reg 0.1037 min     -7.2 mA deg  0.06% loss   0.54 mA (p99    8.6) inf 0 | dense min     -5.6 mA deg  0.05% | step 0.102 grad u    2.9 v    2.2 | 2568 B (12 s)
+Smooth RegHDC (b3)                 | test dI mean 0.0815 gain-reg 0.1038 min     -2.8 mA deg  0.00% loss   0.47 mA (p99    6.5) inf 0 | dense min     -2.0 mA deg  0.00% | step 0.120 grad u    2.8 v    2.7 | 5128 B (13 s)
+Smooth RegHDC (b4)                 | test dI mean 0.0798 gain-reg 0.1016 min     -2.0 mA deg  0.00% loss   2.16 mA (p99   61.9) inf 0 | dense min     -1.8 mA deg  0.00% | step 0.087 grad u    1.9 v    1.9 | 5128 B (14 s)
+Smooth RegHDC (b5_sps)             | test dI mean 0.0807 gain-reg 0.1029 min     -5.6 mA deg  0.04% loss   1.22 mA (p99   23.6) inf 0 | dense min     -4.6 mA deg  0.00% | step 0.086 grad u    2.3 v    1.8 | 5128 B (15 s)
+Smooth RegHDC (b6)                 | test dI mean 0.0815 gain-reg 0.1038 min     -4.9 mA deg  0.00% loss   0.43 mA (p99    5.7) inf 0 | dense min     -3.8 mA deg  0.00% | step 0.115 grad u    2.8 v    2.6 | 5128 B (16 s)
+Smooth RegHDC (b3) int16 (C)       | test dI mean 0.0815 gain-reg 0.1038 min     -2.8 mA deg  0.00% loss   0.47 mA (p99    6.5) inf 0 | dense min     -2.0 mA deg  0.00% | step 0.120 grad u    2.8 v    2.7 | 4618 B (18 s)
+
+ICROS2026 dataset re-check on the exact steady-state model (196 points):
+  claimed reduction I_SPS - I_Opt: mean 0.406 A, max 3.024 A at P -150 W, V2 110 V
+  at that point exact: SPS 2.429 A (dataset 4.736), with its (D1, D2) 2.208 A (dataset 1.712) -> exact reduction 0.221 A
+  exact reduction over the dataset: mean 0.048 A, max 1.476 A, min -0.760 A; dataset SPS - exact SPS: mean +0.335 A, max +2.361 A
+done in 19 s

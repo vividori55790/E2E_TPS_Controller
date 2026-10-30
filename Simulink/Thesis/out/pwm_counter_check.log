@@ -1,0 +1,25 @@
+increment 2.8799999999999994 deg, dead time 0.0 deg, equal: False
+counter after 1 / 10 / 3200 periods (exact 0 would be no drift): np.float64(359.9999999999996), np.float64(359.9999999999955), np.float64(359.99999999854487)
+max |counter - nearest k * increment| over the run: 1.455e-09 deg
+
+leg phase phi [deg] -> distinct gate patterns over 3200 periods (high-side on-steps, low-side on-steps), first periods where the pattern changes
+  leg 1 (phi = 0, every configuration)         phi   0.000000: 1 pattern(s) [(62, 63)]
+  leg 3 / leg 7 offset, D = 0.4999999          phi 179.999964: 1 pattern(s) [(62, 63)]
+  leg 3 / leg 7 offset, D = 0.475              phi 171.000000: 1 pattern(s) [(62, 63)]
+  leg 3 / leg 7 offset, D = 0.45               phi 162.000000: 1 pattern(s) [(62, 63)]
+  leg 3 / leg 7 offset, D = 0.4                phi 144.000000: 1 pattern(s) [(62, 63)]
+  leg 5, D0 level 1 (1.44 deg)                 phi   1.440000: 1 pattern(s) [(63, 62)]
+  leg 7, D0 level 1 + SPS D2 = 0.4999999       phi 181.439964: 1 pattern(s) [(63, 62)]
+  leg 7, D0 level 1 + D2 = 0.45                phi 163.440000: 1 pattern(s) [(63, 62)]
+  leg 5, D0 level 2 (4.32 deg)                 phi   4.320000: 1 pattern(s) [(63, 62)]
+  leg 7, D0 level 2 + SPS D2 = 0.4999999       phi 184.319964: 1 pattern(s) [(63, 62)]
+  leg 7, D0 level 2 + D2 = 0.45                phi 166.320000: 1 pattern(s) [(63, 62)]
+  leg 5, D0 level 3 (7.20 deg)                 phi   7.200000: 1 pattern(s) [(63, 62)]
+  leg 7, D0 level 3 + SPS D2 = 0.4999999       phi 187.199964: 1 pattern(s) [(63, 62)]
+  leg 7, D0 level 3 + D2 = 0.45                phi 169.200000: 1 pattern(s) [(63, 62)]
+  leg 5, D0 level 4 (10.08 deg)                phi  10.080000: 1 pattern(s) [(63, 62)]
+  leg 7, D0 level 4 + SPS D2 = 0.4999999       phi 190.079964: 1 pattern(s) [(63, 62)]
+  leg 7, D0 level 4 + D2 = 0.45                phi 172.080000: 1 pattern(s) [(63, 62)]
+  leg 5, D0 level 5 (12.96 deg)                phi  12.960000: 1 pattern(s) [(63, 62)]
+  leg 7, D0 level 5 + SPS D2 = 0.4999999       phi 192.959964: 1 pattern(s) [(63, 62)]
+  leg 7, D0 level 5 + D2 = 0.45                phi 174.960000: 1 pattern(s) [(63, 62)]

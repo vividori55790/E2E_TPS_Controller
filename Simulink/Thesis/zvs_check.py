@@ -102,18 +102,28 @@ def _at(i, tau):
     return float(i[k] * (1 - f) + i[(k + 1) % N_S] * f)
 
 
-def edges(i, ph, c, sigma, rho):
-    """per leg: verdict and the node currents at the two edges (turn-off / turn-on instants)"""
-    out = {}
+def edge_list(i, ph, c, sigma, rho):
+    """every command edge: (leg, window angle of the command edge, verdict, node current -- the weaker of the
+    turn-off / turn-on instants, signed so that > 0 helps)"""
+    res = []
     for leg in LEGS:
         k = INTO[leg] * rho * (sigma * NT if leg in "CD" else 1.0)
-        v, cur = [], []
         for pe, req in ((ph[leg], +1.0), (ph[leg] + 180.0, -1.0)):
             t0 = q(pe) + c
             i0, i1 = k * _at(i, t0), k * _at(i, t0 + TD)
             ok = (req * i0 > 0) + (req * i1 > 0)
-            v.append("ZVS" if ok == 2 else "marginal" if ok == 1 else "hard")
-            cur.append(req * min(req * i0, req * i1))          # the weaker of the two, signed so that > 0 helps
+            res.append((leg, float(np.mod(t0, 360.0)), "ZVS" if ok == 2 else "marginal" if ok == 1 else "hard",
+                        req * min(req * i0, req * i1)))
+    return res
+
+
+def edges(i, ph, c, sigma, rho):
+    """per leg: verdict and the node currents at the two edges (turn-off / turn-on instants)"""
+    out = {}
+    el = edge_list(i, ph, c, sigma, rho)
+    for leg in LEGS:
+        v = [e[2] for e in el if e[0] == leg]
+        cur = [e[3] for e in el if e[0] == leg]
         verdict = "hard" if "hard" in v else "ZVS" if v == ["ZVS", "ZVS"] else "marginal"
         out[leg] = (verdict, min(abs(x) for x in cur) * (1 if verdict == "ZVS" else -1))
     return out
@@ -158,8 +168,9 @@ def make():
     sw.write(os.path.join(OUT, "zvs_points_r1.csv"), pts)
 
 
-def load_runs():
-    """one row per Simulink run that has a saved waveform: its result row + the analysis"""
+def load_runs(keep_waves=False):
+    """one row per Simulink run that has a saved waveform: its result row + the analysis
+    (keep_waves: also return the waveforms and operating points, for the frame-offset check)"""
     import pandas as pd
     rows, waves, ops = [], [], []
     for f in sorted(glob.glob(os.path.join(OUT, "iL_wave", "*.csv"))):
@@ -179,21 +190,180 @@ def load_runs():
             V2b = x["V_LV"] if np.isfinite(x.get("V_LV", np.nan)) else x["V2"]     # bridge-side LV voltage
             rows.append(dict(file=os.path.basename(f), label=x.get("label", ""), ctrl=x.get("ctrl", ""), V2=x["V2"],
                              D0=x["D0"], D1=x["D1"], D2=x["D2"], Pd=-x["P_LV"], iL_mean=x["iL_mean"],
-                             Ipk_sim=x["Ipk_sim"]))
+                             Ipk_sim=x["Ipk_sim"], iL_rms=x["iL_rms"], loss=x["P_LV"] - x["P_HV"], V_LV=V2b))
             waves.append(W[k])
             ops.append((x["D0"], x["D1"], x["D2"], V2b))
     if not rows:
-        return pd.DataFrame(), None
-    frame, an = analyse_all(np.array(waves), ops)
+        return (pd.DataFrame(), None, None, None) if keep_waves else (pd.DataFrame(), None)
+    waves = np.array(waves)
+    frame, an = analyse_all(waves, ops)
     d = pd.DataFrame([dict(r, **a) for r, a in zip(rows, an)])
     d["level"] = np.round((d["D0"] + 0.5 * G) / G).astype(int)
-    return d.drop_duplicates(subset=["V2", "D0", "D1", "D2"], keep="last"), frame
+    keep = ~d.duplicated(subset=["V2", "D0", "D1", "D2"], keep="last")
+    if keep_waves:                                              # index = row of waves
+        return (d[keep].reset_index(drop=True), frame, waves[keep.to_numpy()],
+                [o for o, k in zip(ops, keep) if k])
+    return d[keep].reset_index(drop=True), frame
+
+
+def config_table(d):
+    """per R8 configuration: the two bracketing runs (simulink_sweep.bracket) -> leg verdicts and margins"""
+    import pandas as pd
+    import efficiency_sweep as es
+    rows = []
+    for c in es.configs():
+        g = sw.runs_of(d, c)
+        b = sw.bracket(g, c["P"])[0] if not g.empty else None
+        rec = dict(c)
+        if b is None:
+            rows.append(rec)
+            continue
+        lo, hi = b
+        rec["run_lo"], rec["run_hi"] = int(lo.name), int(hi.name)
+        rec["osc"] = max(abs(lo["iL_mean"]), abs(hi["iL_mean"]))
+        rec["r_min"] = min(lo["r_cal"], hi["r_cal"])
+        rec["hard_VI"] = 0.0
+        for leg in LEGS:
+            v = (lo[f"{leg}_zvs"], hi[f"{leg}_zvs"])
+            rec[leg] = "hard" if "hard" in v else "ZVS" if v == ("ZVS", "ZVS") else "marginal"
+            rec[f"{leg}_margin"] = min(lo[f"{leg}_margin"], hi[f"{leg}_margin"])
+            if rec[leg] == "hard" and rec[f"{leg}_margin"] > -I_ZC:
+                rec[leg] = "hard~0"                             # wrong sign, but switching (almost) no current
+            if rec[f"{leg}_margin"] < 0:                        # hard or marginal: V x I switched (A, B at V1; C, D at V2)
+                rec["hard_VI"] += -rec[f"{leg}_margin"] * (V1 if leg in "AB" else c["V2"])
+        rows.append(rec)
+    return pd.DataFrame(rows)
+
+
+C_CHECK = (-2.79, -2.34, -1.44)  # [deg] offsets for the frame check: the all-ZVS 1 kW runs pick -2.34 (some -2.79);
+#                                   hard-switched primary legs delay the transition by td, pulling 109.2 V runs to -0.54
+
+
+def frame_check(d, frame, waves, ops, T0, out):
+    """which leg verdicts change if the window offset c is moved off the median (not part of the method; reported)"""
+    import pandas as pd
+    short = {"ZVS": "Z", "marginal": "m", "hard": "H", "hard~0": "h"}
+    out(f"\nframe check: leg verdicts again with the offset c moved from {frame[2]:+.2f} deg (each run's own best: the 1 kW "
+        "all-ZVS runs pick -2.34, runs with hard primary legs about -0.54, since a hard edge moves the voltage step td later)")
+    have = T0["A"].apply(lambda x: isinstance(x, str)) if "A" in T0 else pd.Series(False, index=T0.index)
+    for cc in C_CHECK:
+        tabs = [corr_table(w, phases(*op[:3]), op[3]) for w, op in zip(waves, ops)]
+        an = [analyse(w, *op, (frame[0], frame[1], cc), t) for w, op, t in zip(waves, ops, tabs)]
+        dc = d.copy()
+        for k in an[0]:
+            if k.endswith("_zvs") or k.endswith("_margin"):
+                dc[k] = [a.get(k, np.nan) for a in an]
+        T = config_table(dc)
+        flips = []
+        for i in T0.index[have]:
+            a = "".join(short[T0.loc[i, x]] for x in LEGS)
+            b = "".join(short.get(T.loc[i, x], "-") for x in LEGS)
+            if a != b:
+                flips.append(f"{T0.loc[i, 'ctrl']} {T0.loc[i, 'V2']:g} V {T0.loc[i, 'P']:.0f} W {a}->{b}")
+        hv = {k: (T0.loc[have & (T0['ctrl'] == k), "hard_VI"].sum(), T.loc[have & (T0['ctrl'] == k), "hard_VI"].sum())
+              for k in T0.loc[have, "ctrl"].unique()}
+        out(f"  c {cc:+.2f} deg: {len(flips)} of {int(have.sum())} configurations change; summed hard V*I "
+            + ", ".join(f"{k} {a / 1e3:.2f} -> {b / 1e3:.2f} kVA" for k, (a, b) in hv.items()))
+        for f in flips:
+            out(f"     {f}")
+
+
+TT_DIODE = 16e-9                 # [s] body-diode transit time in the model (plant_params.md 3.): Qrr ~ TT * I
+
+
+def loss_check(d, out):
+    """does the wrong-way switched current show up in the Simulink loss? Least squares over the clean runs
+    (|mean i_L| <= OSC, P > 20 W): loss = R I_rms^2 (+ k * 2 TT fs sum V I, the reverse-recovery estimate of the hard
+    edges, two per leg and period) (+ c). A fit, not a verdict (reference only)."""
+    m = d[(d["iL_mean"].abs() <= OSC) & (d["Pd"] > 20)].copy()
+    vi = np.zeros(len(m))
+    for leg in LEGS:
+        mg = m[f"{leg}_margin"].to_numpy(float)
+        vi += np.where(mg < 0, -mg, 0.0) * (V1 if leg in "AB" else m["V_LV"].to_numpy(float))
+    X = np.c_[m["iL_rms"].to_numpy(float) ** 2, 2 * TT_DIODE * FS * vi, np.ones(len(m))]
+    y = m["loss"].to_numpy(float)
+    out(f"\nloss check (reference, a fit over {len(m)} clean runs with a waveform, P > 20 W; Simulink loss = P_HV in - P_LV out):")
+    for cols, name in (([0], "R Irms^2"), ([0, 1], "R Irms^2 + k RR"), ([0, 1, 2], "R Irms^2 + k RR + c")):
+        b = np.linalg.lstsq(X[:, cols], y, rcond=None)[0]
+        e = y - X[:, cols] @ b
+        out(f"  {name:22s}: coefficients " + ", ".join(f"{v:.3g}" for v in b)
+            + f"; R^2 {1 - (e ** 2).sum() / ((y - y.mean()) ** 2).sum():.3f}, rms residual {np.sqrt((e ** 2).mean()):.2f} W")
+    out("  (k = 1 would mean each hard edge costs V * TT * I; a k that changes sign with c means the hard edges are not "
+        "seen in the Simulink loss -- Coss = 0, ideal channel)")
+
+
+FIG_WAVES = ((84.0, 100.0), (109.2, 300.0), (109.2, 800.0))   # bottom row: SPS vs M-B, the lower bracketing run
+
+
+def fig(T, d, frame, waves, ops):
+    """out/fig_zvs_check.png: top, wrong-way V x I per V2 against |P|; bottom, one Simulink period of i_L with every
+    command edge marked by its verdict (o ZVS, d marginal, x hard), SPS vs M-B"""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from evaluate import BLUE, INK2, MUTED, ORANGE, _style
+    _style(plt)
+    col = {"SPS": MUTED, "M-A": ORANGE, "M-B": BLUE}
+    have = T[T["A"].apply(lambda x: isinstance(x, str))]
+    fig_, ax = plt.subplots(2, 3, figsize=(13.5, 7.6))
+    for j, V2 in enumerate(sorted(have["V2"].unique())):
+        a = ax[0, j]
+        for k in ("SPS", "M-A", "M-B"):
+            g = have[(have["ctrl"] == k) & np.isclose(have["V2"], V2)].sort_values("P")
+            if g.empty:
+                continue
+            a.plot(g["P"], g["hard_VI"], "-", color=col[k], lw=1.8, label=k)
+            osc = g["osc"] > OSC
+            a.plot(g["P"][~osc], g["hard_VI"][~osc], "o", color=col[k], ms=6, mec="white", mew=0.8)
+            a.plot(g["P"][osc], g["hard_VI"][osc], "o", mfc="white", mec=col[k], ms=6, mew=1.4)
+        kk = NT * V2 / V1                                       # k = n V2 / V1, as everywhere in RESULTS / REPORT
+        a.set_title(f"V2 = {V2:g} V (k = {kk:.2f}): wrong-way switched V x I")
+        a.set_xlabel("|P| [W]")
+        a.set_ylim(-40, 1550)
+        if j == 0:
+            a.set_ylabel("sum over hard / marginal legs [VA]")
+            a.plot([], [], "o", mfc="white", mec=MUTED, ms=6, mew=1.4, label="oscillating run")
+            a.legend(frameon=False, fontsize=8)
+    tau = np.arange(N_S) * 360.0 / N_S
+    mk = {"ZVS": "o", "marginal": "D", "hard": "X"}
+    for j, (V2, P) in enumerate(FIG_WAVES):
+        a = ax[1, j]
+        for k in ("SPS", "M-B"):
+            r = T[(T["ctrl"] == k) & np.isclose(T["V2"], V2) & np.isclose(T["P"], P)]
+            if r.empty or not np.isfinite(r["run_lo"].iloc[0]):
+                continue
+            n = int(r["run_lo"].iloc[0])
+            i, (D0, D1, D2, V2b) = waves[n], ops[n]
+            a.plot(tau, i, color=col[k], lw=1.6,
+                   label=f"{k} ({D1:.3f}, {D2:.3f}), D0 {D0:.2f} deg, {d.loc[n, 'Pd']:.0f} W")
+            lab = {}                                            # legs switching at the same instant share one label
+            for leg, t0, v, cur in edge_list(i, phases(D0, D1, D2), frame[2], frame[0], frame[1]):
+                y = _at(i, t0)
+                a.plot(t0, y, mk[v], color=col[k], ms=7 if v != "hard" else 8, mec="white" if v != "hard" else col[k],
+                       mew=0.8, zorder=4)
+                if v != "ZVS":
+                    lab.setdefault(round(t0, 1), (t0, y, []))[2].append(leg)
+            for t0, y, legs in lab.values():
+                a.annotate(",".join(legs), (t0, y), xytext=(4, 4) if t0 < 330 else (-14, 4), textcoords="offset points",
+                           fontsize=7.5, color=INK2)
+        a.axhline(0, color=MUTED, lw=0.8)
+        a.set_title(f"{V2:g} V, {P:.0f} W: i_L over one period (Simulink)")
+        a.set_xlabel("window angle [deg]")
+        a.set_xlim(0, 360)
+        if j == 0:
+            a.set_ylabel("i_L [A]")
+            for v in ("ZVS", "marginal", "hard"):
+                a.plot([], [], mk[v], color=INK2, ms=6, label=f"edge: {v}")
+        a.legend(frameon=True, framealpha=0.85, edgecolor="none", fontsize=7.5, loc="best")
+    fig_.suptitle("R9 ZVS per leg, Simulink steady state (HV -> LV; Coss = 0 model, dead time 100 ns)", fontsize=11)
+    fig_.tight_layout()
+    fig_.savefig(os.path.join(OUT, "fig_zvs_check.png"), dpi=130)
+    plt.close(fig_)
 
 
 def compare():
-    import pandas as pd
     import efficiency_sweep as es
-    d, frame = load_runs()
+    d, frame, waves, ops = load_runs(keep_waves=True)
     if d.empty:
         print("no waveform runs yet (out/iL_wave/)")
         return
@@ -207,24 +377,7 @@ def compare():
     out(f"runs with a waveform: {len(d)}; common frame sigma {frame[0]:+d}, rho {frame[1]:+d}, offset c {frame[2]:+.2f} deg "
         f"(per-run best offset {d['c_own'].min():+.2f}..{d['c_own'].max():+.2f}); slope correlation in that frame min "
         f"{d['r_cal'].min():.3f}, median {d['r_cal'].median():.3f}; half-wave asymmetry max {d['asym'].max():.3f}")
-    rows = []
-    for c in es.configs():
-        g = sw.runs_of(d, c)
-        b = sw.bracket(g, c["P"])[0] if not g.empty else None
-        rec = dict(c)
-        if b is None:
-            rows.append(rec)
-            continue
-        lo, hi = b
-        rec["osc"] = max(abs(lo["iL_mean"]), abs(hi["iL_mean"]))
-        for leg in LEGS:
-            v = (lo[f"{leg}_zvs"], hi[f"{leg}_zvs"])
-            rec[leg] = "hard" if "hard" in v else "ZVS" if v == ("ZVS", "ZVS") else "marginal"
-            rec[f"{leg}_margin"] = min(lo[f"{leg}_margin"], hi[f"{leg}_margin"])
-            if rec[leg] == "hard" and rec[f"{leg}_margin"] > -I_ZC:
-                rec[leg] = "hard~0"                             # wrong sign, but switching (almost) no current
-        rows.append(rec)
-    T = pd.DataFrame(rows)
+    T = config_table(d)
     T.to_csv(os.path.join(OUT, "zvs_check.csv"), index=False, float_format="%.6g")
     out("\nZVS per leg (A, B primary; C, D secondary), Simulink steady state, HV -> LV; Z = ZVS, m = marginal (current "
         f"reverses inside the dead time), H = hard, h = hard at |i| < {I_ZC} A (about zero-current switching), "
@@ -250,8 +403,35 @@ def compare():
             n_z = int(sum((h[x] == "hard~0").sum() for x in LEGS))
             out(f"  {k}: {n_h} of {4 * len(h)} legs hard, {n_z} more hard at |i| < {I_ZC} A, in {len(h)} configurations "
                 + "(" + ", ".join(f"{x} {int((h[x] == 'hard').sum())}" for x in LEGS) + ")")
+    out("\ncurrent switched the wrong way (hard or marginal legs), primary legs at V1 / secondary legs at V2 [A, own side], "
+        "and the sum of V x I over those legs [VA] -- a proxy for turn-on loss (Simulink has Coss = 0, so it shows no "
+        "switching loss itself); ~ = oscillating")
+    out(f"{'V2':>6} {'|P|':>5} | " + " | ".join(f"{k + ' pri/sec  VI':^22}" for k in es.CTRLS))
+    for (V2, P), g in T.groupby(["V2", "P"], sort=True):
+        cells = []
+        for k in es.CTRLS:
+            r = g[g["ctrl"] == k]
+            if r.empty or "A" not in r or not isinstance(r["A"].iloc[0], str):
+                cells.append(f"{'-':^22}")
+                continue
+            r = r.iloc[0]
+            pri = max(0.0, -min(r["A_margin"], r["B_margin"]))
+            sec = max(0.0, -min(r["C_margin"], r["D_margin"]))
+            cells.append(f"{pri:5.2f} / {sec:5.2f} {r['hard_VI']:6.0f}{'~' if r['osc'] > OSC else ' '}")
+        out(f"{V2:6g} {P:5.0f} | " + " | ".join(cells))
+    both = have[have["osc"] <= OSC].pivot_table(index=["V2", "P"], columns="ctrl", values="hard_VI")
+    for k in ("M-A", "M-B"):
+        if "SPS" in both and k in both:
+            x = both[["SPS", k]].dropna()
+            if len(x):
+                out(f"  {k} vs SPS, both clean ({len(x)} configurations): summed V x I {x[k].sum():.0f} vs "
+                    f"{x['SPS'].sum():.0f} VA; lower in {int((x[k] < x['SPS'] - 1).sum())}, higher in "
+                    f"{int((x[k] > x['SPS'] + 1).sum())}")
+    frame_check(d, frame, waves, ops, T, out)
+    loss_check(d, out)
     open(os.path.join(OUT, "zvs_check.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
-    print("wrote out/zvs_check.{csv,log}, out/zvs_runs.csv")
+    fig(T, d, frame, waves, ops)
+    print("wrote out/zvs_check.{csv,log}, out/zvs_runs.csv, out/fig_zvs_check.png")
 
 
 def selftest():

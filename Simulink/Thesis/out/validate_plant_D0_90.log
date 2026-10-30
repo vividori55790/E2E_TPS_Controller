@@ -1,0 +1,37 @@
+8000 dataset rows with D0 label 90 deg; Simulink Ipk 6.60-21.74 A, P_LV -2720..-552 W; losses |P_LV|-|P_HV| median -200.0 W (-11.2 %)
+model                                         Ipk bias    rmse     p95      R2 | P_LV bias    rmse | P_HV bias    rmse
+ideal (tps_model, label V2)                     -0.133   0.250   0.376  0.9937 |     -96.2   125.9 |    +110.2   117.6
+plant Ron40 td100 quant diode droop [sampled]    +0.073   0.184   0.345  0.9966 |     -89.9    96.8 |     +46.8    55.9
+plant Ron40 td100 quant diode droop [continuous]    +0.073   0.184   0.345  0.9966 |     -89.9    96.8 |     +46.8    55.9
+    (94 s, max shooting residual 2.0e-03 A, V2 bus shift 1.32 V max)
+plant Ron52 td100 quant diode droop [sampled]    +0.051   0.177   0.340  0.9968 |     -82.1    88.1 |     +45.0    54.3
+plant Ron52 td100 quant diode droop [continuous]    +0.051   0.177   0.340  0.9968 |     -82.1    88.1 |     +45.0    54.3
+    (183 s, max shooting residual 1.4e-03 A, V2 bus shift 1.31 V max)
+plant Ron40+Rs12 td100 quant diode droop [sampled]    +0.085   0.193   0.349  0.9962 |     -69.6    74.3 |     +30.3    40.0
+plant Ron40+Rs12 td100 quant diode droop [continuous]    +0.085   0.193   0.349  0.9962 |     -69.6    74.3 |     +30.3    40.0
+    (271 s, max shooting residual 2.3e-03 A, V2 bus shift 1.31 V max)
+plant Ron52 noclamp td100 quant droop [sampled]    +0.152   0.251   0.402  0.9936 |     -45.4    48.1 |      +4.8    19.1
+plant Ron52 noclamp td100 quant droop [continuous]    +0.152   0.251   0.402  0.9936 |     -45.4    48.1 |      +4.8    19.1
+    (336 s, max shooting residual 1.7e-01 A, V2 bus shift 1.29 V max)
+plant Ron40+Rs12 noclamp td100 quant droop [sampled]    +0.153   0.251   0.402  0.9936 |     -44.7    47.4 |      +4.6    19.0
+plant Ron40+Rs12 noclamp td100 quant droop [continuous]    +0.153   0.251   0.402  0.9936 |     -44.7    47.4 |      +4.6    19.0
+    (402 s, max shooting residual 3.4e-02 A, V2 bus shift 1.29 V max)
+plant Ron40 td100 noquant diode droop [sampled]    -0.054   0.186   0.268  0.9965 |     -86.3    95.6 |     +50.8    57.5
+plant Ron40 td100 noquant diode droop [continuous]    -0.048   0.184   0.268  0.9966 |     -86.3    95.6 |     +50.8    57.5
+    (493 s, max shooting residual 4.2e-02 A, V2 bus shift 1.32 V max)
+plant Ron40 td0 quant diode droop [sampled]     +0.044   0.184   0.346  0.9966 |     -78.5    97.1 |     +58.4    68.2
+plant Ron40 td0 quant diode droop [continuous]    +0.044   0.184   0.346  0.9966 |     -78.5    97.1 |     +58.4    68.2
+    (529 s, max shooting residual 3.6e-12 A, V2 bus shift 1.32 V max)
+plant Ron40 td100 quant diode nodroop [sampled]    +0.008   0.177   0.330  0.9968 |     -74.4    82.6 |     +62.8    72.2
+plant Ron40 td100 quant diode nodroop [continuous]    +0.008   0.177   0.330  0.9968 |     -74.4    82.6 |     +62.8    72.2
+    (555 s, max shooting residual 1.3e-01 A, V2 bus shift 0.00 V max)
+plant Ron0 td100 quant diode droop [sampled]    +0.096   0.199   0.413  0.9960 |    -129.8   141.2 |     +75.4    83.4
+plant Ron0 td100 quant diode droop [continuous]    +0.096   0.199   0.413  0.9960 |    -129.8   141.2 |     +75.4    83.4
+    (650 s, max shooting residual 2.6e-03 A, V2 bus shift 1.34 V max)
+
+best: plant Ron40 td100 quant diode nodroop; residual (model - Simulink) of Ipk by region:
+  SPS (D1 = D2 = 0.5)    n    20  bias +0.061 A  rmse 0.160 A
+  min(D1, D2) < 0.3      n  4620  bias +0.023 A  rmse 0.221 A
+  V2 < 92                n  2800  bias +0.056 A  rmse 0.166 A
+  92 <= V2 <= 98         n  1600  bias -0.014 A  rmse 0.168 A
+  V2 > 98                n  3600  bias -0.019 A  rmse 0.188 A

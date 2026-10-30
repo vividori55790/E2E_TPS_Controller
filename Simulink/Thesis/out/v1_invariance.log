@@ -1,0 +1,12 @@
+scaling identity on 2000 random (D0, D1, D2, V2, V1): max |Ipk - s*Ipk'| = 7.11e-15 A, max |P - s^2*P'| = 1.36e-12 W  (s = V1/380)
+
+6000 random points, |P| U[0, 1200] W, V2 U[84, 109.2] V, V1 U[361, 399] V; normalised point inside the trained box for 88.6 % (outside -> input clipped)
+controller                         mean dI [A]  worst [mA]  >5 mA worse  >0.1 mA  infeas
+b3, raw (|P|, V2) / all                 0.0802      -302.2        9.45%   17.10%       0
+b3, raw (|P|, V2) / inside              0.0608      -302.2       10.38%   18.64%       0
+b3, raw (|P|, V2) / outside             0.2314       -11.7        2.20%    5.12%       0
+b3, normalised (|P|', V2') / all        0.0908        -2.4        0.00%    0.20%       0
+b3, normalised (|P|', V2') / inside      0.0719        -2.4        0.00%    0.23%       0
+b3, normalised (|P|', V2') / outside      0.2383         0.0        0.00%    0.00%       0
+
+raw-input b3, points > 5 mA worse than SPS: 567; k range 0.921-1.072, |P| 0-1198 W, V1 361-399 V; worst -302 mA at |P| 5 W

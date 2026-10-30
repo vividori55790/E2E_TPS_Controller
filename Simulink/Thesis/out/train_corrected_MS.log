@@ -1,0 +1,18 @@
+baseline: ridge refit of M-B's own outputs (alpha 0.001): RMSE 0.0006, max |dD| 0.0072
+M-S = M-B + ridge fit of the correction (--delta), 9 anchors from out\opt4_anchors_r3.csv (alpha 0.001, anchor weight 0)
+  RMSE to target 0.0031, max |dD| 0.0262
+  away from the anchors (w < 0.01, 47 % of the grid): max |M-S - M-B| 0.0260 (baseline refit 0.0072)
+    of which at 100-1000 W: max 0.0107 (at 93.2 V 110 W), mean 0.0017
+  at the anchors: anchor (D1, D2) -> M-S (D1, D2), M-B (D1, D2)
+     84.00 V    400 W: (0.453, 0.500) -> (0.446, 0.497), M-B (0.413, 0.469)  [grid G2 2.495 A vs M-B 2.607 A (opt_sweep_grid_r1; SPS not bracketed yet -> opt5)]
+     84.00 V    800 W: (0.484, 0.500) -> (0.481, 0.500), M-B (0.445, 0.500)  [grid G1 3.764 A vs M-B 3.881 A (opt_sweep_grid_r1/r2; SPS not bracketed yet -> opt5)]
+    109.20 V    600 W: (0.500, 0.389) -> (0.499, 0.398), M-B (0.487, 0.421)  [grid G1 3.525 A vs M-B 3.966 A (SPS oscillates)]
+    109.20 V    800 W: (0.484, 0.389) -> (0.486, 0.401), M-B (0.500, 0.439)  [grid G1 4.189 A vs M-B 4.519 A (SPS oscillates)]
+    109.20 V    100 W: (0.263, 0.200) -> (0.255, 0.196), M-B (0.199, 0.167)  [grid G1 1.534 A vs M-B 1.764 A (M-B peak flickers 0.47 A)]
+    109.20 V    150 W: (0.295, 0.232) -> (0.280, 0.223), M-B (0.239, 0.207)  [grid G2 1.808 A vs M-B 1.873 A]
+    109.20 V    200 W: (0.295, 0.232) -> (0.295, 0.240), M-B (0.277, 0.242)  [grid G1 2.038 A vs M-B 2.446 A (M-B oscillates)]
+     96.00 V    100 W: (0.475, 0.475) -> (0.485, 0.480), M-B (0.500, 0.499)  [k1map 96 V L2: SPS 65 W 0.856 A (intermittent) vs D 0.475 77 W 0.543 A (k1map_sweep_r1)]
+     97.00 V    200 W: (0.475, 0.475) -> (0.484, 0.478), M-B (0.500, 0.496)  [k1map 97 V L3: SPS 167 W 1.907 A (intermittent) vs D 0.475 208 W 0.941 A (k1map_sweep_r1)]
+  max |dDelta/dx| (normalised inputs): M-S 2.93, M-B 2.82
+  [참고, 해석 모델] 4000 random points, dI = Ipk_SPS - Ipk: M-B mean +0.0651 A, M-S mean +0.0627 A, M-S worst -0.005 A (the ideal model has no k = 1 valley, so an anchor there costs here by construction)
+wrote out\model_smooth_reghdc_MS.json

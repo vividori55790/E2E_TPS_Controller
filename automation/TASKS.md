@@ -74,6 +74,12 @@
   `opt_rounds(2, 4, py, {'ms','msk1'})` — `opt_rounds.m`에 묶음 인자 추가, m_static_check OK) → **rob4**(`--after msR`, r1q3).
   **다음 턴**: zvs2 끝(약 08:40)이면 `zvs_check.py compare` → R9 표(RESULTS·REPORT). opt5 끝(약 11:10)이면 `surface_opt_check.py compare`
   (5라운드: (iii) 84 V SPS 400 W, 84 V 400/800 W 규칙 (i)) + `ms_compare`(1라운드 잠정) → RESULTS R.10·REPORT 11.3. msR 끝나면 ms_compare 확정.
+- **진행(반복 28, 10-30 08:33–09:10)**: zvs2 끝(08:33, 70회 오류 0) → **R9 완료**(아래 R9 줄). opt5의 5라운드 5회가 08:42에 끝나 OPT를
+  **최종 판정(187/187)**: (i) 13점 중 7점 "최적 아님" — 새로 84 V 400 W(+0.113, G2 (0.453, 0.500))·800 W(+0.172, **최저 = SPS**), 즉 **M-B가 SPS보다
+  0.075·0.172 A 높다(목표 3 위반, R.4 12점에 없던 전력)**; (iii) "일치" 확정(84 V ρ 0.875 = 2라운드 사전 계산의 "800 W만 SPS 승" 경우). RESULTS 0절·R.10,
+  REPORT 0·5·8·11.1절의 "어디서도 나쁘지 않음"을 고쳤다. eff_points_r2를 다시 만들어 7회(84 V SPS 중복 제거), efficiency compare 59/63.
+  **다음 턴**: opt5 끝(약 11:10) → `surface_opt_check.py ms_compare`(1라운드 잠정; M-S가 84 V 400·800 W에서 SPS 이하로 내려오는지가 핵심) →
+  RESULTS R.10·REPORT 11.3. msR 끝나면 ms_compare 확정. ZVS는 M-S 실행에도 파형이 있으니 `zvs_check.py`로 M-S 무릎(109.2 V 800 W) 확인 가능.
 - [x] OPT0 **판정 규칙 먼저 등록**(결과를 보기 전에): `Simulink/Thesis/surface_opt_verdict.py`에 규칙과 가짜 입력 시험(`test_surface_opt_verdict.py`).
   (반복 22: 19항목 ALL PASS. 후보 = 2.88° 두 계단 정상상태만, 진동(|mean i_L| > 20 mA) 후보 제외, M-B/SPS 진동이면 판정 불가,
   (ii)는 min(D1, D2) < 0.45, (iii)은 같은 쪽 = s(D2*−D1*) ≥ 0 비율 ≥ 75 %·SPS만 최적이면 불일치, 상승 = Spearman ≥ 0.8 & 최대 전력 d* ≥ 0.45.)
@@ -82,6 +88,7 @@
   Simulink 격자 최적 (D1*, D2*)가 M-B와 같은 쪽(84 V는 D1 < D2, 109.2 V는 D2 < D1)이고 |P|가 커질수록 0.5로 오르는지. 규칙은 이후 바꾸지 않는다.
 - [x] OPT1–OPT3 2라운드 완료(10-30 06:47, 184/187구성, 위 반복 26). 남은 3구성 = 잡 `opt5`(플래너 결함 수정 뒤 5회). 끝나면 compare 다시
   → (iii) 확정(84 V SPS 400 W), 84 V 400/800 W 규칙 (i) 판정 → 판정문·RESULTS R.10·REPORT 11.1 숫자 갱신.
+  **(반복 28) 5라운드 완료(08:42) → 최종 187/187, 판정문·RESULTS R.10·REPORT 11.1 갱신 끝.**
 - [x] OPT1 **Simulink 격자 최적(= r5r6 3단계 R6 결과 활용)**: R6 = 사용자 생성기 실험 그대로 + D0 보간 끔, V2 {84.0, 94.61, 109.2} × D1, D2 ∈ 11값(0.2–0.5).
   r5r6 2단계(계단 D0 라벨에서의 30 ms 정상상태)로 **1 ms 계단 값이 정상상태와 같은지 먼저 확인**(같지 않으면 그 차를 표로 보고하고 격자 판정은
   정상상태 보정 후에). 각 (V2, |P| ∈ {100, 150, 200, 300, 400, 600, 800, 1000} W, 두 방향)에서 조합마다 첫 분기에서 목표 전력을 감싸는 인접 D0
@@ -113,6 +120,9 @@
   (wP 40 W). (3) k = 1 경부하(k1map 뒤). 모두 wV 5 V → 중간 V2(89/104 V)도 검증. `out/opt4_anchors_r2.csv`. 학습은 `--delta`로.
   84 V 경부하·109.2 V 150 W(거칠기 범위 안)와 M-B 최적점(84 V 200/600/1000, 109.2 V 300/400/1000 W)은 M-B 그대로 두되, 링잉으로 0.003–0.009
   움직이므로 ms 묶음이 그 점들도 다시 잰다.
+- MATLAB 순서(반복 28, 10-30 09:00): zvs2 끝(08:33) → rob2 실패(08:33, 의도) → **opt5**(08:33 시작; 5라운드 08:42 끝; ms 84회 → msk1 86회, 11:10쯤 끝)
+  → rob3(곧바로 실패 = 의도) → **msR** → **rob4** → **eff2**(`out/eff_points_r2.csv` 7회로 다시 만듦 — 84 V SPS 3회는 opt5 grid r5가 이미 잼)
+  → **r11smoke**(R11 스모크 5회, 10 ms, 25/10 ns 격자).
 - MATLAB 순서(반복 27, 10-30 08:30): zvs2(실행 중, 08:40쯤 끝) → rob2(곧바로 실패 = 의도) → **opt5**(5라운드 5회 + M-S 검증 ms 84회 30 ms·
   msk1 86회 40 ms, 약 2.3 h → 11:10쯤) → rob3(입력을 r1q3로 옮겨 둬서 곧바로 실패 = 의도) → **msR**(M-S 2–4라운드) → **rob4**(R10 111회, r1q3)
   → **eff2**(R8 나머지 10회, `out/eff_points_r2.csv` → `out/eff_sweep_r2.csv`). eff2의 84 V SPS L3/L4/L7 3회는 opt5 grid r5와 같다 →
@@ -162,6 +172,8 @@ MATLAB은 한 번에 잡 하나(병렬 풀 6워커)만. 지금 `r5r6` 실행 중
   30 ms 실행도 읽게 했다. **optR가 끝난 뒤** `efficiency_sweep.py next` → eff_points_r2 → 잡 eff2를 대기열 끝(`--after rob2`)에 낸다.)
   (반복 27: next에 빈칸 채우기 추가 → 57/63 감쌈, `out/eff_points_r2.csv` 10회 → 잡 **eff2**(`--after rob4`). opt5 뒤 점 파일 재생성. eff2가 끝나면
   `efficiency_sweep.py compare` → R.9·REPORT 5절, 그다음 Fig. 26–28 형식 그림.)
+  (반복 28: opt5 5라운드 뒤 `next` → 59/63, `out/eff_points_r2.csv` 7회로 다시 씀(재생성 완료). compare: M-B 깨끗한 16구성 ΔIpk +0.099 A,
+  손실 −3.16 W, Δη +0.48 pp. 84 V 400·800 W는 Ipk −0.076·−0.172 A인데 Δη +0.98·+0.90 pp.)
   (r5r6_chain.m에 2b단계로도 넣었지만, 실행 중인 r5r6은 수정 전 파일을 읽었다.)
 - R8 (개선 1) **효율·손실 곡선**: 기존 Simulink 정상상태 결과(R.4 스윕 출력, t6)의 P_LV·P_HV로 η = |P_LV|/|P_HV|(HV→LV)를
   같은 전력 보간으로 계산. 부족한 점은 추가 실행(SPS, M-A, M-B × V2 84/95/109.2 × |P| 100/200/300/400/600/800/1000 W). 그림: 레퍼런스
@@ -174,8 +186,12 @@ MATLAB은 한 번에 잡 하나(병렬 풀 6워커)만. 지금 `r5r6` 실행 중
   파형을 얻는다. 결정적이므로 `flicker_check.py` 3절이 재현성도 확인한다). 나머지 20구성은 eff1이 파형과 함께 돈다.
   zvs1이 끝나면 `python -I -X utf8 Simulink/Thesis/zvs_check.py compare` → `out/zvs_check.{csv,log}` → RESULTS·REPORT에 표를 넣는다.
   (반복 25: zvs1은 의도적으로 실패시키고 같은 점을 **zvs2**(`--after k1map`, `out/zvs_points_r1q.csv`)로 다시 냈다. 끝나는 것은 zvs2다.)
-- [ ] R9 (개선 6) **ZVS 범위(Simulink)**: 정상상태 실행의 i_L 파형에서 각 레그의 스위칭 순간 전류 부호로 ZVS 여부 판정(엣지 시각은 D0/D1/D2와
+- [x] R9 (개선 6) **ZVS 범위(Simulink)**: 정상상태 실행의 i_L 파형에서 각 레그의 스위칭 순간 전류 부호로 ZVS 여부 판정(엣지 시각은 D0/D1/D2와
   제어기 PWM 타이밍에서 계산, 데드타임 고려). SPS, M-A, M-B 비교 표.
+  **(반복 28, 10-30 08:47 완료)** 553실행, 59/63구성(남은 4 = eff2). `zvs_check.py compare`에 V·I 대리 지표, 오프셋 점검(c −2.79/−2.34/−1.44°),
+  손실 적합(참고), 그림 `out/fig_zvs_check.png`을 더했다. 결과: SPS 교과서 패턴, M-B는 경부하 hard 전환을 1차 다리 하나 0.16–0.51 A로 줄임
+  (V·I 1065 대 7229 VA, 16구성), 예외 109.2 V 800 W(616 대 17 VA). hard 엣지는 이 모델 손실에 안 보임(R² 0.878 → 0.892, 상수항 넣으면 계수 부호
+  바뀜). RESULTS R.11, REPORT 5절. selftest PASS.
 - [~] (반복 24) R10 준비 완료. 규칙을 결과 전에 `robust_check.py` 머리말에 등록했다(selftest ALL PASS). 변형은 L 81/99 µH, td 200 ns,
   V1 361/399 V(하나씩)이고, 점은 V2 84/109.2 × |P| 100/300/1000 W × {SPS, M-B(R.4 듀티)}다. 공칭은 R.4다. 점마다 허용오차 max(0.03 A, SPS 2 %)를
   넘게 나쁘면 "열화"다. 진동(|mean i_L| > 20 mA)이나 감싸지 못한 경우는 "판정 불가"다. 75 % 이상 판정 가능하고 열화가 없으면 "견고"다.
@@ -186,6 +202,18 @@ MATLAB은 한 번에 잡 하나(병렬 풀 6워커)만. 지금 `r5r6` 실행 중
   (반복 25: rob1은 의도적으로 실패시키고 **rob2**(`--after zvs2`, `out/robust_points_r1q.csv`)로 다시 냈다.)
 - [ ] R10 (개선 5) **파라미터 견고성(Simulink)**: L ±10 %, 데드타임 100→200 ns, V1 ±5 %(블록/변수 값을 시뮬레이션 입력으로만 바꿈, 모델 저장 금지)
   × 대표 6점 × {SPS, M-B}(가능하면 M-A) — 상수 D0 두 계단 보간. M-B가 어디서도 SPS보다 의미 있게 나빠지지 않는지.
+- [~] (반복 28, 10-30 09:00) R11 준비 + 스모크 대기. **복사본** `Simulink/Thesis/r11/DAB_Controller_System.m`(경로 맨 앞에 두어 원본을 가림; 바뀐 것 둘:
+  한 주기 이동평균 길이 = round(1/(Fs·Ts_ctrl))(원본 125 고정), `SyncPhaseUpdate` = 주기 경계(카운터 wrap)에서만 다리 위상 래치 = MCU 섀도 레지스터).
+  러너 `r11_closed_loop.m`: 실행마다 'MATLAB System' Ts_ctrl·SyncPhaseUpdate, `Solver Configuration2`(이름에 줄바꿈) LocalSolverSampleTime = Ts,
+  Constant21 = 0(PI), Constant4/6 = Kp/Ki, Ref_Power·D1/D2(_ext_in)·Ref_VL = 프로파일 CSV, 선택적으로 쓰지 않는 To Workspace 10개 Commented;
+  MATLAB System1(효율 분석기)은 버퍼 상한 500이라 100 ns 그대로; 캐시는 `out/r11_cache`(dataset_era/slprj 안 건드림); 실행마다 `out/r11/<label>_{periods,summary}.csv`
+  (주기별 Ipk·평균 i_L·P_LV·P_HV·phi·D1·D2), 있으면 건너뜀. 모델 블록에 저장된 값: SoftStartTime 0.2 ms, MaxSlewRate 1e7 W/s, MaxPhaseRate 1e7 °/s
+  (= 계단이 실제 계단). `r11_step.py`(smoke/make/compare; 합성 데이터로 compare 시험 — 오버슈트를 계단 방향 기준으로 고침). m_static_check에 classdef
+  블록 인식 추가(+ 시험 2개, ALL PASS). **잡 `r11smoke`(`--after eff2`)**: SPS 84 V 1000 W 10 ms × {100 ns 래치 없음(= 원본, R.7 재현), 25 ns 래치,
+  25 ns, 10 ns 래치, 25 ns 래치 로그 전부}, Kp 2 / Ki 49000. **스모크가 끝난 턴**: `r11_step.py compare` → 원본 100 ns는 R.7처럼 나빠야 하고, 25/10 ns
+  래치가 R.4 정상상태(4.376 A)에 가깝고 |평균 i_L| < 20 mA면 → `r11_step.py make --ts <고른 값>`(84/109.2 V × SPS/M-B × heavy 1000→500→1000 W,
+  light 300→100→300 W, 12 ms씩, 8회) → 잡 `r11r1`. 'Commented' 설정이 SimulationInput에서 거부되면 trim 0으로. V2 계단은 LV가 이상 전압원이라
+  순간 계단은 비현실적 → 램프로 따로(미정).
 - [ ] R11 (개선 4) **동특성: PI 폐루프 계단 응답**: `dataset_era/`의 DAB_Controller_System.m **복사본**에서 위상 분해능 문제(100 ns, 2.88°)를
   해결(예: 위상 갱신을 주기 동기로, 분해능 향상 또는 엣지 시각 보간)한 뒤, D0 = PI, D1/D2 = 제어기 출력으로 전력 계단(1000→500→1000 W)과
   V2 계단(예 84↔95 V) 응답. 정착 시간, 오버슈트, 과도 중 Ipk. SPS vs M-B. 모델 원본은 수정하지 않는다.

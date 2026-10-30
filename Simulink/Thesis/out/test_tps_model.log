@@ -1,0 +1,8 @@
+PASS P matches brute force
+PASS Ipk matches brute force
+PASS Irms matches brute force
+PASS SPS power = textbook formula
+PASS SPS peak = textbook formula (k=1)
+PASS P(-phi_c) = -P(phi_c)
+PASS Ipk(-phi_c) = Ipk(phi_c)
+ALL PASS

@@ -1,0 +1,5 @@
+model Simulink/Thesis/out/model_smooth_reghdc_b3.json: D 256, sigma 0.1, tau 0.004
+int16 format: W in 2^-12 turns (max |WQ| 25420), M' * 2^18 (max |MQ| 29860), memory 4618 B; float32 memory 5128 B
+float32 path vs float64 model: max |dD| 5.60e-07
+int16 path (C emulation) vs float64 model: max |dD| 2.65e-04, RMS 5.54e-05 (20 000 random points)
+wrote out/SmoothRegHDC_STM32.h, out/smooth_reghdc.c, out/smooth_reghdc.h

@@ -2,6 +2,41 @@
 
 <!-- 새 항목은 이 줄 바로 아래에 -->
 
+## 2026-10-30 08:33–09:00 (반복 28) — R9 ZVS 완료 / OPT 최종(187/187): 84 V 400·800 W에서 M-B가 SPS보다 나쁨 / eff 59/63
+- **zvs2 끝(08:33, 70회 오류 0)**, rob2는 의도대로 곧바로 실패(08:33:29), opt5 08:33 시작. 러너가 zvs2로 깨웠다.
+- **R9 `zvs_check.py compare`** → `out/zvs_check.{csv,log}`, `out/zvs_runs.csv`, **새 그림 `out/fig_zvs_check.png`**. 파형 있는 실행 553개, 59/63구성
+  (남은 4 = eff2). 공통 프레임 σ +1, ρ +1, c −1.89°, 상관 중앙값 0.853. 판정 방법은 반복 23 그대로(selftest PASS 재확인).
+  - SPS 교과서 패턴: 84 V(k 0.88) ≤ 400 W 2차 C·D hard 3.7–6.2 A(2차측), 109.2 V(k 1.15) ≤ 400 W 1차 A·B hard 1.43–1.88 A, 95 V 전 엣지 ≈ 0 A.
+  - M-B: 84 V ≤ 400 W 2차 ZVS, A만 0.30–0.39 A hard; 109.2 V ≤ 600 W A 0.16–0.51 A, B ≈ 0. **엇방향 V·I 합 M-B 1065 대 SPS 7229 VA(16구성, −85 %)**,
+    M-B 높은 곳 2(84 V 600 W 91 대 0, 109.2 V 1 kW 17 대 13). 예외 109.2 V 800 W M-B 616 대 SPS 17 VA(SPS 진동, R.10 무릎과 같은 점).
+  - M-A: 84 V 300–600 W 2차 D 4.9–7.1 A hard, 95 V ≤ 300 W A 0.29–0.77 A hard. 3327 대 4714 VA(14구성), 낮음 5 높음 5.
+  - **compare에 더한 것(판정 방법은 그대로)**: `config_table()`(분리), V·I 대리 지표(hard·marginal 다리 |전류| × 380 V 또는 V2), `frame_check()`
+    — 실행별 최적 c가 두 무리(84/95 V −2.34…−2.79°, 109.2 V −0.54°; hard 엣지가 전환을 td 늦춤)라 c를 −2.79/−2.34/−1.44°로 옮겨 다시 판정:
+    59구성 중 18/3/4구성의 글자가 바뀌지만(전부 < 0.3 A 엣지) V·I 합은 M-B 2.00 → 1.94–1.99, SPS 8.69 → 8.69–8.70 kVA. `loss_check()`(참고 적합):
+    Simulink 손실 = R·Irms²만으로 R² 0.878(R 4.6 Ω), + 역회복 어림 2·TT·fs·ΣV·I(TT 16 ns) 0.892(k 2.6), + 상수 0.947인데 k −1.19 → hard 엣지는 이
+    모델 손실에 안 보임(Coss 0). 84 V 100 W 효율 예외도 이걸로 설명 안 됨. `edge_list()`, `fig()`. 그림 첫 판에서 k를 V1/(nV2)로 잘못 써서(프로젝트
+    정의는 nV2/V1) 고쳤다 — RESULTS R.11 표의 k도 같이 고침.
+  - 임시 시험 스크립트 2개는 %TEMP%(저장소 밖)에만 있다(`zvs_peek.py`, `zvs_loss_try.py`).
+- **OPT 5라운드 = 최종(opt5 첫 부분 5회, 08:42, 오류 0)** → `surface_opt_check.py compare`(08:45): 187/187. **(i) 13점 중 7점 "최적 아님"** — 새로 84 V 400 W
+  (M-B 2.607 vs G2 (0.453, 0.500) 2.495, +0.113 / 허용 0.051)와 **84 V 800 W(M-B 3.881 vs SPS 3.709, +0.172 / 0.074 — 최저 후보가 SPS)**. 즉 **M-B가 SPS보다
+  0.075 A(400 W)·0.172 A(800 W) 높다**; 창 민감도 목록에 없고 거칠기 기댓값 0.047 밖. R.4 12점(100/300/600/1000 W)에 없던 전력이라 "M-B는 어디서도 SPS보다
+  의미 있게 나쁘지 않다"가 틀렸다 → RESULTS 0절(결론 줄)·R.10, REPORT 0절 표·5절 읽는 법(목표 3 판정)·8절·11.1을 고쳤다. 해석 모델(참고)은 두 점에서
+  M-B가 낮다. **(iii) "일치" 확정**(84 V ρ 0.875, 109.2 V 0.988 — 2라운드 사전 계산의 "800 W만 SPS 승" 경우). (ii) 그대로.
+  M-S의 84 V 800 W 앵커는 2라운드 G1(3.764)인데 SPS가 0.055 A 더 낮다(허용 안) → 앵커·규칙은 그대로 두고 RESULTS·REPORT에 적음.
+- **R8**: `efficiency_sweep.py next` → 59/63, `out/eff_points_r2.csv` 7회로 다시 씀(84 V SPS 3회 제거; eff2는 시작할 때 읽음). `compare`: M-B 깨끗한 16구성
+  ΔIpk +0.099 A, 손실 −3.16 W, Δη +0.478 pp, 최악 −1.31 pp(84 V 100 W). 84 V 400·800 W는 Ipk −0.076·−0.172 A인데 Δη +0.98·+0.90 pp(RMS 같음).
+  REPORT 5절 효율 표에 두 줄 추가.
+- **R11 준비(사용자 목록 다음 순서, MATLAB 없이)**: R.7의 진짜 PI 폐루프가 판정 불가였던 원인 = 제어기와 Simscape 로컬 솔버가 둘 다 100 ns(2.88° 격자).
+  `r11/DAB_Controller_System.m`(복사본, 경로 맨 앞): 이동평균 길이를 Ts_ctrl에서 계산(원본 125 고정 — 그대로 Ts만 줄이면 평균이 1/4–1/10 주기가 됨),
+  `SyncPhaseUpdate`(주기 경계 래치; wrap 판정은 cp < 증분 비교가 반올림에 놓칠 수 있어 카운터 갱신식에서 직접 구함). 모델 XML에서 확인한 것: 제어기 블록
+  'MATLAB System'에 SoftStartTime 0.0002, MaxSlewRate 1e7, MaxPhaseRate 1e7이 저장돼 있다(클래스 기본값 0.2 s / 5e4 / 3e4가 아님), `Solver
+  Configuration2`(이름 'Solver\nConfiguration2', 다른 하나는 Commented), To Workspace 19개(Phi_ext_out1, D1_out1, D2_out1, I_cmd_out1 등),
+  효율 분석기 버퍼 상한 500. 러너 `r11_closed_loop.m`, 분석 `r11_step.py`(합성 데이터 시험에서 계단 아래 방향 오버슈트 정의 결함을 찾아 고침),
+  `m_static_check.py` classdef 인식(원본 클래스 파일에서 거짓 경보 6개였음) + 시험. 스모크 점 `out/r11_points_smoke.csv`, 프로파일 `out/r11_profiles/`.
+  **잡 r11smoke(`--after eff2`) 제출(09:03)**. 임시 스크립트는 %TEMP%(make_r11_class.py, r11_fake_test.py).
+- 다음: opt5 끝(약 11:10) → `surface_opt_check.py ms_compare`(1라운드 잠정; M-S가 84 V 400·800 W에서 SPS 아래로 오는지가 핵심) → RESULTS R.10·REPORT 11.3.
+  r11smoke가 끝나면 `r11_step.py compare`로 격자 선택 → `make` → 잡 r11r1.
+
 ## 2026-10-30 07:53–08:25 (반복 27) — k1map 지도(k = 1 띠 = 95–97 V 간헐 SPS 스파이크) / 보정 곡면 M-S 학습 / M-S 판정 규칙 결과 전 등록 / msR·rob4 대기열
 - **k1map 끝(07:52, exit 0, 79회 오류 0)**. 러너가 이것으로 깨웠다. `k1_map.py compare` → `out/k1_map.{csv,log}`, `out/fig_k1_map.png`(이번에 그림에
   주기 피크 중앙값 마커 추가 — 1 ms 최대가 중앙값보다 0.05 A 넘게 높은 실행 = 간헐 스파이크).

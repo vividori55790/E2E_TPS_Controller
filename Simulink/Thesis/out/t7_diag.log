@@ -1,0 +1,33 @@
+n bad 15
+   37.3  94.38 k=0.993 D1=0.4807 D2=0.4855 plantSPS=0.162 plant=0.185 dI=  -23.8m ideal dI=   -0.3m idealSPS=0.182
+  190.9  93.30 k=0.982 D1=0.4994 D2=0.5000 plantSPS=0.699 plant=0.719 dI=  -19.9m ideal dI=   +0.2m idealSPS=0.733
+   84.6  96.58 k=1.017 D1=0.4740 D2=0.4649 plantSPS=0.451 plant=0.470 dI=  -19.0m ideal dI=   +1.2m idealSPS=0.447
+  115.1  97.13 k=1.022 D1=0.4713 D2=0.4593 plantSPS=0.613 plant=0.630 dI=  -16.7m ideal dI=   +1.9m idealSPS=0.604
+   65.1  94.68 k=0.997 D1=0.4997 D2=0.4999 plantSPS=0.203 plant=0.217 dI=  -14.3m ideal dI=   +0.0m idealSPS=0.212
+  207.4  97.46 k=1.026 D1=0.4996 D2=0.4878 plantSPS=0.948 plant=0.961 dI=  -13.0m ideal dI=   +4.6m idealSPS=0.900
+  179.2  93.32 k=0.982 D1=0.4995 D2=0.5000 plantSPS=0.652 plant=0.665 dI=  -12.9m ideal dI=   +0.2m idealSPS=0.699
+  220.8  90.42 k=0.952 D1=0.4512 D2=0.4749 plantSPS=1.149 plant=1.159 dI=   -9.6m ideal dI=  +11.5m idealSPS=1.213
+  234.1  92.84 k=0.977 D1=0.4945 D2=0.5000 plantSPS=0.870 plant=0.879 dI=   -9.1m ideal dI=   +2.3m idealSPS=0.912
+  288.6  92.12 k=0.970 D1=0.4851 D2=0.5000 plantSPS=1.108 plant=1.116 dI=   -8.6m ideal dI=   +5.2m idealSPS=1.160
+  427.4  91.90 k=0.967 D1=0.4822 D2=0.5000 plantSPS=1.502 plant=1.510 dI=   -8.6m ideal dI=   +5.1m idealSPS=1.575
+  231.4  93.83 k=0.988 D1=0.4999 D2=0.5000 plantSPS=0.721 plant=0.729 dI=   -8.5m ideal dI=   +0.0m idealSPS=0.768
+  328.3  97.11 k=1.022 D1=0.5000 D2=0.4900 plantSPS=1.259 plant=1.267 dI=   -8.3m ideal dI=   +3.5m idealSPS=1.191
+  353.2  99.83 k=1.051 D1=0.4999 D2=0.4792 plantSPS=1.681 plant=1.688 dI=   -6.9m ideal dI=  +16.7m idealSPS=1.611
+  142.0  97.13 k=1.022 D1=0.4907 D2=0.4771 plantSPS=0.711 plant=0.717 dI=   -5.7m ideal dI=   +1.7m idealSPS=0.677
+   71.4  96.53 k=1.016 D1=0.4641 D2=0.4554 plantSPS=0.416 plant=0.420 dI=   -4.3m ideal dI=   +2.7m idealSPS=0.405
+ 1153.5  92.06 k=0.969 D1=0.4865 D2=0.5000 plantSPS=3.682 plant=3.686 dI=   -4.0m ideal dI=   +2.0m idealSPS=3.833
+ 1184.7  91.66 k=0.965 D1=0.4849 D2=0.5000 plantSPS=3.853 plant=3.857 dI=   -3.8m ideal dI=   +2.9m idealSPS=4.002
+ 1163.2  91.87 k=0.967 D1=0.4856 D2=0.5000 plantSPS=3.745 plant=3.749 dI=   -3.7m ideal dI=   +2.4m idealSPS=3.894
+  172.0  92.02 k=0.969 D1=0.4625 D2=0.4845 plantSPS=0.826 plant=0.829 dI=   -2.9m ideal dI=   +1.6m idealSPS=0.861
+   81.9  94.30 k=0.993 D1=0.4999 D2=0.5000 plantSPS=0.294 plant=0.297 dI=   -2.9m ideal dI=   +0.0m idealSPS=0.308
+ 1160.7  92.84 k=0.977 D1=0.4913 D2=0.5000 plantSPS=3.607 plant=3.609 dI=   -2.8m ideal dI=   +0.9m idealSPS=3.745
+ 1025.1  92.19 k=0.970 D1=0.4873 D2=0.5000 plantSPS=3.225 plant=3.227 dI=   -2.6m ideal dI=   +2.4m idealSPS=3.370
+ 1017.5  92.20 k=0.971 D1=0.4873 D2=0.5000 plantSPS=3.199 plant=3.201 dI=   -2.6m ideal dI=   +2.4m idealSPS=3.343
+ 1017.8  92.22 k=0.971 D1=0.4874 D2=0.5000 plantSPS=3.196 plant=3.199 dI=   -2.5m ideal dI=   +2.3m idealSPS=3.341
+region n 164 mean dI plant 0.020693240602395913 ideal 0.021143554700816063 frac bad 0.09146341463414634
+0.5 - min(D) at bad: min 0.0001 max 0.0488; in region overall: median 0.0174
+0.5-minD in [0,0.005): n  129  plant dI    +0.6m  ideal    +0.4m  plant-ideal   +0.2m  bad 4
+0.5-minD in [0.005,0.02): n  243  plant dI    +6.1m  ideal    +5.7m  plant-ideal   +0.4m  bad 6
+0.5-minD in [0.02,0.05): n  462  plant dI   +37.2m  ideal   +37.1m  plant-ideal   +0.0m  bad 5
+0.5-minD in [0.05,0.1): n  134  plant dI   +88.7m  ideal   +81.1m  plant-ideal   +7.6m  bad 0
+0.5-minD in [0.1,0.4): n  232  plant dI  +278.5m  ideal  +271.7m  plant-ideal   +6.8m  bad 0

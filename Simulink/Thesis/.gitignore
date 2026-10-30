@@ -4,3 +4,7 @@ dataset_era/
 out/slx_*.txt
 # 37 MB copy of the user's checkpoint (= Simulink/Data/TPS_Dataset_20260316_021229.csv); regenerate with inspect_checkpoint.m
 out/checkpoint_*.csv
+# (2026-10-30) the analysis logs that RESULTS.md / REPORT.md cite as sources (about 0.25 MB in total) are versioned,
+# overriding the repository-wide *.log rule; the R11 Simulink cache folder is not
+!out/*.log
+out/r11_cache/

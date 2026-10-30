@@ -1,0 +1,4 @@
+M-A = SmoothRegHDC(D 256, sigma 0.1, tau 0.004, alpha 0.001, seed 0) on Simulink\Physics_Dataset_Final_Regression_Ready.csv; validation = train_e2e.Evaluator (4000 random points, ideal steady-state model, PI first crossing)
+  M-B0 (a) for reference: val mean dI 0.0856 A, worst -7.8 mA, >5 mA worse 6, infeasible 0
+  MA_neg (P <= 0, HV -> LV): table 25 x 4 (|P| 0-1200 W, V2 80-110 V), fit RMSE(D) 0.0062, sum|M| 74.0 | val mean dI -0.0075 A, worst -827.5 mA, >5 mA worse 1082 / 4000, infeasible 0
+  MA_pos (P >= 0, LV -> HV): table 25 x 4 (|P| 0-1200 W, V2 80-110 V), fit RMSE(D) 0.0077, sum|M| 130.6 | val mean dI -0.0106 A, worst -1143.5 mA, >5 mA worse 1317 / 4000, infeasible 0

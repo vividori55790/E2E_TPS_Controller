@@ -1,0 +1,14 @@
+2000 (V2, D1, D2) combos x 39 D0 labels; plant FullPlant(Ron=52 mOhm, td=100 ns, quant=True, diode=exp, Ceq=58.8 uF, droop=True)
+
+steady state at the label D0 vs dataset:
+ideal model at label                     Ipk bias -0.875 A rmse 1.477 A p95 3.296 A | P bias   +29.2 W rmse  119.2 W
+
+replay 'zoh' (341 s):
+plant replay (zoh)                       Ipk bias -0.811 A rmse 1.401 A p95 3.130 A | P bias   +33.6 W rmse   88.8 W
+  median P(label 69.35) / P(label 90): replay 0.9524, dataset 0.9994
+  per-label Ipk bias (replay - dataset) [A]: -90:+1.82 -54:-0.60 -39:-0.56 -28:-0.32 -18:-0.71 -10:-0.38 -2:-0.37 5:-1.17 13:-0.61 22:-1.42 32:-1.31 44:-1.45 61:-2.22
+
+replay 'linear' (306 s):
+plant replay (linear)                    Ipk bias +0.060 A rmse 0.525 A p95 1.125 A | P bias   -51.9 W rmse   65.1 W
+  median P(label 69.35) / P(label 90): replay 0.9999, dataset 0.9994
+  per-label Ipk bias (replay - dataset) [A]: -90:-0.12 -54:-0.12 -39:-0.08 -28:-0.16 -18:-0.02 -10:-0.04 -2:+0.02 5:+0.16 13:+0.24 22:+0.12 32:+0.18 44:+0.11 61:+0.39

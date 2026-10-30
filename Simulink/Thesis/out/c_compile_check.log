@@ -1,0 +1,84 @@
+c_compile_check: 20253 points = 20000 random (seed 2026, |P| 0-1200 W, V2 84-109.2 V) + 45 edge + 208 MATLAB test vectors; compiler LCC-win64 (MATLAB sys/lcc64), x86-64 PC -- C semantics, not ARM code
+
+model model_smooth_reghdc_b3.json (from the header's first line); files compiled: smooth_reghdc.c sha1 3930c9fd7131, smooth_reghdc.h sha1 921ea673d552, SmoothRegHDC_STM32.h sha1 614035cf554a
+header int16 tables (WQ, BQ, MQ, COS_Q15, shifts) == SmoothRegHDCFixed of that model: True
+build A (delivered file unchanged):
+  $ lcc64.exe -noregistrylookup -IC:\Program Files\MATLAB\R2025b\sys\lcc64\lcc64\include64 -IC:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\A -A -c C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\A\smooth_reghdc.c -FoC:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\A\smooth_reghdc.obj  -> rc 0
+  $ lcc64.exe -noregistrylookup -IC:\Program Files\MATLAB\R2025b\sys\lcc64\lcc64\include64 -IC:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\A -A -c C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\A\main.c -FoC:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\A\main.obj  -> rc 0
+  $ lcclnk64.exe -subsystem console -LC:\Program Files\MATLAB\R2025b\sys\lcc64\lcc64\lib64 C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\A\main.obj C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\A\smooth_reghdc.obj -o C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\A\check.exe  -> rc 0
+build B (probe copy):
+  $ lcc64.exe -noregistrylookup -IC:\Program Files\MATLAB\R2025b\sys\lcc64\lcc64\include64 -IC:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\B -DPROBE -A -c C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\B\smooth_reghdc.c -FoC:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\B\smooth_reghdc.obj  -> rc 0
+  $ lcc64.exe -noregistrylookup -IC:\Program Files\MATLAB\R2025b\sys\lcc64\lcc64\include64 -IC:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\B -DPROBE -A -c C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\B\main.c -FoC:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\B\main.obj  -> rc 0
+  $ lcclnk64.exe -subsystem console -LC:\Program Files\MATLAB\R2025b\sys\lcc64\lcc64\lib64 C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\B\main.obj C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\B\smooth_reghdc.obj -o C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\B\check.exe  -> rc 0
+  $ check.exe C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\in.txt C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\A\out_A.txt  -> rc 0
+    sizeof int 4, long 4, int64_t 8, float 4; (int32_t)-3 >> 1 = -2
+    20253 points
+  $ check.exe C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\in.txt C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\B\out_B.txt  -> rc 0
+    sizeof int 4, long 4, int64_t 8, float 4; (int32_t)-3 >> 1 = -2
+    20253 points
+
+edge inputs (C q15 / C f32 / float64 model; P < 0 and out-of-range V2 are clipped like the model):
+     |P| [W]   V2 [V]   u_q15  v_q15   D1 q15   D2 q15   D1 f32   D2 f32   D1 mdl   D2 mdl
+       0.000    83.00       0      0  0.10000  0.11345  0.10000  0.11343  0.10000  0.11343
+       0.001    83.00       0      0  0.10000  0.11345  0.10000  0.11344  0.10000  0.11344
+       0.500    83.00      14      0  0.10000  0.11405  0.10000  0.11402  0.10000  0.11402
+     100.000    83.00    2731      0  0.21248  0.24412  0.21249  0.24411  0.21249  0.24411
+     600.000    83.00   16384      0  0.44211  0.49999  0.44215  0.49999  0.44215  0.49999
+    1199.900    83.00   32764      0  0.44731  0.49999  0.44732  0.49999  0.44732  0.49999
+    1200.000    83.00   32767      0  0.44729  0.49999  0.44730  0.49999  0.44730  0.49999
+    1500.000    83.00   32767      0  0.44729  0.49999  0.44730  0.49999  0.44730  0.49999
+     -10.000    83.00       0      0  0.10000  0.11345  0.10000  0.11343  0.10000  0.11343
+       0.000    84.00       0      0  0.10000  0.11345  0.10000  0.11343  0.10000  0.11343
+       0.001    84.00       0      0  0.10000  0.11345  0.10000  0.11344  0.10000  0.11344
+       0.500    84.00      14      0  0.10000  0.11405  0.10000  0.11402  0.10000  0.11402
+     100.000    84.00    2731      0  0.21248  0.24412  0.21249  0.24411  0.21249  0.24411
+     600.000    84.00   16384      0  0.44211  0.49999  0.44215  0.49999  0.44215  0.49999
+    1199.900    84.00   32764      0  0.44731  0.49999  0.44732  0.49999  0.44732  0.49999
+    1200.000    84.00   32767      0  0.44729  0.49999  0.44730  0.49999  0.44730  0.49999
+    1500.000    84.00   32767      0  0.44729  0.49999  0.44730  0.49999  0.44730  0.49999
+     -10.000    84.00       0      0  0.10000  0.11345  0.10000  0.11343  0.10000  0.11343
+       0.000    95.00       0  14303  0.45197  0.45205  0.45188  0.45198  0.45188  0.45198
+       0.001    95.00       0  14303  0.45197  0.45205  0.45188  0.45198  0.45188  0.45198
+       0.500    95.00      14  14303  0.45254  0.45260  0.45244  0.45251  0.45244  0.45251
+     100.000    95.00    2731  14303  0.50000  0.50000  0.50000  0.50000  0.50000  0.50000
+     600.000    95.00   16384  14303  0.49982  0.49991  0.49982  0.49991  0.49982  0.49991
+    1199.900    95.00   32764  14303  0.49983  0.49974  0.49983  0.49973  0.49983  0.49973
+    1200.000    95.00   32767  14303  0.49983  0.49974  0.49983  0.49973  0.49983  0.49973
+    1500.000    95.00   32767  14303  0.49983  0.49974  0.49983  0.49973  0.49983  0.49973
+     -10.000    95.00       0  14303  0.45197  0.45205  0.45188  0.45198  0.45188  0.45198
+       0.000   109.20       0  32767  0.12756  0.10000  0.12743  0.10000  0.12743  0.10000
+       0.001   109.20       0  32767  0.12756  0.10000  0.12743  0.10000  0.12743  0.10000
+       0.500   109.20      14  32767  0.12785  0.10000  0.12771  0.10000  0.12771  0.10000
+     100.000   109.20    2731  32767  0.19934  0.16685  0.19917  0.16672  0.19918  0.16672
+     600.000   109.20   16384  32767  0.48690  0.42083  0.48683  0.42075  0.48683  0.42075
+    1199.900   109.20   32764  32767  0.50000  0.45219  0.50000  0.45229  0.50000  0.45229
+    1200.000   109.20   32767  32767  0.50000  0.45221  0.50000  0.45231  0.50000  0.45231
+    1500.000   109.20   32767  32767  0.50000  0.45221  0.50000  0.45231  0.50000  0.45231
+     -10.000   109.20       0  32767  0.12756  0.10000  0.12743  0.10000  0.12743  0.10000
+       0.000   115.00       0  32767  0.12756  0.10000  0.12743  0.10000  0.12743  0.10000
+       0.001   115.00       0  32767  0.12756  0.10000  0.12743  0.10000  0.12743  0.10000
+       0.500   115.00      14  32767  0.12785  0.10000  0.12771  0.10000  0.12771  0.10000
+     100.000   115.00    2731  32767  0.19934  0.16685  0.19917  0.16672  0.19918  0.16672
+     600.000   115.00   16384  32767  0.48690  0.42083  0.48683  0.42075  0.48683  0.42075
+    1199.900   115.00   32764  32767  0.50000  0.45219  0.50000  0.45229  0.50000  0.45229
+    1200.000   115.00   32767  32767  0.50000  0.45221  0.50000  0.45231  0.50000  0.45231
+    1500.000   115.00   32767  32767  0.50000  0.45221  0.50000  0.45231  0.50000  0.45231
+     -10.000   115.00       0  32767  0.12756  0.10000  0.12743  0.10000  0.12743  0.10000
+
+checks:
+  header_tables_equal_emulation        1                      PASS  
+  compile_link_delivered_file          1                      PASS  LCC-win64 with -A (all warnings); harness supplies log1pf, missing from LCC's libc64
+  compiler_warnings_model_file         0                      PASS  smooth_reghdc.c with -A
+  probe_build_same_D_as_delivered      1                      PASS  the inserted line changes nothing
+  int64_accumulators_identical         20253/20253            PASS  C probe vs numpy int64, C's own Q15 inputs
+  y_float32_bits_identical             20253/20253            PASS  C probe vs SmoothRegHDCFixed.raw_q
+  q15_input_diff_points                54/20253               PASS  max 1 LSB (1 LSB = 0.0366 W / 0.769 mV)
+  max_dD_C_q15_vs_emulation            3.910e-05              PASS  same Q15 inputs: 1.983e-08 (float32 vs float64 softplus)
+  max_dD_C_q15_vs_float64_model        2.615e-04              PASS  RMS 5.53e-05 (export log 2.65e-4)
+  max_dD_C_f32_vs_float64_model        5.048e-07              PASS  export log 5.6e-7
+  max_dD_C_f32_vs_numpy_float32        6.109e-07              PASS  
+  max_dD_testvec_q15_f32               2.520e-04 / 3.621e-07  PASS  208 vectors of smooth_reghdc_testvec.csv (|P|), q15 bound by quantisation
+  all_outputs_in_[D_MIN,0.5]           1                      PASS  
+  max_dD_edge_inputs                   1.627e-04              PASS  
+
+ALL PASS

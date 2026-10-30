@@ -1,0 +1,24 @@
+plant: FullPlant(Ron=40 mOhm, td=100 ns, quant=False, diode=exp, Ceq=58.8 uF, droop=False) variant B {'Ron': 0.04, 'droop': False}
+  SPS: 117 s
+  Smooth RegHDC (b3): 125 s
+  Smooth RegHDC (b8): 124 s
+  Smooth RegHDC (b9): 126 s
+  Smooth RegHDC (b10): 126 s
+  LUT 49x22 E2E (L49s3): 122 s
+  LUT 49x22 E2E (L49m): 122 s
+
+600 random points, |P| U[25, 499] W, V2 U[88.0, 102.0] V; dI = Ipk(SPS) - Ipk(controller), both on the plant
+controller                     plant mean dI    worst  >5 mA worse  >20 mA infeas | ideal mean dI    worst
+SPS                                   0.0000     0.0m        0.00%   0.00%      0 |        0.0000     0.0m
+Smooth RegHDC (b3)                    0.0306   -40.6m        4.33%   1.00%      0 |        0.0296    -0.3m
+    worse-than-SPS points: |P| 27-457 W, V2 90.4-100.2 V, median |P| 172 W
+Smooth RegHDC (b8)                    0.0196   -62.0m        0.67%   0.33%      0 |        0.0219    -0.0m
+    worse-than-SPS points: |P| 32-418 W, V2 90.5-100.9 V, median |P| 126 W
+Smooth RegHDC (b9)                    0.0174   -82.1m        0.67%   0.67%      0 |        0.0208    -0.0m
+    worse-than-SPS points: |P| 98-124 W, V2 88.7-91.5 V, median |P| 117 W
+Smooth RegHDC (b10)                   0.0194    -5.0m        0.00%   0.00%      0 |        0.0221    -0.0m
+LUT 49x22 E2E (L49s3)                 0.0287  -102.9m        7.00%   2.17%      0 |        0.0299    -0.0m
+    worse-than-SPS points: |P| 27-457 W, V2 91.6-100.4 V, median |P| 176 W
+LUT 49x22 E2E (L49m)                  0.0245  -206.3m        3.33%   2.00%      0 |        0.0278     0.0m
+    worse-than-SPS points: |P| 25-271 W, V2 90.1-100.5 V, median |P| 115 W
+done in 862 s

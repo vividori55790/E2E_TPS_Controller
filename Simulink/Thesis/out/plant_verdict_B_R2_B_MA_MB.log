@@ -1,0 +1,13 @@
+plant: FullPlant(Ron=40 mOhm, td=100 ns, quant=False, diode=exp, Ceq=58.8 uF, droop=False) variant B {'Ron': 0.04, 'droop': False}
+  SPS: 3059 s, 0 points without a converged period-1 steady state
+  Smooth RegHDC (MA_neg): 3257 s, 0 points without a converged period-1 steady state
+  Smooth RegHDC (b3): 2836 s, 1 points without a converged period-1 steady state
+
+1200 random points, |P| U[26, 1199] W, V2 U[84.1, 109.2] V; dI = Ipk(SPS) - Ipk(controller), both on the plant
+controller                     plant mean dI    worst  >5 mA worse  >20 mA infeas | ideal mean dI    worst
+SPS                                   0.0000     0.0m        0.00%   0.00%      0 |        0.0000     0.0m
+Smooth RegHDC (MA_neg)               -0.0178  -884.6m       27.67%  22.58%      0 |       -0.0102  -823.3m
+    worse-than-SPS points: |P| 26-650 W, V2 85.3-104.0 V, median |P| 305 W
+Smooth RegHDC (b3)                    0.0788   -19.5m        1.00%   0.00%      0 |        0.0764    -2.6m
+    worse-than-SPS points: |P| 28-401 W, V2 92.3-99.8 V, median |P| 269 W
+done in 9152 s

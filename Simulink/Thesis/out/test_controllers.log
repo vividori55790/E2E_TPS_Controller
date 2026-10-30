@@ -1,0 +1,21 @@
+PASS SPS through the PI root finder = closed-form SPS  max |dphi| 9.3e-10 deg, max |dIpk| 1.4e-10 A
+PASS PI operating point delivers |P*| exactly  max |dP| 4.8e-08 W over 1768 feasible
+PASS PI operating point has P < 0 branch sign (phi_c >= 0)
+PASS feasibility agrees with the scalar brentq reference  0 / 400 differ
+PASS first crossing agrees with the scalar reference  99% |dphi| 9.3e-10 deg, max 9.97e-10; max |dIpk| 1.36e-10 A (355 pts, vectorised 2000 pts in 0.12 s)
+PASS narrow pulses cannot deliver 1.2 kW (flagged infeasible)  Pmax 201 W
+PASS |P*| = 0 settles at phi_c = 0
+PASS SPS controller outputs 0.5 / 0.5
+PASS GridLUT reproduces the table at the nodes
+PASS GridLUT is bilinear at cell centres
+PASS GridLUT clamps outside the table
+PASS LUT closed loop = stored surface metrics  mean dI 0.0976 A, min -0.000 mA
+PASS LegacyRegHDC learns (val RMSE below the constant predictor)  val RMSE 0.0514 vs constant 0.0921, train-grid RMSE 0.0519, 1.3 s / 40 ep
+PASS LegacyRegHDC outputs stay in [D_MIN, 0.5]
+PASS LegacyRegHDC memory (D=32, K=8, Q=32) = 4160 B as in RegHDCTrainer  4160 B
+PASS LegacyRegHDC encoding is piecewise constant (quantised)  16 distinct codes for |P| 0..1200 W (Q = 32 over -1200..1200)
+PASS SmoothRegHDC ridge fits the surface  grid RMSE(D) 0.0061
+PASS SmoothRegHDC outputs stay in [D_MIN, 0.5]
+PASS SmoothRegHDC jacobian = finite differences  max err 4.45e-09, max |J| 1.76
+PASS int16 + 1024-entry cos table stays close to float  max |dD| 1.76e-03, memory 3334 B vs float 2568 B
+ALL PASS

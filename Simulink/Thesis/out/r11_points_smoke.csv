@@ -1,0 +1,6 @@
+label,ctrl,V2,Ts,sync,Kp,Ki,simTime,profile,trim
+smoke_100ns,SPS,84,1e-07,0,2,49000,0.01,out/r11_profiles/smoke_SPS_84V_1000W.csv,0
+smoke_25ns_latch,SPS,84,2.5e-08,1,2,49000,0.01,out/r11_profiles/smoke_SPS_84V_1000W.csv,1
+smoke_25ns,SPS,84,2.5e-08,0,2,49000,0.01,out/r11_profiles/smoke_SPS_84V_1000W.csv,1
+smoke_10ns_latch,SPS,84,1e-08,1,2,49000,0.01,out/r11_profiles/smoke_SPS_84V_1000W.csv,1
+smoke_25ns_latch_full,SPS,84,2.5e-08,1,2,49000,0.01,out/r11_profiles/smoke_SPS_84V_1000W.csv,0

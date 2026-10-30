@@ -1,0 +1,20 @@
+test set 10000 points; ZVS of the 4 legs at the PI steady state (ideal model)
+controller                   I_min all-ZVS % mean hard legs      A      B      C      D  hard proxy (rel. SPS)
+SPS                            0.0      74.6           0.51  84.1%  84.1%  90.4%  90.4%                  1.000
+SPS                            0.5      64.7           0.72  75.0%  75.0%  88.9%  88.9%                  1.163
+ICROS2026 surface (P>0)        0.0      50.9           0.53  86.1%  96.5% 100.0%  64.8%                  1.298
+ICROS2026 surface (P>0)        0.5      45.7           0.76  74.0%  87.5%  99.8%  62.6%                  1.487
+LUT v2 49x22                   0.0      81.5           0.19  93.1%  99.8%  99.7%  88.3%                  0.010
+LUT v2 49x22                   0.5      62.2           0.98  62.3%  75.4%  91.5%  73.1%                  0.340
+Smooth RegHDC (b3)             0.0      78.8           0.27  89.9%  95.9%  98.7%  88.9%                  0.023
+Smooth RegHDC (b3)             0.5      63.4           0.95  63.5%  75.3%  92.1%  74.5%                  0.313
+pointwise optimum              0.0      87.9           0.12  95.3%  99.9% 100.0%  92.6%                  0.001
+pointwise optimum              0.5      62.1           0.73  68.1%  81.2%  97.3%  80.7%                  0.377
+
+all-ZVS share (I_min = 0) by region:
+controller                          |P| < 300 W          300-700 W           >= 700 W           k < 0.95  0.95 <= k <= 1.05           k > 1.05
+SPS                                       23.4%              79.7%             100.0%              68.7%              90.7%              61.7%
+ICROS2026 surface (P>0)                    3.6%              25.7%              97.6%              54.0%              55.8%              43.7%
+LUT v2 49x22                              47.0%              83.2%             100.0%              79.0%              89.9%              74.3%
+Smooth RegHDC (b3)                        39.8%              80.4%             100.0%              75.8%              91.7%              67.4%
+pointwise optimum                         60.8%              92.5%             100.0%              85.5%              94.9%              82.3%

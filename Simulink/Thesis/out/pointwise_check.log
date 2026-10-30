@@ -1,0 +1,6 @@
+check on 60 random points (47 s): pattern - brute force Ipk: mean -0.004 mA, max +0.000 mA, min -0.104 mA; mean gain vs SPS 0.0799 (pattern) / 0.0799 A (brute)
+   P   750.1 V2  99.25: pattern 2.6273 brute 2.6273 SPS 2.6385  D [0.5     0.48125]
+   P   455.3 V2  87.45: pattern 2.2726 brute 2.2726 SPS 2.3131  D [0.46138234 0.5       ]
+   P   956.5 V2 108.39: pattern 4.1831 brute 4.1831 SPS 4.2895  D [0.5      0.443125]
+   P   109.8 V2  98.88: pattern 0.7731 brute 0.7731 SPS 0.8188  D [0.39516959 0.35924674]
+   P   387.6 V2  84.13: pattern 2.4819 brute 2.4819 SPS 2.5787  D [0.4109375 0.4709375]

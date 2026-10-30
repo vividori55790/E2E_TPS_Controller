@@ -1,0 +1,6 @@
+[PASS] predict = GridLUT: max diff 0
+[PASS] jacobian d/du = FD: max err 8.82e-10 on 2992 interior points
+[PASS] jacobian d/dv = FD: max err 3.77e-09 on 2992 interior points
+[PASS] lut_loss_grad dL/dT = FD (gamma=0): max rel err 0.00229 over 10 entries; parts {'main': np.float64(-0.08561861480450747), 'deg': np.float64(0.0002574526268624971), 'inf': 0.0, 'smooth': np.float64(0.0), 'n_inf': 0, 'n_skip': 0}
+[PASS] lut_loss_grad dL/dT = FD (gamma=0.001): max rel err 0.0013 over 10 entries; parts {'main': np.float64(-0.08561861480450747), 'deg': np.float64(0.0002574526268624971), 'inf': 0.0, 'smooth': np.float64(0.0009545962193575236), 'n_inf': 0, 'n_skip': 0}
+ALL PASS

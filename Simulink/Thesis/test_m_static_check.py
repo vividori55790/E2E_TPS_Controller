@@ -71,6 +71,25 @@ def main():
         e = run(tricky + "\n", tmp, "tricky.m")
         ok &= not e
         print(f"{'PASS' if not e else 'FAIL'} tricky constructs {e if e else ''}")
+        # (2026-10-30) classdef: properties / methods blocks with attributes, and `methods(obj)` as a call elsewhere
+        cls = "\n".join([
+            "classdef K < matlab.System",
+            "    properties(Nontunable)",
+            "        a = 1;",
+            "    end",
+            "    methods(Access = protected)",
+            "        function y = stepImpl(obj, u)",
+            "            m = methods(obj); y = u(end) + numel(m);",
+            "        end",
+            "    end",
+            "end",
+        ])
+        e = run(cls + "\n", tmp, "K.m")
+        ok &= not e
+        print(f"{'PASS' if not e else 'FAIL'} classdef blocks {e if e else ''}")
+        e = run(cls.replace("    end\n    methods", "    methods", 1) + "\n", tmp, "K2.m")
+        ok &= bool(e)
+        print(f"{'PASS' if e else 'FAIL'} detects unclosed properties block: {e[:2]}")
     print("ALL PASS" if ok else "SOME FAILED")
     return 0 if ok else 1
 

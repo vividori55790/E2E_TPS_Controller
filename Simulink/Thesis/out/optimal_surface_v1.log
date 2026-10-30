@@ -1,0 +1,63 @@
+landscape: 22 x 49 operating points, D step 0.005
+  landscape V2= 84.00  (1/22,   1.4 s)
+  landscape V2= 85.20  (2/22,   2.8 s)
+  landscape V2= 86.40  (3/22,   4.3 s)
+  landscape V2= 87.60  (4/22,   5.6 s)
+  landscape V2= 88.80  (5/22,   7.0 s)
+  landscape V2= 90.00  (6/22,   8.4 s)
+  landscape V2= 91.20  (7/22,   9.8 s)
+  landscape V2= 92.40  (8/22,  11.2 s)
+  landscape V2= 93.60  (9/22,  12.6 s)
+  landscape V2= 94.80  (10/22,  14.0 s)
+  landscape V2= 96.00  (11/22,  15.3 s)
+  landscape V2= 97.20  (12/22,  16.7 s)
+  landscape V2= 98.40  (13/22,  18.1 s)
+  landscape V2= 99.60  (14/22,  19.5 s)
+  landscape V2=100.80  (15/22,  20.9 s)
+  landscape V2=102.00  (16/22,  22.3 s)
+  landscape V2=103.20  (17/22,  23.6 s)
+  landscape V2=104.40  (18/22,  25.0 s)
+  landscape V2=105.60  (19/22,  26.4 s)
+  landscape V2=106.80  (20/22,  27.8 s)
+  landscape V2=108.00  (21/22,  29.2 s)
+  landscape V2=109.20  (22/22,  30.5 s)
+  optimum V2= 84.00  (1/22,   1.6 s)
+  optimum V2= 85.20  (2/22,   3.1 s)
+  optimum V2= 86.40  (3/22,   4.7 s)
+  optimum V2= 87.60  (4/22,   6.2 s)
+  optimum V2= 88.80  (5/22,   7.7 s)
+  optimum V2= 90.00  (6/22,   9.2 s)
+  optimum V2= 91.20  (7/22,  10.6 s)
+  optimum V2= 92.40  (8/22,  11.9 s)
+  optimum V2= 93.60  (9/22,  13.0 s)
+  optimum V2= 94.80  (10/22,  13.2 s)
+  optimum V2= 96.00  (11/22,  14.2 s)
+  optimum V2= 97.20  (12/22,  15.4 s)
+  optimum V2= 98.40  (13/22,  16.8 s)
+  optimum V2= 99.60  (14/22,  18.3 s)
+  optimum V2=100.80  (15/22,  19.8 s)
+  optimum V2=102.00  (16/22,  21.4 s)
+  optimum V2=103.20  (17/22,  23.1 s)
+  optimum V2=104.40  (18/22,  24.7 s)
+  optimum V2=105.60  (19/22,  26.4 s)
+  optimum V2=106.80  (20/22,  27.9 s)
+  optimum V2=108.00  (21/22,  29.6 s)
+  optimum V2=109.20  (22/22,  31.2 s)
+  ICM iter 1: 285 changes
+  ICM iter 2: 228 changes
+  ICM iter 3: 167 changes
+  ICM iter 4: 117 changes
+  ICM iter 5: 93 changes
+  ICM iter 6: 66 changes
+  ICM iter 7: 44 changes
+  ICM iter 8: 37 changes
+  ICM iter 9: 18 changes
+  ICM iter 10: 12 changes
+  ICM iter 11: 6 changes
+  ICM iter 12: 7 changes
+  ICM iter 13: 2 changes
+  ICM iter 14: 0 changes
+
+=== summary (|P| grid incl. 0 W; mirrored to negative power by symmetry) ===
+pointwise optimum : mean dI 0.099 A, max 1.578 A, min -0.0000 A, roughness {'max_step': np.float64(0.4), 'total_variation': 35.47763886784084}
+smooth surface    : mean dI 0.097 A, max 1.575 A, min -0.0000 A, gap to opt mean 0.0018 / max 0.0155 A, roughness {'max_step': np.float64(0.245), 'total_variation': 33.205}
