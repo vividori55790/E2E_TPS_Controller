@@ -28,6 +28,13 @@ now). rob4 showed V1 -5 % at
 that M-Bk removes it. Run only where V1 moves k toward 1 (V1 -5 % at 84 V, V1 +5 % at 109.2 V): there the normalised
 V2 (88.4 / 104.0 V) is inside the training range 84-109.2 V; the other two cases would extrapolate the encoder.
 
+ADDED 10-30 14:00, BEFORE any M-S run on a variant plant: the same per-case rule and the same verdict, applied to
+M-S (the corrected surface adopted 10-30 11:45 by the rule in ms_verdict.py, RESULTS R.10) in place of M-B. M-S gets
+its own runs only where its duty differs from M-B's by more than MS_SAME = 0.003 (the "M-S = M-B" convention of
+efficiency_sweep / surface_opt_check): 84 V 300 W and 109.2 V 100 / 300 / 1000 W; at 84 V 100 W and 1000 W the M-B runs
+stand for M-S. Reported as a second verdict ("M-S 견고성"); the R10 verdict above stays the M-B one. Final R10 (M-B,
+10-30 13:35, 30/30 bracketed): 23/30 decidable, "열화 있음" (V1 -5 % 84 V 300 W, -0.090 A).
+
     python -I -X utf8 Simulink/Thesis/robust_check.py make        -> out/robust_points_r1.csv
     python automation/job.py submit rob1 --interactive -- matlab -batch "cd('Simulink/Thesis'); verify_steady_param('out/robust_points_r1.csv', 'out/robust_sweep_r1.csv')"
     python -I -X utf8 Simulink/Thesis/robust_check.py next        -> out/robust_points_r<k+1>.csv (unbracketed)
@@ -54,6 +61,8 @@ OUT = os.path.join(HERE, "out")
 NOM = dict(L_uH=90.0, td_ns=100.0, V1=380.0)
 EXTRA = "M-Bk"                               # reported alongside only (see the 10-30 13:00 note above)
 EXTRA_CASES = (("V1-5", 84.0), ("V1+5", 109.2))
+MS = "M-S"                                   # second verdict, rule registered 10-30 14:00 (see above)
+MS_SAME = 0.003
 VARIANTS = {"L-10": dict(L_uH=81.0), "L+10": dict(L_uH=99.0), "td200": dict(td_ns=200.0),
             "V1-5": dict(V1=361.0), "V1+5": dict(V1=399.0)}
 V2S = (84.0, 109.2)
@@ -82,7 +91,22 @@ def configs(extra=False):
                 d1, d2 = mb.predict(np.array([P * r * r]), np.array([V2 * r]))
                 cf.append(dict(ctrl=EXTRA, V2=V2, P=P, D1=round(min(float(np.ravel(d1)[0]), sw.D_SAFE), 9),
                                D2=round(min(float(np.ravel(d2)[0]), sw.D_SAFE), 9), variant=v, **params(v)))
+        for c in ms_points(base):
+            cf += [dict(c, variant=v, **params(v)) for v in VARIANTS]
     return cf
+
+
+def ms_points(base):
+    """M-S where its duty differs from the R.4 M-B duty by more than MS_SAME (elsewhere the M-B runs stand for it)"""
+    ms = ct.SmoothRegHDC.from_json(os.path.join(OUT, "model_smooth_reghdc_MS.json"))
+    out = []
+    for c in base:
+        if c["ctrl"] != "M-B":
+            continue
+        d1, d2 = (min(float(np.ravel(x)[0]), sw.D_SAFE) for x in ms.predict(np.array([c["P"]]), np.array([c["V2"]])))
+        if max(abs(d1 - c["D1"]), abs(d2 - c["D2"])) > MS_SAME:
+            out.append(dict(ctrl=MS, V2=c["V2"], P=c["P"], D1=round(d1, 9), D2=round(d2, 9)))
+    return out
 
 
 def predicted_levels(cf):
@@ -272,9 +296,12 @@ def compare(d=None, write_out=True):
     for v in VARIANTS:
         for V2 in V2S:
             for P in PS:
-                s, b, k = (next((m for m in M if m["variant"] == v and m["V2"] == V2 and m["P"] == P and m["ctrl"] == c), None)
-                           for c in ("SPS", "M-B", EXTRA))
+                s, b, k, q = (next((m for m in M if m["variant"] == v and m["V2"] == V2 and m["P"] == P and m["ctrl"] == c),
+                                   None) for c in ("SPS", "M-B", EXTRA, MS))
                 code, dI, tol = classify(s["Ipk"], b["Ipk"], s["osc"], b["osc"])
+                ms_own = q is not None
+                q = q or b                                   # M-S = M-B here: the M-B runs stand for M-S
+                code_s, dI_s, _ = classify(s["Ipk"], q["Ipk"], s["osc"], q["osc"])
                 n_s, n_b, n_clean = nom.get((V2, P), (np.nan, np.nan, False))
                 dI0 = n_s - n_b
                 ret = dI / dI0 if np.isfinite(dI) and np.isfinite(dI0) and dI0 > max(TOL_A, TOL_REL * n_s) else np.nan
@@ -283,9 +310,12 @@ def compare(d=None, write_out=True):
                 rows.append(dict(variant=v, V2=V2, P=P, Ipk_SPS=s["Ipk"], Ipk_MB=b["Ipk"], osc_SPS=s["osc"], osc_MB=b["osc"],
                                  dI=dI, tol=tol, code=code, dI_nominal=dI0, nominal_clean=n_clean, retention=ret,
                                  D1=b["D1"], D2=b["D2"], Ipk_MBk=k["Ipk"], osc_MBk=k["osc"], dI_k=dI_k,
-                                 code_k=code_k if (v, V2) in EXTRA_CASES else "", D1k=k["D1"], D2k=k["D2"]))
+                                 code_k=code_k if (v, V2) in EXTRA_CASES else "", D1k=k["D1"], D2k=k["D2"],
+                                 Ipk_MS=q["Ipk"], osc_MS=q["osc"], dI_s=dI_s, code_s=code_s, ms_own=ms_own,
+                                 D1s=q["D1"], D2s=q["D2"]))
     T = pd.DataFrame(rows)
     v = verdict(list(T["code"]))
+    v_s = verdict(list(T["code_s"]))
     lines = ["robust_check: R10 parameter robustness, Simulink (dataset-era model), HV->LV, dI = Ipk(SPS) - Ipk(M-B) [A]",
              f"rule registered 10-30 before results: tol = max({TOL_A} A, {100 * TOL_REL:.0f} % Ipk_SPS); osc > {OSC} A = undecided",
              "", " variant    V2     |P| |  SPS    M-B     dI    tol  | code        | nominal dI  retention"]
@@ -330,6 +360,32 @@ def compare(d=None, write_out=True):
         for r in X.itertuples():
             md.append(f"| {r.variant} | {r.V2:g} V | {r.P:.0f} W | {r.Ipk_SPS:.3f} | {r.Ipk_MB:.3f} | {r.Ipk_MBk:.3f} | {r.dI:+.3f} | "
                       f"{r.dI_k:+.3f} | {r.tol:.3f} | {CODE_TXT[r.code_k]} | ({r.D1k:.3f}, {r.D2k:.3f}) |")
+    # second verdict: M-S, the same rule (registered 10-30 14:00 before any M-S variant run)
+    dec_s = T[T["code_s"] != "undecided"]
+    n_open_s = int((~np.isfinite(T["Ipk_SPS"]) | ~np.isfinite(T["Ipk_MS"])).sum())
+    lines += ["", f"second verdict (rule registered 10-30 14:00 before the runs): {MS} in place of M-B; '=M-B' = the M-B runs"
+              " stand for M-S (duty within 0.003)", " variant    V2     |P| |  SPS    M-S    M-B  | dI(M-S) dI(M-B)  tol  |"
+              " code(M-S)   | runs   D1s    D2s"]
+    for r in T.itertuples():
+        lines.append(f" {r.variant:7s} {r.V2:6.1f} {r.P:6.0f} | {r.Ipk_SPS:5.3f}  {r.Ipk_MS:5.3f}  {r.Ipk_MB:5.3f} | {r.dI_s:+6.3f}"
+                     f"  {r.dI:+6.3f}  {r.tol:5.3f} | {r.code_s:11s} | {'own ' if r.ms_own else '=M-B'}  {r.D1s:.3f}  {r.D2s:.3f}")
+    lines.append(f"M-S: decidable {len(dec_s)}/{len(T)}; worse {int((T['code_s'] == 'worse').sum())}, same "
+                 f"{int((T['code_s'] == 'same').sum())}, better {int((T['code_s'] == 'better').sum())}; verdict: {v_s}"
+                 + (f"; {n_open_s} cases not bracketed yet -> provisional" if n_open_s else ""))
+    md += ["", "## 두 번째 판정: 채택 곡면 M-S의 견고성 (같은 규칙, 10-30 14:00 M-S 변형 실행 전에 등록)", "",
+           "M-S = 10-30 11:45 규칙(`ms_verdict.py`)으로 채택된 보정 곡면. 위와 같은 경우별 규칙·판정을 B 대신 M-S에 적용한다. M-S의 듀티가 "
+           "B와 0.003 넘게 다른 점(84 V 300 W, 109.2 V 100 / 300 / 1000 W)만 M-S를 따로 쟀고, 나머지(84 V 100 W, 1 kW)는 B 실행이 M-S를 "
+           "대신한다(\"=B\"). 위의 R10 판정(B)은 그대로다.", "",
+           "| 변형 | V2 | \\|P\\| | SPS [A] | M-S [A] | B [A] | ΔI M-S | ΔI B | 허용오차 | M-S 판정 | 실행 | M-S (D1, D2) |",
+           "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    for r in T.itertuples():
+        md.append(f"| {r.variant} | {r.V2:g} V | {r.P:.0f} W | {r.Ipk_SPS:.3f} | {r.Ipk_MS:.3f} | {r.Ipk_MB:.3f} | {r.dI_s:+.3f} | "
+                  f"{r.dI:+.3f} | {r.tol:.3f} | {CODE_TXT[r.code_s]} | {'M-S' if r.ms_own else '=B'} | ({r.D1s:.3f}, {r.D2s:.3f}) |")
+    md += ["", "**M-S 판정**: " + VERDICT_TXT[v_s].replace("제어기 B", "M-S")
+           + (": " + ", ".join(f"{r.variant} {r.V2:g} V {r.P:.0f} W ({r.dI_s:+.3f} A)" for r in T.itertuples() if r.code_s == "worse")
+              if v_s == "worse" else "") + f". 판정 가능 {len(dec_s)}/{len(T)}."]
+    if n_open_s:
+        md.append(f"※ M-S: 아직 감싸지 못한 경우 {n_open_s}개 — **잠정**.")
     if write_out:
         T.to_csv(os.path.join(OUT, "robust_check.csv"), index=False, float_format="%.5g")
         with open(os.path.join(OUT, "robust_check.log"), "w", encoding="utf-8") as f:
@@ -368,8 +424,11 @@ def selftest():
     # One power per level (Pd = 50 j - 25), as in a real run: SPS shares its duties, hence its runs, across |P|.
     import pandas as pd
     import tempfile
+    base = [c for c in sw.configs() if c["ctrl"] in CTRLS and c["V2"] in V2S and c["P"] in PS]
+    chk("M-S own runs at the registered four points", sorted((c["V2"], c["P"]) for c in ms_points(base)),
+        [(84.0, 300.0), (109.2, 100.0), (109.2, 300.0), (109.2, 1000.0)])
     rows = []
-    for c in cf:
+    for c in configs(extra=True):
         worse = c["variant"] == "td200" and c["V2"] == 84.0 and c["P"] == 1000.0 and c["ctrl"] == "M-B"
         base = 2.0 + c["P"] / 1000.0 - (0.0 if c["ctrl"] == "SPS" else (-0.2 if worse else 0.1))
         j0 = int(c["P"] // 50)
@@ -383,6 +442,10 @@ def selftest():
     chk("fake end-to-end verdict", v, "worse")
     chk("fake end-to-end worse case", list(T[T["code"] == "worse"][["variant", "V2", "P"]].itertuples(index=False, name=None)),
         [("td200", 84.0, 1000.0)])
+    chk("fake M-S: own runs at 4 x 5 cases", int(T["ms_own"].sum()), 20)
+    chk("fake M-S inherits the M-B case where M-S = M-B (td200 84 V 1 kW)",
+        list(T[T["code_s"] == "worse"][["variant", "V2", "P"]].itertuples(index=False, name=None)), [("td200", 84.0, 1000.0)])
+    chk("fake M-S verdict", verdict(list(T["code_s"])), "worse")
     print("ALL PASS" if ok else "FAILED")
     return ok
 

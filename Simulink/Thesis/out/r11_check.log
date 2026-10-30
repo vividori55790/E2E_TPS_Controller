@@ -1,0 +1,24 @@
+R11 closed loop (dataset-era Simulink model, PI on the outer phase, finer edge grid via r11/ copy); steady = last 2 ms of each segment; settled = |P - P*| <= max(2%, 5 W) to the segment end
+Ipk_ref = R.4 / R8 constant-D0 steady state at the same (ctrl, V2, |P|) (out/efficiency_compare.csv, 100 ns grid)
+
+smoke_100ns (SPS, 84 V, Ts 100 ns, latch 0, Kp 2, Ki 49000; batch 183 s)
+     0-  10 ms   1000 W: Ipk steady 5.745 (median period 4.840) vs ref 4.376 A | |mean i_L| 0.005 A (per period max 1.407) | P error -0.00 % | settle 1.71 ms | overshoot +9247 W | Ipk first 2 ms 21.154 A | phi 23.30 deg
+
+smoke_10ns_latch (SPS, 84 V, Ts 10 ns, latch 1, Kp 2, Ki 49000; batch 183 s)
+     0-  10 ms   1000 W: Ipk steady 4.464 (median period 4.386) vs ref 4.376 A | |mean i_L| 0.002 A (per period max 0.125) | P error -0.02 % | settle 2.25 ms | overshoot +9761 W | Ipk first 2 ms 21.458 A | phi 23.06 deg
+
+smoke_25ns_latch_full (SPS, 84 V, Ts 25 ns, latch 1, Kp 2, Ki 49000; batch 183 s)
+     0-  10 ms   1000 W: Ipk steady 4.505 (median period 4.365) vs ref 4.376 A | |mean i_L| 0.002 A (per period max 0.096) | P error -0.01 % | settle 2.40 ms | overshoot +9745 W | Ipk first 2 ms 21.464 A | phi 22.87 deg
+
+smoke_25ns_latch (SPS, 84 V, Ts 25 ns, latch 1, Kp 2, Ki 49000; batch 183 s)
+     0-  10 ms   1000 W: Ipk steady 4.505 (median period 4.365) vs ref 4.376 A | |mean i_L| 0.002 A (per period max 0.096) | P error -0.01 % | settle 2.40 ms | overshoot +9745 W | Ipk first 2 ms 21.464 A | phi 22.87 deg
+
+smoke_25ns (SPS, 84 V, Ts 25 ns, latch 0, Kp 2, Ki 49000; batch 183 s)
+     0-  10 ms   1000 W: Ipk steady 4.478 (median period 4.377) vs ref 4.376 A | |mean i_L| 0.001 A (per period max 0.094) | P error -0.02 % | settle 1.84 ms | overshoot +9350 W | Ipk first 2 ms 21.224 A | phi 22.88 deg
+
+smoke summary: label | Ipk median - ref | Ipk max - ref | window |mean i_L| [A]
+  smoke_100ns            +0.464  +1.370  0.005
+  smoke_10ns_latch       +0.010  +0.088  0.002
+  smoke_25ns_latch_full  -0.011  +0.129  0.002
+  smoke_25ns_latch       -0.011  +0.129  0.002
+  smoke_25ns             +0.001  +0.102  0.001

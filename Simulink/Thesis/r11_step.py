@@ -36,13 +36,17 @@ PROFILES = {"heavy": (1000.0, 500.0, 1000.0), "light": (300.0, 100.0, 300.0)}
 V2S = (84.0, 109.2)
 SETTLE_TOL = 0.02                # settled when |P_LV - P_target| <= max(2 %, 5 W) for the rest of the segment
 OSC = 0.02                       # [A] |mean i_L| above this = not a clean steady state (R.4)
+MODELS = {"M-B": "model_smooth_reghdc_b3.json", "M-S": "model_smooth_reghdc_MS.json"}
+SAME = 0.003                     # M-S within this of M-B at every level = the M-B run (as efficiency_sweep / ms families)
+_cache = {}
 
 
 def duties(ctrl, P, V2):
     if ctrl == "SPS":
         return sw.D_SAFE, sw.D_SAFE
-    m = ct.SmoothRegHDC.from_json(os.path.join(OUT, "model_smooth_reghdc_b3.json"))
-    d1, d2 = m.predict(np.array([P]), np.array([V2]))
+    if ctrl not in _cache:
+        _cache[ctrl] = ct.SmoothRegHDC.from_json(os.path.join(OUT, MODELS[ctrl]))
+    d1, d2 = _cache[ctrl].predict(np.array([P]), np.array([V2]))
     return min(float(np.ravel(d1)[0]), sw.D_SAFE), min(float(np.ravel(d2)[0]), sw.D_SAFE)
 
 
@@ -81,10 +85,15 @@ def smoke():
 
 
 def make(ts, sync=1):
+    """SPS, M-B and (10-30, the adopted surface) M-S -- M-S only where it differs from M-B by more than SAME at a level"""
     rows = []
     for V2 in V2S:
         for pname, levels in PROFILES.items():
-            for ctrl in ("SPS", "M-B"):
+            for ctrl in ("SPS", "M-B", "M-S"):
+                if ctrl == "M-S" and all(max(abs(a - b) for a, b in zip(duties("M-S", P, V2), duties("M-B", P, V2)))
+                                         <= SAME for P in levels):
+                    print(f"  M-S = M-B at {V2:g} V {pname} (every level within {SAME})")
+                    continue
                 name = f"r1_{ctrl.replace('-', '')}_{V2:g}V_{pname}"
                 prof = write_profile(name, ctrl, V2, levels, SEG)
                 rows.append(dict(label=name, ctrl=ctrl, V2=V2, Ts=ts, sync=sync, Kp=KP, Ki=KI,
@@ -144,8 +153,11 @@ def seg_metrics(per, a, b, P, P0):
         t_set = (g["t_end"].iloc[last_bad[-1] + 1] if len(last_bad) else g["t_end"].iloc[0]) - a
     dev = np.sign(P - P0) * (Pd - P)                            # > 0 = beyond the target in the step direction
     crossed = np.where(dev >= 0)[0]
+    # mean i_L over the window = the R.4 criterion (constant-D0 runs: mean over the last 1 ms); the per-period value
+    # also moves with the PI phase dither (smoke 10-30: window |mean| <= 0.004 A, per-period max 0.09-0.13 A at 25 ns)
     return dict(P=P, Ipk_steady=float(st["Ipk"].max()), Ipk_steady_med=float(st["Ipk"].median()),
-                iL_mean_steady=float(st["iL_mean"].abs().max()), P_err_pct=float(100 * (-st["P_LV"].mean() - P) / P),
+                iL_mean_steady=float(abs(st["iL_mean"].mean())), iL_mean_period_max=float(st["iL_mean"].abs().max()),
+                P_err_pct=float(100 * (-st["P_LV"].mean() - P) / P),
                 t_settle_ms=float(t_set * 1e3), overshoot_W=float(dev[crossed[0]:].max()) if len(crossed) else 0.0,
                 Ipk_transient=float(g[g["t_end"] <= a + 2e-3]["Ipk"].max()), phi_steady=float(st["phi"].mean()))
 
@@ -184,10 +196,17 @@ def compare():
             rows.append(dict(label=s["label"], ctrl=s["ctrl"], V2=s["V2"], Ts=s["Ts"], sync=s["sync"], t0=a, t1=b,
                              Ipk_ref=r, **m))
             out(f"  {a * 1e3:4.0f}-{b * 1e3:4.0f} ms {P:6.0f} W: Ipk steady {m['Ipk_steady']:.3f} (median period "
-                f"{m['Ipk_steady_med']:.3f}) vs ref {r:.3f} A | max|mean i_L| {m['iL_mean_steady']:.3f} A"
-                f"{' (osc)' if m['iL_mean_steady'] > OSC else ''} | P error {m['P_err_pct']:+.2f} % | settle "
+                f"{m['Ipk_steady_med']:.3f}) vs ref {r:.3f} A | |mean i_L| {m['iL_mean_steady']:.3f} A"
+                f"{' (osc)' if m['iL_mean_steady'] > OSC else ''} (per period max {m['iL_mean_period_max']:.3f})"
+                f" | P error {m['P_err_pct']:+.2f} % | settle "
                 f"{m['t_settle_ms']:.2f} ms | overshoot {m['overshoot_W']:+.0f} W | Ipk first 2 ms {m['Ipk_transient']:.3f} A"
                 f" | phi {m['phi_steady']:.2f} deg")
+    sm = [r for r in rows if r["label"].startswith("smoke_")]
+    if sm:      # the smoke question (R.7 regression + grid choice): median period Ipk vs the constant-D0 steady state
+        out("\nsmoke summary: label | Ipk median - ref | Ipk max - ref | window |mean i_L| [A]")
+        for r in sm:
+            out(f"  {r['label']:22s} {r['Ipk_steady_med'] - r['Ipk_ref']:+.3f}  {r['Ipk_steady'] - r['Ipk_ref']:+.3f}"
+                f"  {r['iL_mean_steady']:.3f}")
     pd.DataFrame(rows).to_csv(os.path.join(OUT, "r11_check.csv"), index=False, float_format="%.6g")
     open(os.path.join(OUT, "r11_check.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
     fig(runs)
@@ -209,7 +228,7 @@ def fig(runs):
         for j, (V2, pname) in enumerate(groups):
             for s in good:
                 if s["label"].startswith("r1_") and np.isclose(s["V2"], V2) and s["label"].endswith(pname):
-                    p, c = s["periods"], (MUTED if s["ctrl"] == "SPS" else BLUE)
+                    p, c = s["periods"], {"SPS": MUTED, "M-B": BLUE, "M-S": YELLOW}.get(s["ctrl"], ORANGE)
                     ax[0, j].plot(p["t_end"] * 1e3, p["Ipk"], color=c, lw=1.2, label=s["ctrl"])
                     ax[1, j].plot(p["t_end"] * 1e3, -p["P_LV"], color=c, lw=1.2, label=s["ctrl"])
             ax[0, j].set_title(f"{V2:g} V, {pname} steps: Ipk per period")

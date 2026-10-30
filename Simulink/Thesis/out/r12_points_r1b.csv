@@ -1,0 +1,9 @@
+label,ctrl,V2,Ts,sync,Kp,Ki,simTime,profile,trim
+r12_ICROS_90V_ramp,ICROS,90,2.5e-08,1,2,49000,0.05,out/r12_profiles/r12_ICROS_90V_ramp.csv,1
+r12_MB_90V_ramp,M-B,90,2.5e-08,1,2,49000,0.05,out/r12_profiles/r12_MB_90V_ramp.csv,1
+r12_MS_90V_ramp,M-S,90,2.5e-08,1,2,49000,0.05,out/r12_profiles/r12_MS_90V_ramp.csv,1
+r12_SPS_90V_ramp,SPS,90,2.5e-08,1,2,49000,0.05,out/r12_profiles/r12_SPS_90V_ramp.csv,1
+r12_ICROS_109.2V_ramp,ICROS,109.2,2.5e-08,1,2,49000,0.05,out/r12_profiles/r12_ICROS_109.2V_ramp.csv,1
+r12_MB_109.2V_ramp,M-B,109.2,2.5e-08,1,2,49000,0.05,out/r12_profiles/r12_MB_109.2V_ramp.csv,1
+r12_MS_109.2V_ramp,M-S,109.2,2.5e-08,1,2,49000,0.05,out/r12_profiles/r12_MS_109.2V_ramp.csv,1
+r12_SPS_109.2V_ramp,SPS,109.2,2.5e-08,1,2,49000,0.05,out/r12_profiles/r12_SPS_109.2V_ramp.csv,1

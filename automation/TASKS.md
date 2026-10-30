@@ -109,6 +109,14 @@
   결과(M-S 이득이 25 ns에서 남는지)를 본 뒤 정할 것. R10 규칙은 B에 대해 등록됐으니 M-S는 "같은 규칙 적용, 판정 밖"으로.
   **다음 턴**: rob5 끝(약 13:35) → `robust_check.py next`(남으면 r3) / `compare` → R.12·REPORT 8.1(M-Bk 결과 포함). r11smoke2 끝 → 로그에서 `DAB_Controller_System ->
   ...\r11\...`·오류 확인 → `r11_step.py compare`. fine1b 첫 묶음 → 오류 없음·100 ns 재현 확인(LocalSolverSampleTime 설정은 첫 시험) → 끝나면 `fine_grid_check.py compare`.
+- **진행(반복 32, 10-30 13:30–14:20)**: rob5 끝 → **R10 확정**(B, 23/30, "열화 있음" = V1 −5 % 84 V 300 W 한 점; M-Bk 채택 안 함) → M-S 견고성 두 번째 판정 등록 →
+  잡 rob6. r11smoke2 성공(25 ns 폐루프 피크 중앙값 = 상수 D0 정상상태 ± 1 mA) → r11r1(12회). R12 설계·규칙 등록 → r12r1(8회). RESULTS 머리말·R.12·R.13·R.14(새),
+  "## 1." 머리글 복구(예전 편집에서 빠졌던 것), REPORT 0절·8절 표·8.1·9절·11.4.
+  **대기열 재배치(13:58)**: 25 ns는 같은 D0 계단 전력이 100 ns보다 40–70 W 높아 여러 구성이 미포착 → 2라운드가 r12r1 뒤로 밀리지 않게 `fine_rounds.m`(새,
+  m_static_check OK)을 잡 **fineR**(`--after fine1b`)로 내고, r11r1·rob6·r12r1의 입력을 옮겨 실패시키고 r11r1b → rob6b → r12r1b로 다시 냄(메모리 job-kill 방법).
+  **다음 턴(fine1b 끝 약 14:50; r11r1·rob6·r12r1이 곧바로 실패하는 것은 의도)**: fineR 로그에서 `next` 출력(2라운드 회수) 확인 → 부분 `fine_grid_check.py compare`.
+  fineR 끝(약 15:30) → `compare` → R1–R3 판정 → 11절·11.3·11.4·5절과 RESULTS 0절·R.10의 0.1 A 서술(목표 3 위반, M-S 채택 근거) 고치기. r11r1b 끝(약 15:45) →
+  `r11_step.py compare`. rob6b 끝(약 16:25) → `robust_check.py next`/`compare`(M-S 판정). r12r1b 끝(약 16:45) → `r12_ramp.py compare`.
 - [~] **GRID 격자 세분 점검(10-30 11:07 제출)**: `verify_steady_fine.m`/`verify_steady_fine_batch.m`(verify_steady_state 복사본 + r11 제어기 + 실행마다
   Ts_ctrl·LocalSolverSampleTime; m_static_check OK), `fine_grid_check.py`(make/next/compare/selftest 19항목 ALL PASS; **규칙 R1–R3은 머리말에 결과 전
   등록, 바꾸지 말 것**). `out/fine_points_r1.csv` 117회(S 스캔 4개 × 5듀티 × 2계단 × {100, 25 ns}, B 5점 × {SPS, B, M-S}, C 6점 × {SPS, B}; 25 ns D0 =
@@ -116,6 +124,10 @@
   (복사본 검증), 25 ns 실행 시간·메모리, 오류. 25 ns 실패 시 r11smoke 로그와 함께 원인 파악.
   **(반복 31) fine1 117회 전부 실패(12:54, 'SyncPhaseUpdate' 파라미터 없음 = 현재 폴더의 원본 클래스) → verify_steady_fine.m을 원본 제어기로(r11 경로·
   SyncPhaseUpdate 줄 삭제, cd 뒤 which 확인; m_static_check OK), 실패 출력 `out/failed_1030/fine1/` → 잡 `fine1b`(같은 점·출력, `--after r11smoke2`).**
+  **(반복 32) fine1b 13:34 시작(로그 `DAB_Controller_System -> ...\dataset_era\...` = 의도), 첫 두 묶음 24회 오류 0, 묶음당 약 450 s → 약 14:50 끝.
+  부분 compare: 복사본 점검 max |dIpk| 0 A(2구성), 84 V 146 W D1 스캔 25 ns 1.509/1.508/1.508(매끄러움) vs 100 ns 1.590/1.640(두 칸), B 84 V 150 W 100 ns 1.692 →
+  25 ns 1.527(−0.165) — 격자 사이 절대값 이동이 크니 판정은 같은 격자 안 비교(R2)로. S0 s0의 25 ns는 L0 전력 148.8 W > 146.4 W라 미포착 → 끝나면
+  `fine_grid_check.py next`(fine2 필요할 수 있음) → `compare`.** → 미포착분은 잡 **fineR**(`fine_rounds.m`, 2–4라운드 자동, `--after fine1b`)이 이어서 잰다.
 - [x] OPT0 **판정 규칙 먼저 등록**(결과를 보기 전에): `Simulink/Thesis/surface_opt_verdict.py`에 규칙과 가짜 입력 시험(`test_surface_opt_verdict.py`).
   (반복 22: 19항목 ALL PASS. 후보 = 2.88° 두 계단 정상상태만, 진동(|mean i_L| > 20 mA) 후보 제외, M-B/SPS 진동이면 판정 불가,
   (ii)는 min(D1, D2) < 0.45, (iii)은 같은 쪽 = s(D2*−D1*) ≥ 0 비율 ≥ 75 %·SPS만 최적이면 불일치, 상승 = Spearman ≥ 0.8 & 최대 전력 d* ≥ 0.45.)
@@ -156,6 +168,10 @@
   (wP 40 W). (3) k = 1 경부하(k1map 뒤). 모두 wV 5 V → 중간 V2(89/104 V)도 검증. `out/opt4_anchors_r2.csv`. 학습은 `--delta`로.
   84 V 경부하·109.2 V 150 W(거칠기 범위 안)와 M-B 최적점(84 V 200/600/1000, 109.2 V 300/400/1000 W)은 M-B 그대로 두되, 링잉으로 0.003–0.009
   움직이므로 ms 묶음이 그 점들도 다시 잰다.
+- MATLAB 순서(반복 32, 10-30 13:58 재배치): rob5 끝(13:30) → r11smoke2(13:30–13:33) → **fine1b**(13:34 시작, 12회 묶음당 약 450 s → 약 14:50 끝)
+  → **fineR**(`fine_rounds(2, 4, py)`: `fine_grid_check.py next` + `verify_steady_fine_batch`를 MATLAB 안에서 반복, 약 30–45분) → **r11r1b**(R11 계단 12회,
+  약 15분) → **rob6b**(M-S 견고성 60회, 약 40분) → **r12r1b**(R12 램프 8회, 약 20분). 처음 낸 r11r1·rob6·r12r1은 입력(`out/r11_points_r1.csv`,
+  `out/robust_points_r3.csv`, `out/r12_points_r1.csv`)을 `..._r1b`/`..._r3b`로 옮겨 fine1b 뒤 곧바로 차례로 실패하게 했다(의도). 대기 중인 대화형 잡을 kill하지 말 것.
 - MATLAB 순서(반복 31, 10-30 13:00): rob4 끝(12:44) → eff2(12:45–12:50) → r11smoke 실패(12:51) → fine1 실패(12:54) → **rob5**(12:54 시작, R10 2라운드
   + M-Bk 55회, 약 13:35 끝) → **r11smoke2**(5회, 약 15분) → **fine1b**(GRID 117회, 약 2 h). 대기 중인 대화형 잡을 kill하지 말 것.
 - MATLAB 순서(반복 30, 10-30 11:50): msR 끝(11:40) → **rob4**(11:41 시작, R10 111회, 약 13:00 끝) → eff2(7회) → r11smoke(5회) → **fine1**(GRID 117회,
@@ -253,8 +269,17 @@ MATLAB은 한 번에 잡 하나(병렬 풀 6워커)만. 지금 `r5r6` 실행 중
   거칠기와 같은 크기라는 단서를 판정문 옆에 적을 것(규칙은 그대로).)
   (반복 31: rob4 끝 → 잠정 14/30, 열화 1(V1 −5 % 84 V 300 W −0.090 A, 해석 모델도 예측). r2 37회 + M-Bk 18회 → **rob5**(12:54 시작). 판정문에 "감싸지 못한
   경우 N개 — 잠정" 문구 추가(규칙 아님). RESULTS R.12, REPORT 8.1. rob5 끝나면 `next`(r3 필요하면 잡) → `compare` → 확정.)
-- [ ] R10 (개선 5) **파라미터 견고성(Simulink)**: L ±10 %, 데드타임 100→200 ns, V1 ±5 %(블록/변수 값을 시뮬레이션 입력으로만 바꿈, 모델 저장 금지)
+- [x] R10 (개선 5) **파라미터 견고성(Simulink)**: L ±10 %, 데드타임 100→200 ns, V1 ±5 %(블록/변수 값을 시뮬레이션 입력으로만 바꿈, 모델 저장 금지)
   × 대표 6점 × {SPS, M-B}(가능하면 M-A) — 상수 D0 두 계단 보간. M-B가 어디서도 SPS보다 의미 있게 나빠지지 않는지.
+  **(반복 32, 10-30 13:40 확정, M-B)**: rob4 + rob5 166회 오류 0, 30경우 모두 감쌈, 판정 가능 23/30 → **"열화 있음"**(V1 −5 % 84 V 300 W −0.090 A, 해석도 예측),
+  저감 14·같음 8, 판정 불가 7 = 109.2 V 진동(B 4, SPS 3) — 그중 V1 −5 % 300 W·td200 1 kW는 B > SPS 0.19 A(규칙 밖 경고). M-Bk(V1 정규화, 판정 밖):
+  84 V 쪽 0.02–0.13 A 개선, 109.2 V 쪽 0.06–0.33 A 악화(해석은 6경우 모두 개선 예측) → 채택 안 함. 변형 적용 확인: 공칭과 같은 위상 105쌍 Ipk 모두 다름.
+  RESULTS R.12, REPORT 0절 표·8절 표·8.1 확정.
+- [~] (반복 32) **R10b M-S(채택 곡면) 견고성**: 같은 규칙을 M-S 변형 실행 전에 등록(10-30 14:00, `robust_check.py` 머리말, selftest ALL PASS — `ms_points()`,
+  두 번째 판정 `code_s`/`v_s`, 판정문 "두 번째 판정" 절). M-S ≠ B(> 0.003)인 4점(84 V 300 W 7칸, 109.2 V 100 W 14칸·300 W 2칸·1 kW 1칸) × 5변형 = 20경우,
+  나머지 10경우는 B 실행이 대신. `robust_check.py next` → `out/robust_points_r3.csv`(계단 셋씩 60회) → 잡 rob6 → (13:58 재배치)
+  **rob6b**(`--after r11r1b`, 점 파일 `out/robust_points_r3b.csv`, 출력 이름 그대로 `out/robust_sweep_r3*.csv`). 끝나면 `next`(r4 필요하면) /
+  `compare` → RESULTS R.12·REPORT 8.1의 M-S 판정.
 - [~] (반복 28, 10-30 09:00) R11 준비 + 스모크 대기. **복사본** `Simulink/Thesis/r11/DAB_Controller_System.m`(경로 맨 앞에 두어 원본을 가림; 바뀐 것 둘:
   한 주기 이동평균 길이 = round(1/(Fs·Ts_ctrl))(원본 125 고정), `SyncPhaseUpdate` = 주기 경계(카운터 wrap)에서만 다리 위상 래치 = MCU 섀도 레지스터).
   러너 `r11_closed_loop.m`: 실행마다 'MATLAB System' Ts_ctrl·SyncPhaseUpdate, `Solver Configuration2`(이름에 줄바꿈) LocalSolverSampleTime = Ts,
@@ -271,9 +296,24 @@ MATLAB은 한 번에 잡 하나(병렬 풀 6워커)만. 지금 `r5r6` 실행 중
   가림(parsim 워커도 클라이언트 폴더). 고침: `cd(r11Dir)`(모델·효율 분석기는 경로로 찾음, 파일 이름은 모두 절대 경로) + cd 뒤 which 확인 + workerSetup에서
   cd(r11Dir)·확인(m_static_check OK). 실패 요약 → `out/failed_1030/r11smoke/`. 잡 `r11smoke2`(`--after rob5`). 로그에 `DAB_Controller_System -> ...\r11\...`가
   찍히는지, 워커 오류(→ 순차 실행 대체)가 없는지 확인.**
+  **(반복 32) r11smoke2 끝(13:33, 5회 오류 0, 로그 `DAB_Controller_System -> ...\r11\...` 확인)**: SPS 84 V 1 kW 폐루프 마지막 2 ms 주기 피크 중앙값 − 상수 D0
+  정상상태(4.376 A): 100 ns +0.464(최대 +1.370, 주기별 평균 i_L 최대 1.41 A = R.7 재현), 25 ns +0.001(+0.102), 25 ns 래치 −0.011(+0.129), 10 ns 래치 +0.010(+0.088);
+  창 평균 |i_L| 모두 ≤ 5 mA. `r11_step.py` 고침: 진동 판정을 R.4와 같은 창 평균으로(주기별 최대는 PI 디더로 0.09–0.13 A라 따로 보고), 스모크 요약 줄,
+  M-S(채택 곡면) 추가(레벨 중 하나라도 B와 0.003 넘게 다르면), 그림 색 M-S 노랑. **결정: 25 ns + 래치(sync 1)** — MCU 섀도 레지스터와 같은 갱신이고
+  래치 없음과 0.01 A 차. `make --ts 2.5e-8` → `out/r11_points_r1.csv` 12회(SPS·B·M-S × 84/109.2 V × heavy/light, 36 ms) → 잡 r11r1 → (13:58 재배치)
+  **r11r1b**(`--after fineR`, 점 파일 `out/r11_points_r1b.csv`).
+  끝나면 `r11_step.py compare` → 정착 시간·오버슈트·과도 Ipk 표 → RESULTS(새 R.13)·REPORT 8절. 첫 구간은 0 W에서 시작하는 기동 과도(21 A, +9 kW)라 계단 지표는
+  둘째·셋째 구간만 쓸 것.
 - [ ] R11 (개선 4) **동특성: PI 폐루프 계단 응답**: `dataset_era/`의 DAB_Controller_System.m **복사본**에서 위상 분해능 문제(100 ns, 2.88°)를
   해결(예: 위상 갱신을 주기 동기로, 분해능 향상 또는 엣지 시각 보간)한 뒤, D0 = PI, D1/D2 = 제어기 출력으로 전력 계단(1000→500→1000 W)과
   V2 계단(예 84↔95 V) 응답. 정착 시간, 오버슈트, 과도 중 Ipk. SPS vs M-B. 모델 원본은 수정하지 않는다.
+- [~] (반복 32, 10-30 14:10) R12 준비·제출: **`r12_ramp.py`**(make/compare/selftest, **규칙 머리말에 실행 전 등록, 바꾸지 말 것**; selftest 12항목 ALL PASS).
+  R11 폐루프(25 ns + 래치, Kp 2 / Ki 49000), HV→LV 램프 100 → 900 W(6 ms 유지 → 40 ms 램프 → 4 ms 유지, 50 ms), 주기마다 듀티 knot, V2 90 / 109.2 V ×
+  {ICROS, M-B, M-S, SPS} = 8회. ICROS = `LegacyRegHDC`(evaluate.py의 `out/model_legacy_icros.npz`, sign −1 = HV→LV) + 분류기 = 데이터셋 라벨(I_Opt = I_SPS)
+  + FSM 잠금, 경계 90 V 625 W / 110 V 775 W. 명령 듀티 m1: ICROS 0.170(90 V)·0.125(109.2 V) vs B 0.0004·0.0002. 규칙: m1 비 ≥ 5이고 (전력 오차 최대 비 ≥ 2 또는
+  피크 튐 ≥ B + 0.1 A) → "효과 확인", (≤ 1.2배이고 ≤ B + 0.03 A) → "효과 없음", 그 밖 "부분". 잡 r12r1 → (13:58 재배치) **r12r1b**(`--after rob6b`,
+  점 파일 `out/r12_points_r1b.csv`, 출력 `out/r12/`). 끝나면 `r12_ramp.py compare` → `out/r12_verdict.md`, 그림 `out/fig_r12_ramp.png` → RESULTS R.14·REPORT 8절.
+  r11r1b에서 폐루프가 이상하면(B·M-S 진동, 추종 실패) `out/r12_points_r1b.csv`를 옮겨 r12r1b를 곧바로 실패시키고 고쳐 다시 낼 것(kill 금지).
 - [ ] R12 (개선 2) **분류기 제거 효과 시연**: R11의 폐루프로, SPS/TPS 경계를 지나가는 느린 전력 램프(예: V2 90 V 또는 110 V, 0→800 W)에서
   기존 하이브리드(ICROS 분류기 + FSM 고정 곡면 = `Simulink/RegHDC_PostProcessed_Dataset.csv`를 경계 그대로 재생)와 M-B를 비교.
   D1/D2 점프, 전류 스파이크, 전력 추종 오차. 목표 2("곡면을 매끄럽게")의 직접 증거.

@@ -1,0 +1,2 @@
+label,ctrl,V2,Ts,sync,Kp,Ki,simTime,profile,trim,Ipk_last1ms,iL_mean_last1ms,P_LV_last1ms,P_HV_last1ms,batch_seconds,error
+smoke_25ns,SPS,84,2.5e-08,0,2,49000,0.01,out/r11_profiles/smoke_SPS_84V_1000W.csv,1,4.47762795946834,-5.57845986074133e-05,-999.855027988954,-1022.94285497456,183.1433675,
