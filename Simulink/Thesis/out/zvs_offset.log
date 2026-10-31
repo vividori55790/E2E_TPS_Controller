@@ -1,0 +1,17 @@
+zvs_offset_check: common frame sigma +1, rho +1, fitted offset c +0.36 deg; 52 clean map points (SPS and the proposed controller both |mean i_L| <= 20 mA); not a verdict
+  c -1.44 deg: 52 points, proposed    3889 VA, SPS   23003 VA, -83.1 %
+  c -1.26 deg: 52 points, proposed    3856 VA, SPS   22796 VA, -83.1 %
+  c -1.08 deg: 52 points, proposed    3830 VA, SPS   22590 VA, -83.0 %
+  c -0.90 deg: 52 points, proposed    3824 VA, SPS   22469 VA, -83.0 %
+  c -0.72 deg: 52 points, proposed    3820 VA, SPS   22356 VA, -82.9 %
+  c -0.54 deg: 52 points, proposed    3828 VA, SPS   22243 VA, -82.8 %
+  c -0.36 deg: 52 points, proposed    3843 VA, SPS   22130 VA, -82.6 %
+  c -0.18 deg: 52 points, proposed    3865 VA, SPS   22026 VA, -82.5 %
+  c -0.00 deg: 52 points, proposed    4113 VA, SPS   22396 VA, -81.6 %
+  c +0.18 deg: 52 points, proposed    4361 VA, SPS   22507 VA, -80.6 %
+  c +0.36 deg: 52 points, proposed    4599 VA, SPS   22619 VA, -79.7 %
+  c +0.54 deg: 52 points, proposed    4833 VA, SPS   22732 VA, -78.7 %
+  c +0.72 deg: 52 points, proposed    5072 VA, SPS   22844 VA, -77.8 %
+  c +0.90 deg: 52 points, proposed    5574 VA, SPS   23261 VA, -76.0 %
+range -83.1 ... -76.0 %
+at the fitted offset the table out/zvs_map25.csv gives 4724 / 23244 VA (all clean points of each, not only the common 52)
