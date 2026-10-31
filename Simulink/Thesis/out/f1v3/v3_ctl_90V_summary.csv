@@ -1,0 +1,2 @@
+label,ctrl,V2,Ts,sync,Kp,Ki,simTime,profile,trim,reg,hold,Ipk_last1ms,iL_mean_last1ms,P_LV_last1ms,P_HV_last1ms,batch_seconds,error
+v3_ctl_90V,M-B,90,2.5e-08,1,1,24500,0.05,out/r12_profiles/r12_MB_90V_ramp.csv,1,0,1,3.27660377851316,-0.000254697433183479,-899.650506100476,-916.706822089551,611.0669378,

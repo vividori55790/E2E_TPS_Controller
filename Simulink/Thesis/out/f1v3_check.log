@@ -1,0 +1,12 @@
+f1_regloop: the regression inside the Simulink controller against the external input, R12 round 2 setup, ramp window 6-46 ms; rules in the file header
+
+90 V external: e_max 32.6 W, rms 9.7 W, spike 0.184 A, Ipk max 3.289 A
+  control (copy, external path): max |dIpk| 0.000000 A over the whole run
+  hold 1: 같음 | dD 0.0027, e_max 32.3 (-0.3) W, rms 9.4 W, spike 0.183 (-0.001) A, Ipk max 3.325 (+0.036) A | period |dIpk| median 0.032, 95 % 0.137 A | V_LV - V2 +0.054 ... +0.511 V, V_HV 379.84 ... 379.99 V | tail 900 W: Ipk 3.166 vs 3.206 A, P_LV -900.1 vs -899.6 W
+  hold 8: 같음 | dD 0.0028, e_max 33.1 (+0.6) W, rms 9.9 W, spike 0.183 (-0.001) A, Ipk max 3.334 (+0.045) A | period |dIpk| median 0.036, 95 % 0.136 A | V_LV - V2 +0.056 ... +0.512 V, V_HV 379.84 ... 379.99 V | tail 900 W: Ipk 3.166 vs 3.206 A, P_LV -900.2 vs -899.6 W
+109.2 V external: e_max 46.2 W, rms 11.6 W, spike 0.235 A, Ipk max 4.399 A
+  control (copy, external path): max |dIpk| 0.000000 A over the whole run
+  hold 1: 같음 | dD 0.0001, e_max 43.9 (-2.4) W, rms 11.9 W, spike 0.234 (-0.001) A, Ipk max 4.501 (+0.102) A | period |dIpk| median 0.001, 95 % 0.120 A | V_LV - V2 +0.046 ... +0.419 V, V_HV 379.83 ... 379.99 V | tail 900 W: Ipk 4.397 vs 4.398 A, P_LV -899.9 vs -900.4 W
+  hold 8: 같음 | dD 0.0016, e_max 47.4 (+1.2) W, rms 12.2 W, spike 0.250 (+0.015) A, Ipk max 4.501 (+0.102) A | period |dIpk| median 0.002, 95 % 0.147 A | V_LV - V2 +0.046 ... +0.415 V, V_HV 379.83 ... 379.99 V | tail 900 W: Ipk 4.399 vs 4.398 A, P_LV -900.1 vs -900.4 W
+
+VERDICT: 제어기 안에서도 같음

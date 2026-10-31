@@ -1,0 +1,25 @@
+rev6_check: M-B goal 3 in LV -> HV at 6.25 ns, 0.72 deg levels; rules in the file header (those of h12_check.py)
+    V2   |P| ctrl | Ipk     25   6.25 | median     25   6.25 | spread     25   6.25 | mean i_L     25   6.25
+ 100.8   600  SPS | Ipk  2.252  2.258 | median  2.252  2.258 | spread  0.000  0.000 | mean i_L  0.002  0.002
+ 100.8   600  M-B | Ipk  2.321  2.254 | median  2.282  2.246 | spread  0.099  0.025 | mean i_L  0.017  0.004
+  92.4   300  SPS | Ipk  1.310  1.247 | median  1.309  1.247 | spread  0.207  0.000 | mean i_L  0.026  0.000
+  92.4   300  M-B | Ipk  1.241  1.240 | median  1.241  1.240 | spread  0.000  0.000 | mean i_L  0.000  0.000
+  98.7   175  SPS | Ipk    nan  0.922 | median    nan  0.922 | spread    nan  0.000 | mean i_L    nan  0.001
+  98.7   175  M-B | Ipk    nan  0.919 | median    nan  0.919 | spread    nan  0.000 | mean i_L    nan  0.000
+  98.7   350  SPS | Ipk    nan  1.355 | median    nan  1.355 | spread    nan  0.000 | mean i_L    nan  0.001
+  98.7   350  M-B | Ipk    nan  1.351 | median    nan  1.351 | spread    nan  0.000 | mean i_L    nan  0.001
+ 100.8   175  SPS | Ipk  1.196  1.199 | median  1.196  1.199 | spread  0.000  0.000 | mean i_L  0.001  0.001
+ 100.8   175  M-B | Ipk    nan  1.145 | median    nan  1.145 | spread    nan  0.000 | mean i_L    nan  0.000
+ 100.8   350  SPS | Ipk  1.618  1.623 | median  1.618  1.623 | spread  0.000  0.000 | mean i_L  0.002  0.001
+ 100.8   350  M-B | Ipk    nan  1.609 | median    nan  1.609 | spread    nan  0.000 | mean i_L    nan  0.001
+
+Statements of the 25 ns values at 6.25 ns
+    100.8 V   600 W rule: SPS lower than M-B by +0.069 A at 25 ns -> -0.004 A at 6.25 ns (tol 0.045): gone
+C  100.8 V 600 W: does not stand; SPS - M-B at 6.25 ns: rule +0.004 A, median +0.012 A
+C  92.4 V 300 W: none; SPS - M-B at 6.25 ns: rule +0.007 A, median +0.007 A; HV -> LV at 6.25 ns: rule +0.000, median +0.000 A
+C  98.7 V 175 W: none; SPS - M-B at 6.25 ns: rule +0.003 A, median +0.003 A; HV -> LV at 6.25 ns: rule +0.008, median +0.008 A
+C  98.7 V 350 W: none; SPS - M-B at 6.25 ns: rule +0.004 A, median +0.004 A; HV -> LV at 6.25 ns: rule +0.015, median +0.015 A
+C  100.8 V 175 W: none; SPS - M-B at 6.25 ns: rule +0.054 A, median +0.054 A
+C  100.8 V 350 W: none; SPS - M-B at 6.25 ns: rule +0.013 A, median +0.013 A
+
+VERDICT: gone
