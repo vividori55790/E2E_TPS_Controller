@@ -2,6 +2,14 @@
 
 <!-- 새 항목은 이 줄 바로 아래에 -->
 
+## 2026-10-31 16:28– (반복 46) — `h12` 판정 "gone": 25 ns 위반 진술 네 점 모두 6.25 ns에서 성립 안 함, 새 위반 없음, 10구성 모두 주기적
+- **h12 끝(16:27, 46 + 2회, `job_errors.py h12` 오류 0) → `h12_check.py compare`(규칙 그대로)** → `out/h12_verdict.md`, `out/h12_check.{csv,log}`. 값은 REPORT 11.5 표. SPS − B(6.25 ns, 0.72° 계단, 두 값 같음): 98.7 V 175 W +0.008, 250 W +0.010, 350 W +0.015, 92.4 V 300 W 0.000, 105 V 400 W +0.098 A. 사라짐 3점 + 뒤집힘 1점, 10구성 폭 0.000 A. 등록대로 SPS 띠 곡면은 설계하지 않는다.
+- **범위를 빠뜨리지 않으려고 원자료로 다시 셌다(`%TEMP%\h12_counts.py`)**: 지도 판정 가능 52 = 저감 22 + 같음 28 + 나쁨 2, 판정 불가 4(88.2 V 400 W, 100.8 V 150 W, 105 V 600·800 W). 지도 밖 깨끗한 44, 제외 4(102.9 V 125·250·350 W, 107.1 V 125 W). h12가 다시 잰 것은 지도 2 + 지도 밖 3 = 5점이므로 나머지 지도 50점·지도 밖 41점은 25 ns 값이다. 처음 쓴 "지도 48점, 지도 밖 42점"은 틀려서 고쳤다.
+- **손실 곁값(`%TEMP%\h12_loss_peek.py`, 판정 아님, 계단이 달라 같은 입력 아님)**: 6.25 ns L = B 0.67, 2.02, 1.46, 2.87 W, SPS 0.89, 2.21, 1.63, 3.55 W(98.7 V 175·350 W, 92.4 V 300 W, 105 V 400 W). `f1eff`가 판정한다. REPORT 11.5에만 적었다.
+- **시간 추정 고침**: 6.25 ns 묶음은 6회 약 22분, 2회도 약 21분이다. 실행 하나가 약 21분이고 병렬은 그대로 준다. 스모크 기준 "6회 13분"은 낮았다. 그래도 h12가 약 50분 일찍 끝나 repro6 약 05:25, 09:00 멈춤까지 여유 약 3.5 h.
+- **문서**: REPORT 0절 4번, 남은 것(h12 줄 삭제), 0.1절 목표 3 줄, 8절 표, 10절 7번, 11.5(표, 읽는 법, 말하지 않는 것). RESULTS 머리말 16:35, R.15. TASKS F3, H12 [x], MATLAB 순서. 메모리 갱신.
+- 다음: g12a(약 16:50) → `job_errors.py g12a`(16:32에는 첫 묶음 진행 중이라 "no runner lines"였다) → `g12_check.py compare` → 대조 2회 재현 확인 → A1. 그 뒤 `h12_check.py compare`를 다시 돌려 곁표의 A1을 갱신. v1e(약 18:10) → `v1e_check.py compare`. tgt25a(약 20:40), tgt25b(약 22:40) → `tgt25.py compare`. rev6(약 00:30) → `rev6_check.py compare`. f1v3, f1eff, f1icros, repro6. 모두 끝나면 F4.
+
 ## 2026-10-31 14:15– (반복 45) — 최종 마감 F1 등록·제출(스모크 통과) / `edge25` 판정: 양 끝 "유지", 1200 W +0.9 % → 정격 근거 아님 / REPORT 0절에 측정 조건, 3.392 A [참고]로 낮춤, Δη "수렴값 아님"
 - **edge25 끝(14:27, 150회, `job_errors.py edge25` 오류 0) → `edge25.py compare`(규칙 그대로)**: 경부하 "유지"(21점, 나쁨 2·1, +0.467·+0.481 A), 고부하 "유지"(7점, 나쁨 0, +0.045 A, +0.9 %), 대조 "간격 영향 없음". 나쁨은 96.6 V 25·75 W(B 실행 비주기). 값과 읽는 법은 REPORT 8.4, RESULTS R.16.
 - **F1**: 규칙을 코드 머리말에 등록(14:41 = 스탬프, `date`로 찍음; `%TEMP%\submit_f1.py`) → `f1_regloop.py`, `f1_eff.py`, `f1_icros.py`, `repro6.py`, 러너 `f1_closed_loop.m`, `verify_steady_eff{,_batch}.m`, `f1eff_rounds.m`, `f1icros_rounds.m`, 사본 `v3/DAB_Controller_System.m`, `v3/smooth_reghdc_infer_v3.m`, `v4/Direct_Efficiency_Analyzer_fixed.m`(모델 미실행). selftest 모두 ALL PASS, m_static OK. 잡: `f1icrosmake`(플랜트 계단, MATLAB 옆) / `f1v3`(`--after rev6`) → `f1eff` → `f1icros` → `repro6`.

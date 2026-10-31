@@ -1,0 +1,47 @@
+h12_check: M-B goal 3 statements; rules in the file header. F = decisive: 6.25 ns, 0.72 deg levels. S = reported: 98.7 V slice at 12.5 and 10 ns, 2.88 deg levels
+    V2   |P| ctrl | Ipk     25   6.25 | median     25   6.25 | spread     25   6.25 | mean i_L     25   6.25
+  98.7   175  SPS | Ipk  1.020  1.015 | median  1.020  1.015 | spread  0.000  0.000 | mean i_L  0.001  0.000
+  98.7   175  M-B | Ipk  1.120  1.007 | median  1.068  1.007 | spread  0.200  0.000 | mean i_L  0.008  0.000
+  98.7   250  SPS | Ipk  1.238  1.230 | median  1.238  1.230 | spread  0.000  0.000 | mean i_L  0.001  0.000
+  98.7   250  M-B | Ipk  1.255  1.220 | median  1.255  1.220 | spread  0.000  0.000 | mean i_L  0.000  0.000
+  98.7   350  SPS | Ipk  1.530  1.521 | median  1.530  1.521 | spread  0.000  0.000 | mean i_L  0.001  0.001
+  98.7   350  M-B | Ipk  1.591  1.506 | median  1.590  1.506 | spread  0.003  0.000 | mean i_L  0.000  0.001
+  92.4   300  SPS | Ipk  1.114  1.112 | median  1.114  1.112 | spread  0.000  0.000 | mean i_L  0.001  0.001
+  92.4   300  M-B | Ipk  1.162  1.112 | median  1.146  1.112 | spread  0.083  0.000 | mean i_L  0.006  0.001
+   105   400  SPS | Ipk  2.495  2.484 | median  2.495  2.484 | spread  0.000  0.000 | mean i_L  0.000  0.000
+   105   400  M-B | Ipk  2.598  2.386 | median  2.518  2.386 | spread  0.254  0.000 | mean i_L  0.017  0.000
+
+Decisive: F, statements of the 25 ns values at 6.25 ns
+     98.7 V   175 W rule: SPS lower than M-B by +0.099 A at 25 ns -> -0.008 A at 6.25 ns (tol 0.030): gone
+     98.7 V   175 W  med: SPS lower than M-B by +0.048 A at 25 ns -> -0.008 A at 6.25 ns (tol 0.030): gone
+C  98.7 V 175 W: does not stand; SPS - M-B at 6.25 ns: rule +0.008 A, median +0.008 A
+C  98.7 V 250 W: none; SPS - M-B at 6.25 ns: rule +0.010 A, median +0.010 A
+     98.7 V   350 W rule: SPS lower than M-B by +0.062 A at 25 ns -> -0.015 A at 6.25 ns (tol 0.030): gone
+     98.7 V   350 W  med: SPS lower than M-B by +0.061 A at 25 ns -> -0.015 A at 6.25 ns (tol 0.030): gone
+C  98.7 V 350 W: does not stand; SPS - M-B at 6.25 ns: rule +0.015 A, median +0.015 A
+     92.4 V   300 W rule: SPS lower than M-B by +0.049 A at 25 ns -> -0.000 A at 6.25 ns (tol 0.030): gone
+     92.4 V   300 W  med: SPS lower than M-B by +0.032 A at 25 ns -> -0.000 A at 6.25 ns (tol 0.030): gone
+C  92.4 V 300 W: does not stand; SPS - M-B at 6.25 ns: rule +0.000 A, median +0.000 A
+      105 V   400 W rule: SPS lower than M-B by +0.103 A at 25 ns -> -0.098 A at 6.25 ns (tol 0.050): reversed
+C  105 V 400 W: does not stand; SPS - M-B at 6.25 ns: rule +0.098 A, median +0.098 A
+
+VERDICT: gone
+
+Reported, not a verdict: S, 98.7 V slice at 25, 12.5, 10 ns, 2.88 deg levels; A1 from g12: undecidable
+  |P| ctrl | Ipk     25   12.5     10 | median     25   12.5     10 | spread     25   12.5     10 | mean i_L     25   12.5     10
+  125  SPS | Ipk  0.879  0.876  1.007 | median  0.879  0.876  0.933 | spread  0.000  0.000  0.181 | mean i_L  0.000  0.000  0.003
+  125  M-B | Ipk  0.887  0.872  0.926 | median  0.885  0.865  0.881 | spread  0.037  0.097  0.139 | mean i_L  0.008  0.003  0.008
+  175  SPS | Ipk  1.020  1.017  1.156 | median  1.020  1.017  1.080 | spread  0.000  0.000  0.181 | mean i_L  0.001  0.001  0.003
+  175  M-B | Ipk  1.120  1.063  1.107 | median  1.068  1.031  1.025 | spread  0.200  0.100  0.167 | mean i_L  0.008  0.009  0.000
+  250  SPS | Ipk  1.238  1.235  1.354 | median  1.238  1.235  1.301 | spread  0.000  0.000  0.181 | mean i_L  0.001  0.001  0.003
+  250  M-B | Ipk  1.255  1.235  1.265 | median  1.255  1.235  1.232 | spread  0.000  0.000  0.084 | mean i_L  0.000  0.000  0.002
+  350  SPS | Ipk  1.530  1.526  1.618 | median  1.530  1.526  1.595 | spread  0.000  0.000  0.181 | mean i_L  0.001  0.001  0.003
+  350  M-B | Ipk  1.591  1.510  1.586 | median  1.590  1.510  1.542 | spread  0.003  0.000  0.168 | mean i_L  0.000  0.001  0.001
+  500  SPS | Ipk  1.976  1.971  2.069 | median  1.976  1.971  2.028 | spread  0.000  0.000  0.177 | mean i_L  0.001  0.001  0.001
+  500  M-B | Ipk  1.957  1.953  2.053 | median  1.957  1.953  1.990 | spread  0.000  0.000  0.158 | mean i_L  0.001  0.001  0.002
+   SPS - M-B over the slice, rule: 25 ns -0.033 A over 5 points, 12.5 ns -0.002 A over 5 points, 10 ns +0.053 A over 5 points
+   SPS - M-B over the slice, med: 25 ns -0.022 A over 5 points, 12.5 ns +0.006 A over 5 points, 10 ns +0.053 A over 5 points
+     175 W rule: SPS lower than M-B by +0.099 A -> 12.5 ns +0.046 (tol 0.030) kept, 10 ns -0.049 (tol 0.030) reversed -> g12 F: grid dependent
+     175 W  med: SPS lower than M-B by +0.048 A -> 12.5 ns +0.014 (tol 0.030) gone, 10 ns -0.055 (tol 0.030) reversed -> g12 F: does not stand
+     350 W rule: SPS lower than M-B by +0.062 A -> 12.5 ns -0.016 (tol 0.031) gone, 10 ns -0.033 (tol 0.032) reversed -> g12 F: does not stand
+     350 W  med: SPS lower than M-B by +0.061 A -> 12.5 ns -0.016 (tol 0.031) gone, 10 ns -0.053 (tol 0.032) reversed -> g12 F: does not stand
