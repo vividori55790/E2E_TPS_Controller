@@ -1,0 +1,40 @@
+v1x_check side: not a verdict (rule and verdict: compare), computed after the results
+
+mean reduction [A], cases decidable for that controller: dI B, dI M-Bk (80-period maximum), then the median period peak
+  A V1-5   n  9 /  8: -0.111 -0.001 | -0.106 -0.001
+  A V1+5   n  9 /  9: -0.052 +0.009 | -0.038 +0.009
+  B V1-5   n  4 /  5: +0.156 +0.431 | +0.160 +0.431
+  B V1+5   n  6 /  6: +0.313 +0.296 | +0.328 +0.319
+  A        n 18 / 17: -0.081 +0.004 | -0.072 +0.004
+  B        n 10 / 11: +0.250 +0.358 | +0.261 +0.370
+
+gap = Ipk(M-B) - Ipk(M-Bk), cases decidable for both: maximum, median
+  A    n 17: +0.077 +0.067
+  B    n 10: +0.010 +0.013
+  all  n 27: +0.052 +0.047
+
+set A: M-B higher than SPS by more than one grid step V1 Ts/L on both values: 5 cases
+  V1-5 88.2 V 100 W: -0.248 -0.248 (step 0.100)
+  V1-5 88.2 V 200 W: -0.118 -0.118 (step 0.100)
+  V1-5 90.3 V 100 W: -0.270 -0.247 (step 0.100)
+  V1-5 92.4 V 100 W: -0.227 -0.227 (step 0.100)
+  V1+5 100.8 V 100 W: -0.170 -0.117 (step 0.111)
+
+R10's rule on M-Bk (18 cases of rob25 at V1 = 380 V + set B): robust; better 22, same 7, worse 0, undecided 1
+
+M-Bk at 100 W, set B, against the line dI = 8.55 |1-k| -0.452 of robust25.py fig (not refitted): k, dI M-Bk, residual, residual on the median
+  k 0.931 (better): +0.150 +0.010 +0.010
+  k 1.210 (better): +1.333 -0.010 -0.010
+  k 0.842 (better): +0.900 +0.002 +0.002
+  k 1.095 (better): +0.377 +0.020 +0.082
+
+V1 reading error, 3072 points 25-1200 W x 84-109.2 V, max over D1, D2 and both signs of |dD|: largest, 99th percentile, median
+  V1 361 V, 0.5 %: 0.0447 0.0326 0.0023
+  V1 361 V, 1.0 %: 0.0882 0.0667 0.0048
+  V1 361 V, 2.0 %: 0.1701 0.1370 0.0100
+  V1 380 V, 0.5 %: 0.0451 0.0339 0.0027
+  V1 380 V, 1.0 %: 0.0896 0.0699 0.0057
+  V1 380 V, 2.0 %: 0.1728 0.1399 0.0110
+  V1 399 V, 0.5 %: 0.0455 0.0343 0.0024
+  V1 399 V, 1.0 %: 0.0902 0.0727 0.0053
+  V1 399 V, 2.0 %: 0.1740 0.1438 0.0107

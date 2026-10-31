@@ -3,17 +3,17 @@ c_compile_check: 20253 points = 20000 random (seed 2026, |P| 0-1200 W, V2 84-109
 model model_smooth_reghdc_b3.json (from the header's first line); files compiled: smooth_reghdc.c sha1 3930c9fd7131, smooth_reghdc.h sha1 921ea673d552, SmoothRegHDC_STM32.h sha1 614035cf554a
 header int16 tables (WQ, BQ, MQ, COS_Q15, shifts) == SmoothRegHDCFixed of that model: True
 build A (delivered file unchanged):
-  $ lcc64.exe -noregistrylookup -IC:\Program Files\MATLAB\R2025b\sys\lcc64\lcc64\include64 -IC:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\A -A -c C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\A\smooth_reghdc.c -FoC:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\A\smooth_reghdc.obj  -> rc 0
-  $ lcc64.exe -noregistrylookup -IC:\Program Files\MATLAB\R2025b\sys\lcc64\lcc64\include64 -IC:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\A -A -c C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\A\main.c -FoC:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\A\main.obj  -> rc 0
-  $ lcclnk64.exe -subsystem console -LC:\Program Files\MATLAB\R2025b\sys\lcc64\lcc64\lib64 C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\A\main.obj C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\A\smooth_reghdc.obj -o C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\A\check.exe  -> rc 0
+  $ lcc64.exe -noregistrylookup -IC:\Program Files\MATLAB\R2025b\sys\lcc64\lcc64\include64 -IC:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\A -A -c C:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\A\smooth_reghdc.c -FoC:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\A\smooth_reghdc.obj  -> rc 0
+  $ lcc64.exe -noregistrylookup -IC:\Program Files\MATLAB\R2025b\sys\lcc64\lcc64\include64 -IC:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\A -A -c C:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\A\main.c -FoC:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\A\main.obj  -> rc 0
+  $ lcclnk64.exe -subsystem console -LC:\Program Files\MATLAB\R2025b\sys\lcc64\lcc64\lib64 C:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\A\main.obj C:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\A\smooth_reghdc.obj -o C:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\A\check.exe  -> rc 0
 build B (probe copy):
-  $ lcc64.exe -noregistrylookup -IC:\Program Files\MATLAB\R2025b\sys\lcc64\lcc64\include64 -IC:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\B -DPROBE -A -c C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\B\smooth_reghdc.c -FoC:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\B\smooth_reghdc.obj  -> rc 0
-  $ lcc64.exe -noregistrylookup -IC:\Program Files\MATLAB\R2025b\sys\lcc64\lcc64\include64 -IC:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\B -DPROBE -A -c C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\B\main.c -FoC:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\B\main.obj  -> rc 0
-  $ lcclnk64.exe -subsystem console -LC:\Program Files\MATLAB\R2025b\sys\lcc64\lcc64\lib64 C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\B\main.obj C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\B\smooth_reghdc.obj -o C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\B\check.exe  -> rc 0
-  $ check.exe C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\in.txt C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\A\out_A.txt  -> rc 0
+  $ lcc64.exe -noregistrylookup -IC:\Program Files\MATLAB\R2025b\sys\lcc64\lcc64\include64 -IC:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\B -DPROBE -A -c C:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\B\smooth_reghdc.c -FoC:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\B\smooth_reghdc.obj  -> rc 0
+  $ lcc64.exe -noregistrylookup -IC:\Program Files\MATLAB\R2025b\sys\lcc64\lcc64\include64 -IC:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\B -DPROBE -A -c C:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\B\main.c -FoC:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\B\main.obj  -> rc 0
+  $ lcclnk64.exe -subsystem console -LC:\Program Files\MATLAB\R2025b\sys\lcc64\lcc64\lib64 C:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\B\main.obj C:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\B\smooth_reghdc.obj -o C:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\B\check.exe  -> rc 0
+  $ check.exe C:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\in.txt C:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\A\out_A.txt C:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\in_v1.txt C:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\out_v1.txt  -> rc 0
     sizeof int 4, long 4, int64_t 8, float 4; (int32_t)-3 >> 1 = -2
     20253 points
-  $ check.exe C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\in.txt C:\Users\vivid\AppData\Local\Temp\srhdc_c_hqyo0x3e\B\out_B.txt  -> rc 0
+  $ check.exe C:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\in.txt C:\Users\vivid\AppData\Local\Temp\srhdc_c_fr7_9prf\B\out_B.txt  -> rc 0
     sizeof int 4, long 4, int64_t 8, float 4; (int32_t)-3 >> 1 = -2
     20253 points
 
@@ -80,5 +80,10 @@ checks:
   max_dD_testvec_q15_f32               2.520e-04 / 3.621e-07  PASS  208 vectors of smooth_reghdc_testvec.csv (|P|), q15 bound by quantisation
   all_outputs_in_[D_MIN,0.5]           1                      PASS  
   max_dD_edge_inputs                   1.627e-04              PASS  
+  v1_equiv_inputs_max_relative_error   1.87e-07               PASS  C float32 against 380/V1 in float64
+  v1_max_dD_C_f32_vs_float64_model     7.145e-07              PASS  5000 random points, V1 361-399 V
+  v1_max_dD_C_q15_vs_float64_model     2.619e-04              PASS  5000 random points, V1 361-399 V
+  v1_380V_bits_identical_to_plain_path 5000/5000              PASS  both paths, V1 = 380 V against no normalisation
+  v1x_cases_max_dD_vs_simulink_duties  2.669e-03              PASS  30 cases; runs within r13_map.SAME = 0.003 of SPS or M-B shared those runs
 
 ALL PASS

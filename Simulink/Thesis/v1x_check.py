@@ -39,6 +39,8 @@ input; set A is new, so "the one 열화 point" of R10 is reported with Q1 next t
     python automation/job.py submit v1x --interactive --after g12 -- matlab -batch "cd('Simulink/Thesis'); v1x_rounds(1, 4, '<python.exe>')"
     python -I -X utf8 Simulink/Thesis/v1x_check.py next      (not bracketed -> next round; v1x_rounds calls it)
     python -I -X utf8 Simulink/Thesis/v1x_check.py compare   -> out/v1x_check.{csv,log}, out/v1x_verdict.md
+    python -I -X utf8 Simulink/Thesis/v1x_check.py fig       -> out/fig_v1x.png (set A against k; added after the results, not a verdict)
+    python -I -X utf8 Simulink/Thesis/v1x_check.py side      -> out/v1x_side.log (means, R10's rule on M-Bk, the 100 W line, V1 reading error; added after the results, not a verdict)
     python -I -X utf8 Simulink/Thesis/v1x_check.py selftest
 """
 import argparse
@@ -238,6 +240,102 @@ def compare(d=None, pp=None, write_out=True):
     return T, q1, q2
 
 
+def fig():
+    """set A: reduction of M-B and M-Bk against k, one panel per |P|. Added after the results, not a verdict. -> out/fig_v1x.png"""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import pandas as pd
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+    from evaluate import BLUE, INK2, MUTED, ORANGE, _style
+    _style(plt)
+    T = pd.read_csv(os.path.join(OUT, "v1x_check.csv"))
+    A = T[T["set"] == "A"].sort_values("k")
+    S = "#fcfcfb"
+    series = (("dI_b", "dI_b_med", "code_b", BLUE, "o"), ("dI_k", "dI_k_med", "code_k", ORANGE, "s"))
+    fig_, ax = plt.subplots(1, len(A_P), figsize=(11.5, 4.4), sharey=True)
+    for a, P in zip(ax, A_P):
+        g = A[A["P"] == P]
+        a.axhspan(-0.03, 0.03, color=MUTED, alpha=0.15, lw=0, zorder=0)
+        a.axvline(1.0, color=MUTED, lw=0.8, ls="--", zorder=1)
+        a.axhline(0.0, color=MUTED, lw=0.8, zorder=1)
+        for y, ym, code, c, m in series:
+            ok = g[g[code] != "undecided"]
+            a.vlines(g["k"], g[y], g[ym], color=c, lw=1.0, zorder=2)
+            a.scatter(g["k"], g[ym], s=26, marker="_", color=c, linewidths=1.3, zorder=3)
+            for v, face, ls in (("V1-5", c, "-"), ("V1+5", S, "--")):
+                h = ok[ok["variant"] == v]
+                a.plot(h["k"], h[y], color=c, lw=1.5, ls=ls, zorder=2)
+                a.scatter(h["k"], h[y], s=52, marker=m, facecolors=face, edgecolors=c if face == S else S, linewidths=1.4, zorder=4)
+            u = g[g[code] == "undecided"]
+            a.scatter(u["k"], u[y], s=52, marker="x", color=c, linewidths=1.6, zorder=4)
+        a.set_title(f"|P| = {P:g} W", loc="left")
+        a.set_xlabel("k = n·V2 / V1")
+        a.set_xlim(0.970, 1.038)
+    ax[0].set_ylabel("Ipk(SPS) − Ipk(controller) [A]\n(below 0: higher than SPS)")
+    ax[0].text(0.9725, -0.205, "B, input (|P|, V2)", color=INK2, fontsize=9)
+    ax[0].text(0.9725, 0.042, "B, normalised input", color=INK2, fontsize=9)
+    hs = [Line2D([], [], color=BLUE, lw=1.5, marker="o", markeredgecolor=S, ms=7, label="B, input (|P|, V2)"),
+          Line2D([], [], color=ORANGE, lw=1.5, marker="s", markeredgecolor=S, ms=7, label="B, input (|P|·(380/V1)², V2·380/V1)"),
+          Line2D([], [], color=INK2, lw=1.5, marker="o", markeredgecolor=S, ms=7, label="V1 361 V"),
+          Line2D([], [], color=INK2, lw=1.5, ls="--", marker="o", markerfacecolor=S, markeredgecolor=INK2, markeredgewidth=1.4, ms=7, label="V1 399 V"),
+          Line2D([], [], ls="", marker="_", color=INK2, markeredgewidth=1.3, ms=7, label="median period peak (marker: 80-period maximum)"),
+          Line2D([], [], ls="", marker="x", color=INK2, markeredgewidth=1.6, ms=7, label="i_L mean > 20 mA, not judged"),
+          Patch(facecolor=MUTED, alpha=0.15, label="allowance ±0.03 A")]
+    ax[2].legend(handles=hs, fontsize=8.5, frameon=False, loc="lower right")
+    fig_.suptitle("Simulink steady state, 25 ns grid, V1 ±5 %: near k = 1 controller B goes above SPS, the normalised input stays at SPS", fontsize=11)
+    fig_.tight_layout()
+    fig_.savefig(os.path.join(OUT, "fig_v1x.png"), dpi=130)
+    plt.close(fig_)
+
+
+def side():
+    """numbers around the verdict, computed after the results; none of them is a verdict. -> out/v1x_side.log"""
+    import pandas as pd
+    T = pd.read_csv(os.path.join(OUT, "v1x_check.csv"))
+    R = pd.read_csv(os.path.join(OUT, "rob25_check.csv"))
+    both = T[(T["code_b"] != "undecided") & (T["code_k"] != "undecided") & np.isfinite(T["gap_med"])]
+    lines = ["v1x_check side: not a verdict (rule and verdict: compare), computed after the results", "",
+             "mean reduction [A], cases decidable for that controller: dI B, dI M-Bk (80-period maximum), then the median period peak"]
+    for name, g in [(f"{st} {v}", T[(T["set"] == st) & (T["variant"] == v)]) for st in "AB" for v in A_V2] + [(st, T[T["set"] == st]) for st in "AB"]:
+        b, k = g[g["code_b"] != "undecided"], g[g["code_k"] != "undecided"]
+        lines.append(f"  {name:8s} n {len(b):2d} / {len(k):2d}: {b['dI_b'].mean():+.3f} {k['dI_k'].mean():+.3f} | {b['dI_b_med'].mean():+.3f} {k['dI_k_med'].mean():+.3f}")
+    lines += ["", "gap = Ipk(M-B) - Ipk(M-Bk), cases decidable for both: maximum, median"]
+    for name, g in [(st, both[both["set"] == st]) for st in "AB"] + [("all", both)]:
+        lines.append(f"  {name:4s} n {len(g):2d}: {g['gap'].mean():+.3f} {g['gap_med'].mean():+.3f}")
+    step = {v: rc.params(v)["V1"] * 25e-9 / (rc.NOM["L_uH"] * 1e-6) for v in A_V2}
+    A = T[T["set"] == "A"]
+    far = A[(A["dI_b"] < -A["variant"].map(step)) & (A["dI_b_med"] < -A["variant"].map(step))]
+    lines += ["", f"set A: M-B higher than SPS by more than one grid step V1 Ts/L on both values: {len(far)} cases"]
+    lines += [f"  {r.variant} {r.V2:g} V {r.P:.0f} W: {r.dI_b:+.3f} {r.dI_b_med:+.3f} (step {step[r.variant]:.3f})" for r in far.itertuples()]
+    # R10's rule (robust_check.verdict) with M-Bk in place of M-B: at L +-10 % and td 200 ns V1 = 380 V, so M-Bk = M-B
+    codes = list(R[~R["variant"].isin(A_V2)]["code"]) + list(T[T["set"] == "B"]["code_k"])
+    lines += ["", f"R10's rule on M-Bk (18 cases of rob25 at V1 = 380 V + set B): {rc.verdict(codes)}; " + ", ".join(f"{c} {codes.count(c)}" for c in ("better", "same", "worse", "undecided"))]
+    # the 100 W line of robust25.py fig (fitted on nominal V2 and on M-B at V1 +-5 %), against the M-Bk runs that were not in it
+    s, b = 8.55, -0.452
+    lines += ["", f"M-Bk at 100 W, set B, against the line dI = {s} |1-k| {b} of robust25.py fig (not refitted): k, dI M-Bk, residual, residual on the median"]
+    for r in T[(T["set"] == "B") & (T["P"] == 100.0)].itertuples():
+        x = abs(1.0 - r.k)
+        lines.append(f"  k {r.k:.3f} ({r.code_k}): {r.dI_k:+.3f} {r.dI_k - (s * x + b):+.3f} {r.dI_k_med - (s * x + b):+.3f}")
+    # how far a wrong V1 reading moves the commanded duties: a property of the model, no plant
+    mb = ct.SmoothRegHDC.from_json(os.path.join(OUT, "model_smooth_reghdc_b3.json"))
+    P, V2 = (x.ravel() for x in np.meshgrid(np.linspace(25.0, 1200.0, 48), np.linspace(84.0, 109.2, 64)))
+
+    def duties(V1):
+        r = rc.NOM["V1"] / V1
+        d1, d2 = mb.predict(P * r * r, V2 * r)
+        return np.ravel(d1), np.ravel(d2)
+    lines += ["", f"V1 reading error, {P.size} points 25-1200 W x 84-109.2 V, max over D1, D2 and both signs of |dD|: largest, 99th percentile, median"]
+    for V1 in (361.0, 380.0, 399.0):
+        base = duties(V1)
+        for err in (0.005, 0.01, 0.02):
+            d = np.max([np.abs(base[i] - duties(V1 * (1 + sg * err))[i]) for i in (0, 1) for sg in (-1.0, 1.0)], axis=0)
+            lines.append(f"  V1 {V1:.0f} V, {100 * err:.1f} %: {d.max():.4f} {np.percentile(d, 99):.4f} {np.median(d):.4f}")
+    open(os.path.join(OUT, "v1x_side.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
+    print("\n".join(lines))
+
+
 def selftest():
     """the registered rule end to end on made-up Simulink runs"""
     import tempfile
@@ -304,11 +402,11 @@ def selftest():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["make", "next", "compare", "selftest"])
+    ap.add_argument("cmd", choices=["make", "next", "compare", "fig", "side", "selftest"])
     a = ap.parse_args()
     if a.cmd == "selftest":
         sys.exit(0 if selftest() else 1)
-    {"make": make, "next": next_round, "compare": compare}[a.cmd]()
+    {"make": make, "next": next_round, "compare": compare, "fig": fig, "side": side}[a.cmd]()
 
 
 if __name__ == "__main__":

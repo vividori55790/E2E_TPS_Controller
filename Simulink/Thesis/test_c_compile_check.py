@@ -46,6 +46,12 @@ def main():
     print(f"[{'PASS' if good else 'FAIL'}] mutant build: rc {rc}, compiles {r_build}, int64 {r_acc}, y bits {r_y}")
     ok &= good
 
+    rc, txt = run("--mutate-v1")
+    r_acc, r_v = result(txt, "int64_accumulators_identical"), result(txt, "v1_max_dD_C_f32_vs_float64_model")
+    good = rc == 1 and "MUTANT build A" in txt and r_acc == "PASS" and r_v == "FAIL"
+    print(f"[{'PASS' if good else 'FAIL'}] V1 mutant build: rc {rc}, int64 {r_acc}, V1 path {r_v}")
+    ok &= good
+
     after = {f: digest(os.path.join(OUT, f)) for f in before}
     good = before == after
     print(f"[{'PASS' if good else 'FAIL'}] out/c_compile_check.* untouched by the test runs")
