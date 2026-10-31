@@ -1,0 +1,10 @@
+flip25: HV->LV 300 W -> LV->HV 300 W -> HV->LV 300 W, Simulink closed loop, 25 ns + latch, gain x 0.5; rule in the file header
+ 84.0 V SPS: e rms   34.4, max   95.0 W | spike 0.174 A at 17.89 ms | Ipk max 2.710 A | |P_ref| <= 50 W: Ipk median 1.621, max 1.913 A, e max 95.0 W | sign lag 0.09 ms | hold HV->LV 2.303 (constant D0 2.260), LV->HV 2.454 (constant D0 2.435), HV->LV again 2.305 (constant D0 2.260)
+ 84.0 V M-B: e rms   24.2, max  103.9 W | spike 0.183 A at 24.66 ms | Ipk max 2.537 A | |P_ref| <= 50 W: Ipk median 0.559, max 0.930 A, e max 23.3 W | sign lag 0.13 ms | hold HV->LV 2.137 (constant D0 2.138), LV->HV 2.320 (constant D0 2.288), HV->LV again 2.137 (constant D0 2.138)
+  verdict 84 V: 문제 없음 []
+ 95.0 V SPS: e rms   52.6, max  182.9 W | spike 0.421 A at 33.15 ms | Ipk max 1.265 A | |P_ref| <= 50 W: Ipk median 0.001, max 0.211 A, e max 57.4 W | sign lag 1.06 ms | hold HV->LV 0.903, LV->HV 0.842, HV->LV again 0.844
+ 95.0 V M-B: e rms   50.1, max  182.9 W | spike 0.211 A at 6.24 ms | Ipk max 1.086 A | |P_ref| <= 50 W: Ipk median 0.002, max 0.313 A, e max 71.9 W | sign lag 1.04 ms | hold HV->LV 0.844, LV->HV 0.843, HV->LV again 0.844
+  verdict 95 V: 문제 없음 []
+109.2 V SPS: e rms   30.7, max  104.7 W | spike 0.225 A at 7.51 ms | Ipk max 2.990 A | |P_ref| <= 50 W: Ipk median 2.087, max 2.313 A, e max 102.1 W | sign lag 0.01 ms | hold HV->LV 2.780 (constant D0 2.783), LV->HV 2.614 (constant D0 2.583), HV->LV again 2.780 (constant D0 2.783)
+109.2 V M-B: e rms   26.0, max   88.4 W | spike 0.151 A at 15.82 ms | Ipk max 2.575 A | |P_ref| <= 50 W: Ipk median 0.632, max 0.958 A, e max 41.7 W | sign lag 0.13 ms | hold HV->LV 2.420 (constant D0 2.392), LV->HV 2.316 (constant D0 2.267), HV->LV again 2.416 (constant D0 2.392)
+  verdict 109.2 V: 문제 없음 []

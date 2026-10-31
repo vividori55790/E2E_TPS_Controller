@@ -1,0 +1,8 @@
+[참고] Python plant at 6.25 ns, LV bus sag put in, Simulink not run yet: Ipk at |P| and SPS - M-B
+
+ 100.8 V   600 W: SPS 2.263, M-B 2.249 A, SPS - M-B +0.014 A; M-B duties (0.5000, 0.4728); levels m (14, 15) (8, 9)
+  92.4 V   300 W: SPS 1.266, M-B 1.254 A, SPS - M-B +0.012 A; M-B duties (0.4865, 0.5000); levels m (9, 10) (13, 14)
+  98.7 V   175 W: SPS 0.928, M-B 0.920 A, SPS - M-B +0.008 A; M-B duties (0.4564, 0.4384); levels m (0, 1) (2, 3)
+  98.7 V   350 W: SPS 1.358, M-B 1.357 A, SPS - M-B +0.001 A; M-B duties (0.5000, 0.4849); levels m (8, 9) (5, 6)
+ 100.8 V   175 W: SPS 1.202, M-B 1.154 A, SPS - M-B +0.048 A; M-B duties (0.3939, 0.3732); levels m (0, 1) (-1, 0)
+ 100.8 V   350 W: SPS 1.626, M-B 1.615 A, SPS - M-B +0.011 A; M-B duties (0.4991, 0.4696); levels m (8, 9) (3, 4)

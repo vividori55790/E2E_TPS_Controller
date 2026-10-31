@@ -29,6 +29,10 @@ two directions; loss and efficiency at |P| (P_HV, P_LV, same interpolation).
     python -I -X utf8 Simulink/Thesis/rev25.py next      (not bracketed -> next round; rev25_rounds calls it)
     python -I -X utf8 Simulink/Thesis/rev25.py compare   -> out/rev25_check.{csv,log}, out/rev25_verdict.md
     python -I -X utf8 Simulink/Thesis/rev25.py selftest
+Added 10-31 12:54, after the results, none of them a verdict (compare and the rule untouched):
+    python -I -X utf8 Simulink/Thesis/rev25.py side      -> out/rev25_side.{log,csv}: means per V2 and |P|, V_LV by direction, efficiency
+    python -I -X utf8 Simulink/Thesis/rev25.py plantdir  -> out/rev25_plantdir.log: [참고] SPS by direction in the Python plant, bus and channel resistance on and off
+    python -I -X utf8 Simulink/Thesis/rev25.py fig       -> out/fig_rev25.png
 """
 import argparse
 import glob
@@ -261,6 +265,132 @@ def compare(d=None, pp=None, fw=None, write_out=True):
     return T, r2
 
 
+def _at(x, P, col):
+    """col interpolated at |P| between the two bracketing runs x, x[PC] = -(power in the direction measured)"""
+    t = (P - (-x[PC].iloc[0])) / ((-x[PC].iloc[1]) - (-x[PC].iloc[0]))
+    return float(x[col].iloc[0] + t * (x[col].iloc[1] - x[col].iloc[0]))
+
+
+def side():
+    """(added 10-31 12:54, after the results, not a verdict; compare and the rule untouched) the header's "reported alongside": means per V2 and |P|,
+    SPS by direction with the measured bus voltage V_LV, efficiency -> out/rev25_side.{log,csv}"""
+    import md_check as md
+    import pandas as pd
+    T = pd.read_csv(os.path.join(OUT, "rev25_check.csv"))
+    d, d25 = results(), rm.results_25(md.PATS)
+    rows = []
+    for c in configs():
+        g, gf = mirrored(d, c), rm._runs(d25, c)
+        lo, lof = fg.at_power(g, c["P"])[2], fg.at_power(gf, c["P"])[2]
+        vr = _at(g[g["level"].isin([lo, lo + 1])], c["P"], "V_LV") if lo is not None else np.nan
+        vf = _at(gf[gf["level"].isin([lof, lof + 1])], c["P"], "V_LV") if lof is not None else np.nan
+        rows.append(dict(ctrl=c["ctrl"], V2=c["V2"], P=c["P"], V_LV_r=vr, V_LV_f=vf, dV=vr - vf))
+    V = pd.DataFrame(rows)
+    S = V[V["ctrl"] == "SPS"]
+    T = T.merge(S[["V2", "P", "V_LV_r", "V_LV_f", "dV"]], on=["V2", "P"])
+    T["eta_gain_r"] = 100.0 * (T["loss_SPS_r"] - T["loss_MB_r"]) / T["P"]                                   # LV in = |P|
+    T["eta_gain_f"] = 100.0 * (T["P"] / (T["P"] + T["loss_MB_f"]) - T["P"] / (T["P"] + T["loss_SPS_f"]))     # LV out = |P|
+    T["dMB"] = T["MB_r"] - T["MB_f"]
+    T.to_csv(os.path.join(OUT, "rev25_side.csv"), index=False, float_format="%.5g")
+    dec, decf = T[T["code_r"] != "undecided"], T[T["code_f"] != "undecided"]
+    both = T[(T["code_r"] != "undecided") & (T["code_f"] != "undecided") & np.isfinite(T["ddI_med"])]
+    lines = ["rev25 side: not a verdict; LV -> HV against HV -> LV on the 28 points", "",
+             f"mean dI: LV->HV {dec['dI_r'].mean():+.3f} (median peak {dec['dI_r_med'].mean():+.3f}) A over {len(dec)}, HV->LV {decf['dI_f'].mean():+.3f} (median peak {decf['dI_f_med'].mean():+.3f}) A over {len(decf)}",
+             f"mean loss M-B - SPS: LV->HV {(dec['loss_MB_r'] - dec['loss_SPS_r']).mean():+.2f} W, HV->LV {(decf['loss_MB_f'] - decf['loss_SPS_f']).mean():+.2f} W; "
+             f"efficiency gain LV->HV mean {dec['eta_gain_r'].mean():+.2f}, max {dec['eta_gain_r'].max():+.2f} pp, min {dec['eta_gain_r'].min():+.2f} pp; HV->LV mean {decf['eta_gain_f'].mean():+.2f}, max {decf['eta_gain_f'].max():+.2f} pp",
+             f"|SPS r - f|: mean {T['dSPS'].abs().mean():.3f}, max {T['dSPS'].abs().max():.3f} A; |M-B r - f|: mean {T['dMB'].abs().mean():.3f}, max {T['dMB'].abs().max():.3f} A; V_LV r - f at SPS: {S['dV'].min():.3f} ... {S['dV'].max():.3f} V", ""]
+    for key, name in (("V2", "V2"), ("P", "|P|")):
+        lines.append(f"{name:>6} | LV->HV dI  median | HV->LV dI  median | ddI  median | SPS r-f | V_LV r-f")
+        for k, g in T.groupby(key):
+            a, b, e = g[g["code_r"] != "undecided"], g[g["code_f"] != "undecided"], both[both[key] == k]
+            lines.append(f"{k:6g} | {a['dI_r'].mean():+8.3f} {a['dI_r_med'].mean():+7.3f} | {b['dI_f'].mean():+8.3f} {b['dI_f_med'].mean():+7.3f} | {e['ddI'].mean():+.3f} {e['ddI_med'].mean():+7.3f} | {g['dSPS'].mean():+7.3f} | {g['dV'].mean():+7.3f}")
+        lines.append("")
+    a = dec.assign(rel=100.0 * dec["dI_r"] / dec["SPS_r"]).groupby("P")["rel"].mean()
+    lines.append("relative saving LV->HV per |P| [%]: " + ", ".join(f"{k:g} W {v:+.1f}" for k, v in a.items()))
+    lines.append(f"(D0 of the bracket: |D0(SPS)| median {T['D0_SPS'].abs().median():.2f}, |D0(M-B)| {T['D0_MB'].abs().median():.2f} deg)")
+    open(os.path.join(OUT, "rev25_side.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
+    print("\n".join(lines))
+
+
+def plantdir():
+    """(added 10-31 12:54, after the results) [참고] Python plant, reference only: does the plant give the same SPS difference by direction, and what makes it? SPS at the 25 ns
+    grid in both directions, nominal and with the bus resistance and / or the channel resistance taken out -> out/rev25_plantdir.log. Run it as a job, beside MATLAB."""
+    import pandas as pd
+    import plant_full as pf
+    T = pd.read_csv(os.path.join(OUT, "rev25_check.csv"))
+    js = np.arange(-4, 13)                                             # levels away from D0 = 0 in the direction scanned
+    cases = (("nominal", dict(Ron=0.040, droop=True)), ("no bus R", dict(Ron=0.040, droop=False)), ("Ron 1 mOhm", dict(Ron=0.001, droop=True)), ("neither", dict(Ron=0.001, droop=False)))
+    res = {}
+    for name, kw in cases:
+        pl = pf.FullPlant(quant=True, grid_ns=TS * 1e9, **kw)
+        dirs = {}
+        for s in (-1, 1):                                              # s = -1: D0 < 0, LV -> HV; s = +1: HV -> LV
+            Va, Ja = np.repeat(np.array(V2S), len(js)), np.tile(js, len(V2S))
+            sd = [fg._safe(float(s) * float(j) * G, sw.D_SAFE, sw.D_SAFE, TS) for j in Ja]
+            r = pl.steady(np.array([x[0] for x in sd]), np.array([x[1] for x in sd]), np.array([x[2] for x in sd]), Va)
+            Pp = (-float(s) * np.asarray(r["P_LV"], float)).reshape(len(V2S), len(js))
+            Ip = np.asarray(r["Ipk"], float).reshape(len(V2S), len(js))
+            for i, V2 in enumerate(V2S):
+                for P in PS:
+                    b = rm.first_bracket(js, Pp[i], P)
+                    if b is not None:
+                        k = int(b[0] - js[0])
+                        dirs[(s, V2, P)] = Ip[i, k] + (P - Pp[i, k]) / (Pp[i, k + 1] - Pp[i, k]) * (Ip[i, k + 1] - Ip[i, k])
+        res[name] = {(V2, P): dirs.get((-1, V2, P), np.nan) - dirs.get((1, V2, P), np.nan) for V2 in V2S for P in PS}
+        print(f"  {name} done", flush=True)
+    names = [n for n, _ in cases]
+    lines = ["[참고] Python plant, 25 ns, SPS: Ipk(LV->HV) - Ipk(HV->LV) at the same source V2 and |P| [A]; Simulink = rev25_check.csv, not a verdict", "",
+             f"    V2     P | Simulink | " + " | ".join(f"{n:>10s}" for n in names)]
+    for r in T.itertuples():
+        lines.append(f"{r.V2:6.1f} {r.P:5.0f} | {r.dSPS:+8.3f} | " + " | ".join(f"{res[n][(r.V2, r.P)]:+10.3f}" for n in names))
+    lines.append("")
+    S = T["dSPS"].to_numpy()
+    for n in names:
+        a = np.array([res[n][(r.V2, r.P)] for r in T.itertuples()])
+        lines.append(f"{n:>10s}: mean |r - f| {np.nanmean(np.abs(a)):.3f} A, mean |plant - Simulink| {np.nanmean(np.abs(a - S)):.3f} A, slope against Simulink {np.nansum(a * S) / np.nansum(S[np.isfinite(a)] ** 2):.2f}")
+    lines.append(f"  Simulink: mean |r - f| {np.abs(S).mean():.3f} A")
+    open(os.path.join(OUT, "rev25_plantdir.log"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
+    print("\n".join(lines))
+
+
+def fig():
+    """(added 10-31 12:54, after the results, not a verdict) SPS - M-B and SPS itself in the two directions, one column per |P| -> out/fig_rev25.png"""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import pandas as pd
+    from evaluate import BLUE, GRID, MUTED, ORANGE, _style
+    _style(plt)
+    T = pd.read_csv(os.path.join(OUT, "rev25_check.csv"))
+    f, ax = plt.subplots(2, len(PS), figsize=(3.3 * len(PS), 5.9), sharex=True, gridspec_kw=dict(height_ratios=(3, 2)))
+    for j, P in enumerate(PS):
+        g = T[T["P"] == P].sort_values("V2")
+        a = ax[0, j]
+        a.axhspan(-0.03, 0.03, color=GRID, alpha=0.6, lw=0)
+        for name, dv, dm, code, col, mk, ls in (("HV->LV", "dI_f", "dI_f_med", "code_f", BLUE, "o", "-"), ("LV->HV", "dI_r", "dI_r_med", "code_r", ORANGE, "s", "--")):
+            a.plot(g["V2"], g[dv], color=col, lw=1.8, ls=ls, zorder=2)
+            ok = g[code] != "undecided"
+            a.plot(g["V2"][ok], g[dv][ok], ls="none", marker=mk, ms=6, color=col, mec="white", mew=1.2, zorder=3, label=f"{name} (80-period max)")
+            a.plot(g["V2"][~ok], g[dv][~ok], ls="none", marker=mk, ms=6, mfc="white", mec=col, mew=1.4, zorder=3)
+            a.plot(g["V2"], g[dm], ls="none", marker="x", ms=4.5, mew=1.0, color=col, zorder=4, label=f"{name} (median peak)")
+        a.set_title(f"|P| = {P:.0f} W", fontsize=10)
+        b = ax[1, j]
+        for name, v, col, mk, ls in (("HV->LV", "SPS_f", BLUE, "o", "-"), ("LV->HV", "SPS_r", ORANGE, "s", "--")):
+            b.plot(g["V2"], g[v], color=col, lw=1.8, ls=ls, marker=mk, ms=6, mec="white", mew=1.2, label=name)
+        for c in (a, b):
+            c.axvline(95.0, color=MUTED, lw=0.8, ls=":")
+        b.set_xlabel("V2 [V]")
+        b.set_xticks((84, 92.4, 100.8, 109.2))
+    ax[0, 0].set_ylabel("SPS - M-B [A]; grey band = +-0.03 A")
+    ax[1, 0].set_ylabel("Ipk of SPS [A]")
+    ax[0, 0].legend(frameon=False, fontsize=7.5, loc="upper center")
+    ax[1, 0].legend(frameon=False, fontsize=8, loc="upper center")
+    f.suptitle("LV->HV against HV->LV, 25 ns Simulink, constant D0: the saving is the same on average; SPS itself moves with the direction (hollow = not decidable, dotted = k = 1)", fontsize=10.5)
+    f.tight_layout()
+    f.savefig(os.path.join(OUT, "fig_rev25.png"), dpi=130)
+    plt.close(f)
+
+
 def selftest():
     """the registered rule end to end on made-up Simulink runs"""
     import tempfile
@@ -318,11 +448,11 @@ def selftest():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["make", "next", "compare", "selftest"])
+    ap.add_argument("cmd", choices=["make", "next", "compare", "selftest", "side", "plantdir", "fig"])
     a = ap.parse_args()
     if a.cmd == "selftest":
         sys.exit(0 if selftest() else 1)
-    {"make": make, "next": next_round, "compare": compare}[a.cmd]()
+    {"make": make, "next": next_round, "compare": compare, "side": side, "plantdir": plantdir, "fig": fig}[a.cmd]()
 
 
 if __name__ == "__main__":

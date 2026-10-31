@@ -1,0 +1,2 @@
+label,ctrl,V2,Ts,sync,Kp,Ki,simTime,profile,trim,Ipk_last1ms,iL_mean_last1ms,P_LV_last1ms,P_HV_last1ms,batch_seconds,error
+flip_SPS_84V,SPS,84,2.5e-08,1,1,24500,0.04,out/flip25_profiles/flip_SPS_84V.csv,1,2.39771096938654,0.00028849134581016,-300.264276388685,-305.361226636936,482.295466,

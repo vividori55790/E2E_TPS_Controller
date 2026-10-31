@@ -1,0 +1,2 @@
+label,ctrl,V2,Ts,sync,Kp,Ki,simTime,profile,trim,Ipk_last1ms,iL_mean_last1ms,P_LV_last1ms,P_HV_last1ms,batch_seconds,error
+flip_MB_84V,M-B,84,2.5e-08,1,1,24500,0.04,out/flip25_profiles/flip_MB_84V.csv,1,2.22038784763219,0.00141141476633188,-300.211696441008,-303.475865902932,482.295466,
