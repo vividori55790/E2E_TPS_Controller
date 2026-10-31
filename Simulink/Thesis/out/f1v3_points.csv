@@ -1,0 +1,7 @@
+label,ctrl,V2,Ts,sync,Kp,Ki,simTime,profile,trim,reg,hold
+v3_ctl_90V,M-B,90,2.5e-08,1,1,24500,0.05,out/r12_profiles/r12_MB_90V_ramp.csv,1,0,1
+v3_MB_90V_h1,M-B,90,2.5e-08,1,1,24500,0.05,out/r12_profiles/r12_MB_90V_ramp.csv,1,1,1
+v3_MB_90V_h8,M-B,90,2.5e-08,1,1,24500,0.05,out/r12_profiles/r12_MB_90V_ramp.csv,1,1,8
+v3_ctl_109.2V,M-B,109.2,2.5e-08,1,1,24500,0.05,out/r12_profiles/r12_MB_109.2V_ramp.csv,1,0,1
+v3_MB_109.2V_h1,M-B,109.2,2.5e-08,1,1,24500,0.05,out/r12_profiles/r12_MB_109.2V_ramp.csv,1,1,1
+v3_MB_109.2V_h8,M-B,109.2,2.5e-08,1,1,24500,0.05,out/r12_profiles/r12_MB_109.2V_ramp.csv,1,1,8

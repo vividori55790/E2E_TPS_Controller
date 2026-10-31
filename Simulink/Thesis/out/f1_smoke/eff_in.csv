@@ -1,0 +1,3 @@
+label,ctrl,V2,P_target,level,D0,D1,D2,Ts,Ts_solver
+s1 SPS Ts25,SPS,84,100,6,4.3199,0.4999999,0.4999999,2.5e-08,2.5e-08
+s2 SPS ctrl25 solver6,SPS,84,100,6,4.3199,0.4999999,0.4999999,2.5e-08,6.25e-09

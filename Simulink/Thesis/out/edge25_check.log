@@ -1,0 +1,51 @@
+edge25: the ends of the power range, HV->LV, 25 ns Simulink (dataset-era model), dI = Ipk(SPS) - Ipk(M-B) [A]; rule in the file header
+
+E
+   84.0     25 | SPS  1.559  B  0.638  dI +0.921 tol 0.031 better    | median  1.559  0.638 +0.921 better    | eta  94.1  95.5 % loss  1.57  1.19 W | D0  -2.60  -2.91 | spread 0.000 0.000
+   84.0     50 | SPS  1.621  B  0.896  dI +0.725 tol 0.032 better    | median  1.621  0.896 +0.725 better    | eta  96.6  96.9 % loss  1.78  1.61 W | D0  -2.08  -0.23 | spread 0.000 0.000
+   84.0     75 | SPS  1.683  B  1.089  dI +0.594 tol 0.034 better    | median  1.683  1.089 +0.594 better    | eta  97.4  97.9 % loss  2.01  1.63 W | D0  -1.57   0.45 | spread 0.000 0.000
+   84.0   1200 | SPS  5.061  B  5.032  dI +0.029 tol 0.101 same      | median  5.061  5.032 +0.029 same      | eta  97.4  97.5 % loss 32.14 30.47 W | D0  29.03  20.43 | spread 0.000 0.000
+   88.2     25 | SPS  0.986  B  0.516  dI +0.470 tol 0.030 better    | median  0.985  0.516 +0.469 better    | eta  97.1  95.0 % loss  0.73  1.31 W | D0  -2.54  -0.45 | spread 0.002 0.000
+   88.2     50 | SPS  1.047  B  0.705  dI +0.342 tol 0.030 better    | median  1.047  0.705 +0.342 better    | eta  98.1  97.2 % loss  0.95  1.46 W | D0  -2.05   0.09 | spread 0.000 0.000
+   88.2     75 | SPS  1.110  B  0.855  dI +0.255 tol 0.030 better    | median  1.110  0.855 +0.255 better    | eta  98.5  98.1 % loss  1.18  1.45 W | D0  -1.56   0.57 | spread 0.000 0.000
+   88.2   1200 | SPS  4.453  B  4.443  dI +0.010 tol 0.089 same      | median  4.453  4.443 +0.010 same      | eta  97.5  97.6 % loss 30.31 29.43 W | D0  27.45  23.29 | spread 0.000 0.000
+   92.4     25 | SPS  0.412  B  0.326  dI +0.086 tol 0.030 better    | median  0.412  0.326 +0.086 better    | eta  98.9  98.6 % loss  0.29  0.35 W | D0  -2.48  -4.48 | spread 0.000 0.000
+   92.4     50 | SPS  0.474  B  0.430  dI +0.044 tol 0.030 better    | median  0.474  0.430 +0.044 better    | eta  99.0  99.2 % loss  0.50  0.42 W | D0  -2.02  -3.33 | spread 0.000 0.000
+   92.4     75 | SPS  0.537  B  0.518  dI +0.020 tol 0.030 same      | median  0.537  0.518 +0.020 same      | eta  99.0  99.3 % loss  0.74  0.49 W | D0  -1.55  -2.97 | spread 0.000 0.000
+   92.4   1200 | SPS  3.850  B  3.854  dI -0.003 tol 0.077 same      | median  3.850  3.854 -0.003 same      | eta  97.6  97.7 % loss 28.99 28.53 W | D0  26.05  23.93 | spread 0.000 0.000
+   96.6     25 | SPS  0.304  B  0.357  dI -0.053 tol 0.030 worse     | median  0.304  0.329 -0.025 same      | eta  98.8  98.3 % loss  0.30  0.42 W | D0   3.38   5.07 | spread 0.000 0.137
+   96.6     50 | SPS  0.374  B  0.396  dI -0.022 tol 0.030 same      | median  0.374  0.357 +0.017 same      | eta  99.0  99.2 % loss  0.53  0.40 W | D0   3.83   6.03 | spread 0.000 0.104
+   96.6     75 | SPS  0.445  B  0.587  dI -0.142 tol 0.030 worse     | median  0.445  0.500 -0.055 worse     | eta  99.0  99.3 % loss  0.76  0.55 W | D0   4.28   5.90 | spread 0.000 0.200
+   96.6   1200 | SPS  4.095  B  4.088  dI +0.007 tol 0.082 same      | median  4.095  4.088 +0.007 same      | eta  97.7  97.7 % loss 28.17 27.98 W | D0  24.82  25.54 | spread 0.000 0.000
+  100.8     25 | SPS  0.896  B  0.496  dI +0.400 tol 0.030 better    | median  0.896  0.459 +0.437 better    | eta  97.1  98.3 % loss  0.75  0.45 W | D0   3.44   6.74 | spread 0.000 0.105
+  100.8     50 | SPS  0.963  B  0.660  dI +0.303 tol 0.030 better    | median  0.963  0.649 +0.315 better    | eta  98.1  98.7 % loss  0.98  0.66 W | D0   3.87   8.02 | spread 0.000 0.092
+  100.8     75 | SPS  1.031  B  0.847  dI +0.184 tol 0.030 better    | median  1.031  0.846 +0.185 better    | eta  98.4  99.2 % loss  1.22  0.61 W | D0   4.30   8.66 | spread 0.000 0.081
+  100.8   1200 | SPS  4.506  B  4.467  dI +0.039 tol 0.090 same      | median  4.506  4.467 +0.039 same      | eta  97.7  97.8 % loss 27.83 26.68 W | D0  23.71  28.14 | spread 0.000 0.000
+  105.0     25 | SPS  1.487  B  0.592  dI +0.896 tol 0.030 better    | median  1.487  0.592 +0.896 better    | eta  94.0  97.6 % loss  1.59  0.60 W | D0   3.51   7.65 | spread 0.000 0.000
+  105.0     50 | SPS  1.552  B  0.831  dI +0.722 tol 0.031 better    | median  1.552  0.831 +0.722 better    | eta  96.5  98.3 % loss  1.82  0.85 W | D0   3.92   9.28 | spread 0.000 0.000
+  105.0     75 | SPS  1.618  B  1.040  dI +0.578 tol 0.032 better    | median  1.618  1.040 +0.578 better    | eta  97.3  98.6 % loss  2.06  1.10 W | D0   4.33  10.40 | spread 0.000 0.067
+  105.0   1200 | SPS  4.935  B  4.849  dI +0.086 tol 0.099 same      | median  4.935  4.849 +0.086 same      | eta  97.7  97.9 % loss 27.96 26.03 W | D0  22.72  29.84 | spread 0.000 0.000
+  109.2     25 | SPS  2.079  B  0.703  dI +1.376 tol 0.042 better    | median  2.079  0.703 +1.376 better    | eta  89.9  95.3 % loss  2.81  1.23 W | D0   3.57   8.41 | spread 0.000 0.000
+  109.2     50 | SPS  2.142  B  1.052  dI +1.090 tol 0.043 better    | median  2.142  0.970 +1.172 better    | eta  94.3  98.0 % loss  3.05  1.04 W | D0   3.97  10.23 | spread 0.000 0.105
+  109.2     75 | SPS  2.205  B  1.187  dI +1.018 tol 0.044 better    | median  2.205  1.187 +1.018 better    | eta  95.8  98.3 % loss  3.29  1.33 W | D0   4.36  11.72 | spread 0.000 0.000
+  109.2   1200 | SPS  5.378  B  5.232  dI +0.147 tol 0.108 better    | median  5.378  5.232 +0.147 better    | eta  97.7  97.9 % loss 28.54 25.96 W | D0  21.82  30.52 | spread 0.000 0.000
+
+C (control: the 25 ns map's points on 0.72 deg levels)
+   84.0    100 | SPS  1.746  B  1.253  dI +0.493 tol 0.035 better    | median  1.746  1.253 +0.493 better    | eta  97.8  98.2 % loss  2.25  1.80 W | D0  -1.05   0.66 | spread 0.000 0.000
+   84.0   1000 | SPS  4.345  B  4.298  dI +0.046 tol 0.087 same      | median  4.345  4.298 +0.046 same      | eta  97.7  97.9 % loss 23.23 21.54 W | D0  23.25  15.20 | spread 0.000 0.000
+   88.2    100 | SPS  1.173  B  0.981  dI +0.192 tol 0.030 better    | median  1.173  0.981 +0.192 better    | eta  98.6  98.4 % loss  1.42  1.58 W | D0  -1.06   0.57 | spread 0.000 0.000
+   92.4    100 | SPS  0.600  B  0.596  dI +0.005 tol 0.030 same      | median  0.600  0.596 +0.005 same      | eta  99.0  98.8 % loss  0.98  1.17 W | D0  -1.07   0.32 | spread 0.000 0.000
+   96.6    100 | SPS  0.517  B  0.550  dI -0.033 tol 0.030 worse     | median  0.517  0.550 -0.033 worse     | eta  99.0  99.4 % loss  1.01  0.58 W | D0   4.57   6.19 | spread 0.000 0.000
+   96.6   1000 | SPS  3.360  B  3.353  dI +0.008 tol 0.067 same      | median  3.360  3.353 +0.008 same      | eta  98.0  98.0 % loss 20.46 20.19 W | D0  20.07  21.15 | spread 0.000 0.000
+  100.8    100 | SPS  1.099  B  1.068  dI +0.031 tol 0.030 better    | median  1.099  0.964 +0.135 better    | eta  98.5  99.0 % loss  1.48  1.03 W | D0   4.74   9.35 | spread 0.000 0.192
+  105.0    100 | SPS  1.683  B  1.237  dI +0.447 tol 0.034 better    | median  1.683  1.212 +0.471 better    | eta  97.7  98.6 % loss  2.32  1.43 W | D0   4.75  11.35 | spread 0.000 0.105
+  109.2    100 | SPS  2.268  B  1.476  dI +0.792 tol 0.045 better    | median  2.268  1.371 +0.896 better    | eta  96.6  98.4 % loss  3.55  1.61 W | D0   4.76  12.99 | spread 0.000 0.104
+  109.2   1000 | SPS  4.766  B  4.597  dI +0.169 tol 0.095 better    | median  4.766  4.597 +0.169 better    | eta  97.9  98.2 % loss 21.67 18.59 W | D0  18.66  29.07 | spread 0.225 0.000
+
+light end (25-75 W): holds {'n_dec': 21, 'n': 21, 'worse': 2, 'worse_med': 1, 'mean': 0.46685966595676476, 'mean_med': 0.4805303691943282}
+heavy end (1200 W): holds {'n_dec': 7, 'n': 7, 'worse': 0, 'worse_med': 0, 'mean': 0.044980998223368464, 'mean_med': 0.04498099822337043}
+control: same, dI - map mean -0.015 A, median -0.001 A, 10 points
+  |P|    25 W: decidable 7/7, mean dI +0.585 A, median peak +0.594 A, relative +40.1 %, loss B - SPS -0.35 W, eta B - SPS +1.24 pp
+  |P|    50 W: decidable 7/7, mean dI +0.458 A, median peak +0.477 A, relative +30.0 %, loss B - SPS -0.45 W, eta B - SPS +0.85 pp
+  |P|    75 W: decidable 7/7, mean dI +0.358 A, median peak +0.371 A, relative +18.5 %, loss B - SPS -0.58 W, eta B - SPS +0.74 pp
+  |P|  1200 W: decidable 7/7, mean dI +0.045 A, median peak +0.045 A, relative +0.9 %, loss B - SPS -1.27 W, eta B - SPS +0.10 pp

@@ -390,7 +390,7 @@ def build_prompt(state):
     base = io.open(PROMPT_FILE, encoding="utf-8").read()
     dyn = [
         "\n\n---\n## 지금 상태 (러너가 매 턴 붙이는 부분)",
-        f"- 시각: {now()} / 반복 {state.get('iter', 0) + 1} / 마감 2026-10-28",
+        f"- 시각: {now()} / 반복 {state.get('iter', 0) + 1} / 마감 2026-11-01 13:30",
         f"- 사용량: {usage_text(USAGE['last'])}",
         "- 실행 중/최근 잡 (python automation/job.py status):\n```\n" + (jobs_status() or "(없음)") + "\n```",
         "- 최근 러너 로그:\n```\n" + tail(LOG, 15) + "```",

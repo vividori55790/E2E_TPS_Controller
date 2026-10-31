@@ -1,0 +1,3 @@
+label,ctrl,V2,Ts,sync,Kp,Ki,simTime,profile,trim,reg,hold
+c1 reg hold1,M-B,109.2,2.5e-08,1,1,24500,0.002,out/f1_smoke/prof.csv,1,1,1
+c2 reg hold8,M-B,109.2,2.5e-08,1,1,24500,0.002,out/f1_smoke/prof.csv,1,1,8

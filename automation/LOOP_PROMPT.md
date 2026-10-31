@@ -13,6 +13,7 @@ ICROS2026 논문(`Simulink/Docs/ICROS2026.docx`, RegHDC 기반 TPS)을 졸업논
 3. 전 구간에서 SPS 대비 전류 피크 감소(최소한 어디서도 SPS보다 나쁘지 않음).
 
 ## 확정된 결정
+- **최종 마감 2026-11-01 13:30(사용자 2026-10-31, 아래 시각 표시의 옛 마감보다 우선). "무조건 엄밀해야 해."** TASKS.md "★★ 최종 마감" 절의 F1–F5만 한다. 새 조사와 새 범위는 금지이고, 끝내지 못한 것은 최종 보고서에 미완료로 적는다.
 - **검증 원칙(사용자 지시 2026-10-29, 영구, 최우선)**: 해석 모델(`tps_model.py`)과 Python 플랜트(`plant_full.py`)는 **참고용**이다.
   모든 결론·표·초록 수치는 **MATLAB Simulink 파일**(데이터셋 시기 모델 `dataset_era/Control_Logic_dataset_era.slx`, `job.py
   --interactive`)로 검증한 값만 쓴다. Simulink로 검증하지 않은 수치는 RESULTS.md에 "참고(해석/플랜트, Simulink 미검증)"로 명시하고

@@ -1,0 +1,2 @@
+label,ctrl,V2,Ts,sync,Kp,Ki,simTime,profile,trim,reg,hold,Ipk_last1ms,iL_mean_last1ms,P_LV_last1ms,P_HV_last1ms,batch_seconds,error
+c1 reg hold1,M-B,109.2,2.5e-08,1,1,24500,0.002,out/f1_smoke/143544/prof.csv,1,1,1,2.45814161322645,0.0347973442600018,-297.070409699856,-304.850832768853,88.1980645,

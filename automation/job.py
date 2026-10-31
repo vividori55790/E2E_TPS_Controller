@@ -219,8 +219,11 @@ def status():
         print("(no jobs)")
     for n in names:
         _refresh(n)
-    for n in names[-15:]:
+    recent = set(names[-8:])                 # every running job, however old, + the last few (a long queue fell off a plain [-15:])
+    for n in names:
         d = _load(n)
+        if d.get("status") != "running" and n not in recent:
+            continue
         el = ""
         if d.get("status") == "running":
             el = f"{(time.time() - d.get('start_ts', time.time())) / 60:.0f} min"

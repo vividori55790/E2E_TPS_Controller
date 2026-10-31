@@ -1,0 +1,2 @@
+label,ctrl,V2,Ts,sync,Kp,Ki,simTime,profile,trim,reg,hold,Ipk_last1ms,iL_mean_last1ms,P_LV_last1ms,P_HV_last1ms,batch_seconds,error
+c1 reg hold1,M-B,109.2,2.5e-08,1,1,24500,0.002,out/f1_smoke/143427/prof.csv,1,1,1,NaN,NaN,NaN,NaN,33.5357191,컴파일 중에 블록 'Control_Logic_dataset_era/MATLAB System'에서 오류가 발생했습니다.
