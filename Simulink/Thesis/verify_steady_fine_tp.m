@@ -49,6 +49,10 @@ function verify_steady_fine_tp(pointsCsv, outCsv, simTime)
     base = base.setVariable('Mode_Select', timeseries(1 * ones(2, 1), t_in));
     base = base.setVariable('Ctrl_Mode_Ext', timeseries(3 * ones(2, 1), t_in));
     base = base.setVariable('PWM_Enable', timeseries(1 * ones(2, 1), t_in));
+    % (10-31 09:50) Missing until now: verify_steady_fine_param.m sets these two per run from its V1 column and that line went
+    % with the column when this copy was made, so g12's 20 runs (out/failed_1031/dg10_*) all stopped on "'Ref_VH' not recognised".
+    base = base.setVariable('Ref_VH', timeseries(spec.V_in * ones(2, 1), t_in));
+    base = base.setVariable('V_Grid', timeseries(spec.V_in * ones(2, 1), t_in));
 
     simIn(1:N) = Simulink.SimulationInput(modelName);
     for k = 1:N

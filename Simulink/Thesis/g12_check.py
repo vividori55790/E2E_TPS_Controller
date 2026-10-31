@@ -298,6 +298,16 @@ def compare():
             q = C[C["ctrl"] == ctrl][f"spread{g}"].dropna()
             if len(q):
                 o(f"    {ctrl}: {int((q > PERIODIC).sum())}/{len(q)} non-periodic, median {q.median():.3f}, range {q.min():.3f}-{q.max():.3f} A")
+    if d12 is not None:
+        # (10-31 09:50, added after the first 12.5 ns results, reported only) how far one configuration moves between grids
+        o("grid to grid, same configuration [A]: |Ipk rule| where both grids are periodic, |median| over all")
+        for a, b in (("25", "12.5"), ("10", "12.5")):
+            both = C[(C[f"spread{a}"] <= PERIODIC) & (C[f"spread{b}"] <= PERIODIC)]
+            dr, dm = (both[f"I{a}"] - both[f"I{b}"]).abs().dropna(), (C[f"med{a}"] - C[f"med{b}"]).abs().dropna()
+            line = f"    {a} vs {b} ns: median of the medians {dm.median():.3f}, max {dm.max():.3f}, within 0.03 A {int((dm <= 0.03).sum())}/{len(dm)}"
+            if len(dr):
+                line = f"    {a} vs {b} ns: rule, periodic on both {len(dr)} configurations: median {dr.median():.3f}, max {dr.max():.3f}; median of the medians {dm.median():.3f}, max {dm.max():.3f}, within 0.03 A {int((dm <= 0.03).sum())}/{len(dm)}"
+            o(line)
 
     def pair(vals, g, k):
         return {n: (w[g][k], w[g]["osc"]) for n, w in vals.items()}
