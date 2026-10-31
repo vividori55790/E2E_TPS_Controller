@@ -27,7 +27,7 @@ C  105 V 400 W: does not stand; SPS - M-B at 6.25 ns: rule +0.098 A, median +0.0
 
 VERDICT: gone
 
-Reported, not a verdict: S, 98.7 V slice at 25, 12.5, 10 ns, 2.88 deg levels; A1 from g12: undecidable
+Reported, not a verdict: S, 98.7 V slice at 25, 12.5, 10 ns, 2.88 deg levels; A1 from g12: explained
   |P| ctrl | Ipk     25   12.5     10 | median     25   12.5     10 | spread     25   12.5     10 | mean i_L     25   12.5     10
   125  SPS | Ipk  0.879  0.876  1.007 | median  0.879  0.876  0.933 | spread  0.000  0.000  0.181 | mean i_L  0.000  0.000  0.003
   125  M-B | Ipk  0.887  0.872  0.926 | median  0.885  0.865  0.881 | spread  0.037  0.097  0.139 | mean i_L  0.008  0.003  0.008
@@ -41,7 +41,7 @@ Reported, not a verdict: S, 98.7 V slice at 25, 12.5, 10 ns, 2.88 deg levels; A1
   500  M-B | Ipk  1.957  1.953  2.053 | median  1.957  1.953  1.990 | spread  0.000  0.000  0.158 | mean i_L  0.001  0.001  0.002
    SPS - M-B over the slice, rule: 25 ns -0.033 A over 5 points, 12.5 ns -0.002 A over 5 points, 10 ns +0.053 A over 5 points
    SPS - M-B over the slice, med: 25 ns -0.022 A over 5 points, 12.5 ns +0.006 A over 5 points, 10 ns +0.053 A over 5 points
-     175 W rule: SPS lower than M-B by +0.099 A -> 12.5 ns +0.046 (tol 0.030) kept, 10 ns -0.049 (tol 0.030) reversed -> g12 F: grid dependent
+     175 W rule: SPS lower than M-B by +0.099 A -> 12.5 ns +0.046 (tol 0.030) kept, 10 ns -0.049 (tol 0.030) reversed -> g12 F: stands
      175 W  med: SPS lower than M-B by +0.048 A -> 12.5 ns +0.014 (tol 0.030) gone, 10 ns -0.055 (tol 0.030) reversed -> g12 F: does not stand
      350 W rule: SPS lower than M-B by +0.062 A -> 12.5 ns -0.016 (tol 0.031) gone, 10 ns -0.033 (tol 0.032) reversed -> g12 F: does not stand
      350 W  med: SPS lower than M-B by +0.061 A -> 12.5 ns -0.016 (tol 0.031) gone, 10 ns -0.053 (tol 0.032) reversed -> g12 F: does not stand

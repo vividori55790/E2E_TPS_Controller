@@ -75,6 +75,23 @@ M  statements on the median of the 80 period peaks (reported, never a verdict):
    Q  100.8 V   300 W D1+ lower than M-S: +0.040 A at 25 ns -> +0.016 A at 10 ns (tol 0.033): gone
    counts at 10 ns: kept 7, gone 4, reversed 2, undecidable 0; Q1 statements kept 0, gone 2, reversed 2, undecidable 0
 
+A  mechanism runs: 80-period peak spread and median [A] (10 ns nominal = g10; ctl must equal it)
+    V2 ctrl  lvl |   10 ns    tp35     TT0 12.5 ns | med   10 ns    tp35     TT0    12.5 | Ipk   10 ns    tp35     TT0 | P[W]   10 ns    tp35     TT0
+    84  M-B    5 |   0.092   0.000   0.092   0.000 | med   4.233   4.215   4.233   4.199 | Ipk   4.290   4.215   4.290 | P[W]   977.2   977.4   977.2
+    84  M-B    6 |   0.096   0.000     nan   0.000 | med   4.596   4.574     nan   4.558 | Ipk   4.654   4.574     nan | P[W]  1079.9  1079.9     nan
+    84  SPS    8 |   0.146   0.000     nan   0.000 | med   4.364   4.319     nan   4.319 | Ipk   4.435   4.319     nan | P[W]   994.0   994.3     nan
+    84  SPS    9 |   0.177   0.000   0.177   0.000 | med   4.729   4.676   4.729   4.676 | Ipk   4.818   4.676   4.818 | P[W]  1096.6  1097.0  1096.6
+   105  SPS    3 |   0.195   0.000     nan   0.000 | med   2.344   2.295     nan   2.295 | Ipk   2.450   2.295     nan | P[W]   332.7   330.4     nan
+   105  SPS    4 |   0.245   0.000   0.245   0.000 | med   2.789   2.746   2.789   2.746 | Ipk   2.947   2.746   2.947 | P[W]   497.8   493.0   497.8
+   105  M-B    6 |   0.116   0.000   0.116   0.000 | med   2.234   2.201   2.234   2.213 | Ipk   2.297   2.201   2.297 | P[W]   340.4   338.5   340.4
+   105  M-B    7 |   0.138   0.000     nan   0.043 | med   2.846   2.835     nan   2.856 | Ipk   2.926   2.835     nan | P[W]   542.0   540.6     nan
+       ctl: |Ipk(new runner) - Ipk(g10)| = 0.00e+00 A
+ 109.2  M-B    6 |   0.083   0.041   0.083   0.052 | med   2.060   2.059   2.060   2.049 | Ipk   2.143   2.101   2.143 | P[W]   219.8   218.1   219.8
+ 109.2  SPS    6 |   0.093   0.000     nan   0.000 | med   4.544   4.541     nan   4.540 | Ipk   4.631   4.541     nan | P[W]   938.0   933.8     nan
+ 109.2  M-B    7 |   0.084   0.040     nan   0.051 | med   2.479   2.478     nan   2.468 | Ipk   2.561   2.519     nan | P[W]   324.9   322.9     nan
+ 109.2  SPS    7 |   0.233   0.000   0.233   0.000 | med   5.156   5.123   5.156   5.123 | Ipk   5.311   5.123   5.311 | P[W]  1125.0  1125.0  1125.0
+       ctl: |Ipk(new runner) - Ipk(g10)| = 0.00e+00 A
+
 B1 T1 statements of the 25 ns map at 12.5 ns (rule_r2), the 10 ns class beside:
    W   92.4 V   300 W  SPS lower than M-B: +0.049 A at 25 ns -> +0.013 A at 12.5 ns (tol 0.030): gone; 10 ns: reversed
    W   96.6 V   100 W  SPS lower than M-S: +0.135 A at 25 ns -> +0.006 A at 12.5 ns (tol 0.030): gone; 10 ns: gone
@@ -101,7 +118,7 @@ B1 T1 statements of the 25 ns map at 12.5 ns (rule_r2), the 10 ns class beside:
    T2 headline SPS - M-B: 25 ns +0.328 A, 12.5 ns +0.334 A -> converged; on medians +0.351 -> +0.351 A (converged)
    median statements at 12.5 ns: kept 7, gone 6, reversed 0, undecidable 0
 
-A1 tp35 collapsed 0/0, 12.5 ns 0/0 -> undecidable; TT0 0/0 -> no
+A1 tp35 collapsed 10/12, 12.5 ns 9/12 -> explained; TT0 0/6 -> no
 
 Conclusions (F):
   C1 92.4 V 300 W SPS lower than M-B: 12.5 ns gone, 10 ns reversed -> does not stand
