@@ -40,6 +40,24 @@
 | 계단 4.89 → 2.83 A, 3.58 → 2.42 A, 7/8, +0.18 A(+1.3 %), 정착 3.44 대 1.35 ms, 13.09·13.31·13.49 A | 폐루프, 이득 ½, 계단 직후 2 ms 최대 | `out/r11_check.log`, `out/r11_check.csv` | [S] |
 | V·I 22,619 → 4,599 VA(−80 %) | 기본 52점 합, 오프셋 이동 점검 −76 … −83 %, Coss 0 모델 | `zvs_check.py map25`, `out/zvs_map25.log`, `out/zvs_map25.csv` | [S] |
 
+## 3. 효율
+
+공통: `f1_eff.py`(규칙 10-31 14:41, 실행 전), 120회, `job_errors.py f1eff` 오류 0, 상수 D0 20 ms, 마지막 1 ms, V1 380 V. 손실 L = P_LV − P_HV − 버스 저장 에너지 변화, V·I 국소 스텝 직접 평균. 제안 제어기는 듀티를 25 ns 칸으로 올린 B*.
+
+| 수치 | 조건 | 출처 | 표시 |
+|---|---|---|---|
+| 판정: 절대 손실 미수렴, 효율 이득 미확정, 25 ns 값 수렴값 아님, 분석 블록 아님, 솔버 스텝, 수지 안 맞음, 효율 블록 쓸 수 없음, 비례 | 등록 규칙 Q1–Q7 | `out/f1eff_verdict.md`, `out/f1eff_check.log` | [S] |
+| 표 2의 손실과 효율 차 | \|P\|에서 두 계단 보간, 2.88° | `out/f1eff_eta.csv` 열 `L_SPS_*`, `L_B_*`, `de_*`, `L0_*`, `de_0` | [S], 외삽은 측정 아님 |
+| 12.5 → 6.25 ns 중앙값 13 %, 최대 34 % | 같은 입력 24행, L(12.5) > 0.5 W | `out/f1eff_check.csv` 열 `L12.5`, `L6.25`, 로그 Q1 | [S] |
+| 0.18 pp | LV→HV 109.2 V 100 W, 문턱 0.10 pp | `out/f1eff_eta.csv` 열 `de_12.5`, `de_6.25` | [S] |
+| 0.008 W, 8회 | 제어기 25 ns, 솔버 6.25 ns 대 6.25 ns | `out/f1eff_check.log` Q4 줄 | [S] |
+| 차이 0.002 W | \|L_a − L\| 중앙값, 고운 세 격자 | `out/f1eff_check.log` Q3 줄 | [S] |
+| 기본 52점 평균 +0.33 pp | 25 ns, 수렴값 아님 | `out/r13_verdict.md`, REPORT 11.5 | [S] |
+| 131–181 W, 최대 0.2 pp | 6.25 ns 두 계단의 폭, 손실 ∝ P²이면 생기는 직선 보간의 어림, 판정 아님 | `f1eff_side.py` → `out/f1eff_side.log` "interpolation width" | 어림 |
+| 7회, 1.13–1.59배, 16/23 | 6.25 ns, L > 0.5 W, 34 × 52 mΩ × i² + 다이오드 | `out/f1eff_check.log` Q5 줄 | [S] |
+| 효율 블록 72회 중 71회, +3.25, +0.19 pp | 실제 흐름 방향으로 계산, 판정 아님. 규칙 답은 HV→LV 33/36, LV→HV 32/36, 효율로 못 씀 20/36, 21/36 | `f1eff_side.py` → `out/f1eff_side.log`, `out/f1eff_sweep_r*.csv` 열 `Eff_out`, `Loss_out`, `dataset_era/Direct_Efficiency_Analyzer.m` 128–134, 192–195행 | 코드, [S] |
+| 84 V 1 kW SPS 95.13, 98.42 % | HV→LV, 100, 6.25 ns | `out/f1eff_eta.csv` 열 `eta_SPS_*` | [S] |
+
 ## 4. 나빠지는 조건
 
 | 수치 | 조건 | 출처 | 표시 |

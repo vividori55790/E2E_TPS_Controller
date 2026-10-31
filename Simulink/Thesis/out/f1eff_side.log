@@ -1,0 +1,229 @@
+columns ['label', 'ctrl', 'V2', 'P_target', 'dirn', 'level', 'D0', 'D1', 'D2', 'Ts', 'Ts_solver', 'Ipk_sim', 'iL_mean', 'iL_rms', 'P_LV', 'P_HV', 'V_LV', 'V_HV', 'Ipk_at_10ms', 'Ipk_at_15ms', 'Ipk_at_16ms', 'Ipk_at_17ms', 'Ipk_at_18ms', 'Ipk_at_19ms', 'Ipk_at_20ms', 'P_LV_at_10ms', 'P_LV_at_15ms', 'P_LV_at_16ms', 'P_LV_at_17ms', 'P_LV_at_18ms', 'P_LV_at_19ms', 'P_LV_at_20ms', 'P_HV_d', 'P_LV_d', 'dV_HV', 'dV_LV', 'I_HV_rms', 'I_LV_rms', 'N_local', 'Eff_out', 'Eff_min', 'Eff_max', 'Loss_out', 'Cu_out', 'SemiHV_out', 'SemiLV_out', 'ZVS_out', 'error', 'dE', 'Lraw', 'L', 'La', 'Pd', 'Pa', 'm', 'eta_m']
+runs total 120 S 112 per grid {'100': 40, '25': 24, '12.5': 24, '6.25': 24} X 8
+
+Q5 at 6.25 ns 16 of 23 | same band applied to L(0) (reported, not the rule): 23 of 23
+  M-B*    100 W: ok 0/7; L/(R40+D) 1.44...1.98; L/(R52+D) 1.13...1.59; L0/(R40+D) 0.93...1.04; L0/(R52+D) 0.74...0.84
+  M-B*   1000 W: ok 4/4; L/(R40+D) 1.11...1.14; L/(R52+D) 0.86...0.88; L0/(R40+D) 0.98...1.00; L0/(R52+D) 0.76...0.77
+  SPS     100 W: ok 8/8; L/(R40+D) 1.04...1.24; L/(R52+D) 0.83...0.97; L0/(R40+D) 0.91...1.04; L0/(R52+D) 0.72...0.82
+  SPS    1000 W: ok 4/4; L/(R40+D) 1.13...1.17; L/(R52+D) 0.88...0.90; L0/(R40+D) 0.98...1.00; L0/(R52+D) 0.76...0.77
+  all L0/(R40+D) median 0.989 range 0.911 1.041 ; L0/(R52+D) median 0.772 range 0.724 0.838
+  all L/(R52+D) at 6.25 median 0.9  L/(R40+D) median 1.165
+
+Q1 rows, smallest r:
+ctrl    V2  P_target  dirn  level    L12.5    L6.25        r
+M-B* 109.2       100    -1      0 1.397890 0.930009 0.665295
+M-B*  84.0       100    -1     -4 0.717852 0.480707 0.669646
+M-B* 109.2       100     1      4 0.877221 0.595126 0.678422
+M-B*  84.0       100     1      0 1.027680 0.708971 0.689875
+M-B* 109.2       100     1      5 1.508260 1.104530 0.732321
+M-B* 109.2       100    -1     -1 1.742920 1.303910 0.748118
+  by controller and power, median r:
+ctrl  P_target
+M-B*  100         0.711
+      1000        0.892
+SPS   100         0.904
+      1000        0.877
+Q7 a: median 2.0 range 1.287 2.911 n 22
+
+same input, the same timing at 25, 12.5, 6.25 ns (P at 6.25 ns as written in the table):
+  Ipk [A]: |25 - 6.25| median 0.0007 max 0.1050; |12.5 - 6.25| median 0.0002 max 0.0252; relative |25 - 6.25| / 6.25 median 0.02 % max 8.32 %
+  i_L rms [A]: |25 - 6.25| median 0.0004 max 0.0390; |12.5 - 6.25| median 0.0001 max 0.0131; relative |25 - 6.25| / 6.25 median 0.02 % max 9.22 %
+  |P| [W]: |25 - 6.25| median 2.5243 max 12.3239; |12.5 - 6.25| median 0.8415 max 9.0170; relative |25 - 6.25| / 6.25 median 1.65 % max 16.92 %
+  rows 24
+ctrl    V2  P_target  dirn  level  Ipk25  Ipk12.5  Ipk6.25  rms25  rms6.25    Pd25  Pd6.25
+M-B* 109.2       100     1      4  1.157    1.262    1.262  0.384    0.423  69.180  81.504
+M-B*  84.0       100    -1     -4  1.023    1.069    1.092  0.364    0.398  57.946  69.035
+M-B*  84.0       100    -1     -5  1.483    1.493    1.509  0.607    0.634 126.378 133.351
+ SPS  84.0       100    -1     -2  1.925    1.874    1.899  0.970    0.960 128.714 121.130
+M-B* 109.2       100    -1      0  1.275    1.259    1.250  0.556    0.555  87.881  87.420
+ SPS  84.0       100     1      0  1.872    1.916    1.894  0.959    0.970 149.983 157.521
+
+Eff_out against the direct ratio, per grid and direction
+    100 ns HV->LV: n  21, Eff_out - eta_m median +3.20, range -9.30 ... +35.13 pp; |.| > 0.5 pp: 21; matches the estimate within 0.1 pp: 19; Eff_out range 96.35...99.54
+    100 ns LV->HV: n  19, Eff_out - eta_m median +3.01, range -12.50 ... +6.74 pp; |.| > 0.5 pp: 19; matches the estimate within 0.1 pp: 13; Eff_out range 93.04...99.61
+     25 ns HV->LV: n  12, Eff_out - eta_m median +0.87, range -27.24 ... +1.57 pp; |.| > 0.5 pp: 12; matches the estimate within 0.1 pp: 11; Eff_out range 87.67...99.60
+     25 ns LV->HV: n  12, Eff_out - eta_m median +0.87, range -24.19 ... +1.98 pp; |.| > 0.5 pp: 12; matches the estimate within 0.1 pp: 10; Eff_out range 87.67...99.64
+   12.5 ns HV->LV: n  12, Eff_out - eta_m median +0.41, range -28.56 ... +0.67 pp; |.| > 0.5 pp: 6; matches the estimate within 0.1 pp: 11; Eff_out range 86.36...99.60
+   12.5 ns LV->HV: n  12, Eff_out - eta_m median +0.42, range -25.23 ... +1.02 pp; |.| > 0.5 pp: 6; matches the estimate within 0.1 pp: 11; Eff_out range 86.36...99.65
+   6.25 ns HV->LV: n  12, Eff_out - eta_m median +0.18, range -29.33 ... +0.33 pp; |.| > 0.5 pp: 2; matches the estimate within 0.1 pp: 11; Eff_out range 85.59...99.60
+   6.25 ns LV->HV: n  12, Eff_out - eta_m median +0.19, range -25.82 ... +0.54 pp; |.| > 0.5 pp: 3; matches the estimate within 0.1 pp: 11; Eff_out range 85.59...99.65
+  not the estimate, HV->LV
+                                  label   P_LV   P_HV  Loss_out  Eff_out    est  eta_m
+    E SPS 100W 109.2V HV->LV L1 T25 S25 18.658 16.233     2.001   87.671 89.273  1.149
+E SPS 100W 109.2V HV->LV L1 T12.5 S12.5 16.859 14.668     2.001   86.357 88.130  1.149
+E SPS 100W 109.2V HV->LV L1 T6.25 S6.25 15.959 13.885     2.001   85.588 87.461  1.149
+  more than 2 pp off:
+                                  label   P_LV   P_HV  Loss_out  Eff_out  eta_m    dEff
+    E SPS 100W 109.2V HV->LV L1 T25 S25 18.658 16.233     2.001   87.671  1.149 -27.244
+E SPS 100W 109.2V HV->LV L1 T12.5 S12.5 16.859 14.668     2.001   86.357  1.149 -28.557
+E SPS 100W 109.2V HV->LV L1 T6.25 S6.25 15.959 13.885     2.001   85.588  1.149 -29.325
+  not the estimate, LV->HV
+                                label    P_LV    P_HV  Loss_out  Eff_out    est  eta_m
+    E SPS 100W 84V LV->HV L-1 T25 S25 -11.158 -12.618     1.237   88.918 99.900  1.131
+   E M-B* 100W 84V LV->HV L-5 T25 S25 126.378 124.728     0.529   99.414 99.576  0.987
+E SPS 100W 84V LV->HV L-1 T12.5 S12.5 -10.201 -11.535     1.236   87.880 99.900  1.131
+E SPS 100W 84V LV->HV L-1 T6.25 S6.25  -9.722 -10.994     1.236   87.284 99.900  1.131
+  more than 2 pp off:
+                                label    P_LV    P_HV  Loss_out  Eff_out  eta_m    dEff
+    E SPS 100W 84V LV->HV L-1 T25 S25 -11.158 -12.618     1.237   88.918  1.131 -24.187
+E SPS 100W 84V LV->HV L-1 T12.5 S12.5 -10.201 -11.535     1.236   87.880  1.131 -25.227
+E SPS 100W 84V LV->HV L-1 T6.25 S6.25  -9.722 -10.994     1.236   87.284  1.131 -25.825
+
+Eff_out at |P| against eta from L, per grid (interpolated on the same two levels)
+  HV->LV   84.0 V   100 W | SPS 100:  98.62 vs  96.19 | SPS 25:  95.41 vs  94.66 | SPS 6.25:  94.49 vs  94.80 | M-B* 100:  99.53 vs  94.90 | M-B* 25:  99.58 vs  98.29 | M-B* 6.25:  99.59 vs  99.26
+  LV->HV   84.0 V   100 W | SPS 100:  96.63 vs  93.76 | SPS 25:  96.81 vs 100.96 | SPS 6.25:  96.95 vs 100.93 | M-B* 100:  97.94 vs  96.40 | M-B* 25:  99.50 vs  98.41 | M-B* 6.25:  99.61 vs  99.32
+  HV->LV   84.0 V  1000 W | SPS 100:  98.53 vs  95.13 | SPS 25:  98.57 vs  97.73 | SPS 6.25:  98.58 vs  98.42 | M-B* 100:  98.54 vs  95.73 | M-B* 25:  98.58 vs  97.89 | M-B* 6.25:  98.59 vs  98.46
+  LV->HV   84.0 V  1000 W | SPS 100:  98.45 vs  94.95 | SPS 25:  98.48 vs  97.61 | SPS 6.25:  98.48 vs  98.32 | M-B* 100:  98.47 vs  95.62 | M-B* 25:  98.49 vs  97.79 | M-B* 6.25:  98.49 vs  98.37
+  HV->LV  109.2 V   100 W | SPS 100:  96.90 vs  92.62 | SPS 25:  94.84 vs 103.43 | SPS 6.25:  93.92 vs 104.30 | M-B* 100:  99.07 vs  94.93 | M-B* 25:  99.49 vs  98.16 | M-B* 6.25:  99.54 vs  99.27
+  LV->HV  109.2 V   100 W | SPS 100:  97.93 vs  97.07 | SPS 25:  92.67 vs  91.90 | SPS 6.25:  91.72 vs  92.40 | M-B* 100:  99.59 vs  92.97 | M-B* 25:  99.48 vs  97.67 | M-B* 6.25:  99.48 vs  98.99
+
+interpolation width at 6.25 ns (the two levels used) and the chord error if L = a + c P^2 between them (reported only)
+  HV->LV   84.0 V   100 W SPS  : P     9.7 ...   157.5 W, L   1.27 ...   1.79 W, chord   1.59, parabola   1.48 W, diff +0.108 W = +0.108 pp
+  HV->LV   84.0 V   100 W M-B* : P    95.7 ...   144.6 W, L   0.71 ...   1.08 W, chord   0.74, parabola   0.74 W, diff +0.006 W = +0.006 pp
+  LV->HV   84.0 V   100 W SPS  : P    -9.7 ...   121.1 W, L   1.27 ...   1.72 W, chord   1.65, parabola   1.58 W, diff +0.071 W = +0.071 pp
+  LV->HV   84.0 V   100 W M-B* : P    69.0 ...   133.4 W, L   0.48 ...   0.88 W, chord   0.67, parabola   0.64 W, diff +0.031 W = +0.031 pp
+  HV->LV   84.0 V  1000 W SPS  : P   994.7 ...  1097.6 W, L  15.87 ...  19.28 W, chord  16.05, parabola  16.04 W, diff +0.008 W = +0.001 pp
+  HV->LV   84.0 V  1000 W M-B* : P   973.4 ...  1076.2 W, L  14.78 ...  18.14 W, chord  15.65, parabola  15.62 W, diff +0.032 W = +0.003 pp
+  LV->HV   84.0 V  1000 W SPS  : P   981.2 ...  1084.5 W, L  16.21 ...  19.68 W, chord  16.84, parabola  16.81 W, diff +0.026 W = +0.003 pp
+  LV->HV   84.0 V  1000 W M-B* : P   961.8 ...  1065.1 W, L  15.07 ...  18.49 W, chord  16.34, parabola  16.30 W, diff +0.041 W = +0.004 pp
+  HV->LV  109.2 V   100 W SPS  : P   -16.0 ...   165.0 W, L   2.07 ...   2.76 W, chord   2.51, parabola   2.32 W, diff +0.193 W = +0.193 pp
+  HV->LV  109.2 V   100 W M-B* : P    81.5 ...   143.7 W, L   0.60 ...   1.10 W, chord   0.75, parabola   0.72 W, diff +0.029 W = +0.029 pp
+  LV->HV  109.2 V   100 W SPS  : P    16.0 ...   197.4 W, L   2.07 ...   2.72 W, chord   2.37, parabola   2.23 W, diff +0.137 W = +0.137 pp
+  LV->HV  109.2 V   100 W M-B* : P    87.4 ...   146.6 W, L   0.93 ...   1.30 W, chord   1.01, parabola   0.99 W, diff +0.016 W = +0.016 pp
+
+de from the conduction part alone at 6.25 ns, R 40 mohm and 52 mohm + P_D [pp], beside de(6.25) and de(0)
+  HV->LV   84.0 V   100 W | R40: SPS 1.38 B 0.43 W, de +0.93 | R52: SPS 1.74 B 0.55 W, de +1.16 | de(6.25) +0.83, de(0) +0.89, L0 SPS 1.33 B 0.42 W
+  LV->HV   84.0 V   100 W | R40: SPS 1.36 B 0.40 W, de +0.97 | R52: SPS 1.73 B 0.51 W, de +1.22 | de(6.25) +0.98, de(0) +0.97, L0 SPS 1.37 B 0.39 W
+  HV->LV   84.0 V  1000 W | R40: SPS 13.97 B 14.00 W, de -0.00 | R52: SPS 18.07 B 18.12 W, de -0.00 | de(6.25) +0.04, de(0) -0.00, L0 SPS 13.65 B 13.67 W
+  LV->HV   84.0 V  1000 W | R40: SPS 14.48 B 14.39 W, de +0.01 | R52: SPS 18.75 B 18.64 W, de +0.01 | de(6.25) +0.05, de(0) +0.01, L0 SPS 14.47 B 14.40 W
+  HV->LV  109.2 V   100 W | R40: SPS 2.19 B 0.41 W, de +1.73 | R52: SPS 2.77 B 0.52 W, de +2.18 | de(6.25) +1.71, de(0) +1.72, L0 SPS 2.15 B 0.39 W
+  LV->HV  109.2 V   100 W | R40: SPS 2.11 B 0.58 W, de +1.53 | R52: SPS 2.67 B 0.73 W, de +1.95 | de(6.25) +1.36, de(0) +1.54, L0 SPS 2.09 B 0.55 W
+
+non-periodic rows per grid, by controller (80-period spread > 5 mA):
+  100 {'SPS': '7/26', 'M-B*': '5/14'} worst spread 1.513
+  25 {'SPS': '0/12', 'M-B*': '3/12'} worst spread 0.085
+  12.5 {'SPS': '0/12', 'M-B*': '3/12'} worst spread 0.052
+  6.25 {'SPS': '0/12', 'M-B*': '3/12'} worst spread 0.026
+drift |dE| per grid: {'100': 1.419, '25': 0.118, '12.5': 0.061, '6.25': 0.018}
+reverse-flow runs on the fine grids: 6 of 72
+                                  label    P_LV    P_HV  Eff_out  Loss_out  eta_m
+      E SPS 100W 84V LV->HV L-1 T25 S25 -11.158 -12.618   88.918     1.237  1.131
+    E SPS 100W 109.2V HV->LV L1 T25 S25  18.658  16.233   87.671     2.001  1.149
+  E SPS 100W 84V LV->HV L-1 T12.5 S12.5 -10.201 -11.535   87.880     1.236  1.131
+E SPS 100W 109.2V HV->LV L1 T12.5 S12.5  16.859  14.668   86.357     2.001  1.149
+  E SPS 100W 84V LV->HV L-1 T6.25 S6.25  -9.722 -10.994   87.284     1.236  1.131
+E SPS 100W 109.2V HV->LV L1 T6.25 S6.25  15.959  13.885   85.588     2.001  1.149
+Eff_out against the estimate in the run's real direction, |.| <= 0.1 pp: 71 of 72 ; largest |.| 0.162
+                             label    P_LV    P_HV  Eff_out    est  Loss_out
+E M-B* 100W 84V LV->HV L-5 T25 S25 126.378 124.728   99.414 99.576     0.529
+
+Eff_out - direct ratio in the real direction, per grid:
+     25 ns: n 24, median +0.87, range +0.50 ... +1.98 pp; |.| > 0.5 pp: 24
+   12.5 ns: n 24, median +0.42, range -0.67 ... +1.02 pp; |.| > 0.5 pp: 12
+   6.25 ns: n 24, median +0.19, range -1.43 ... +0.54 pp; |.| > 0.5 pp: 5
+
+Q6 (ii) with the reverse-flow runs removed (not the rule):
+  HV->LV: 17 of 33 = 51.5 %
+     estimate: 33 of 33
+  LV->HV: 18 of 33 = 54.5 %
+     estimate: 32 of 33
+
+Loss_out = Cu + 4 SemiHV + 4 SemiLV? (reading the block's outputs)
+  |Loss - (Cu + 4 Hv + 4 Lv)| max 51.0406 ; |Loss - (Cu + Hv + Lv)| max 0.0
+  Loss_out - L: median -0.975 range -9.929 -0.038
+                                 label  Loss_out  Cu_out  SemiHV_out  SemiLV_out      L  iL_rms  I_LV_rms  I_HV_rms
+ E SPS 100W 84V HV->LV L-1 T6.25 S6.25     1.236   0.039       0.092       1.105  1.274   0.881     0.116     0.030
+  E SPS 100W 84V HV->LV L0 T6.25 S6.25     1.445   0.047       0.109       1.289  1.787   0.970     1.873     0.419
+ E M-B* 100W 84V HV->LV L0 T6.25 S6.25     0.385   0.013       0.021       0.350  0.709   0.519     1.139     0.254
+ E M-B* 100W 84V HV->LV L1 T6.25 S6.25     0.746   0.026       0.047       0.674  1.075   0.717     1.720     0.383
+ E SPS 100W 84V LV->HV L-1 T6.25 S6.25     1.236   0.039       0.092       1.105  1.274   0.881     0.116     0.030
+ E SPS 100W 84V LV->HV L-2 T6.25 S6.25     1.420   0.046       0.112       1.262  1.721   0.960     1.443     0.314
+E M-B* 100W 84V LV->HV L-4 T6.25 S6.25     0.242   0.008       0.034       0.199  0.481   0.398     0.822     0.180
+E M-B* 100W 84V LV->HV L-5 T6.25 S6.25     0.590   0.020       0.062       0.508  0.876   0.634     1.589     0.349
+ E SPS 1000W 84V HV->LV L8 T6.25 S6.25    14.013   0.497       0.872      12.644 15.871   3.153    11.760     2.661
+ E SPS 1000W 84V HV->LV L9 T6.25 S6.25    17.246   0.614       1.064      15.569 19.283   3.502    12.966     2.940
+E M-B* 1000W 84V HV->LV L5 T6.25 S6.25    13.359   0.476       0.788      12.095 14.781   3.084    11.509     2.601
+E M-B* 1000W 84V HV->LV L6 T6.25 S6.25    16.533   0.590       0.976      14.967 18.135   3.433    12.716     2.881
+
+100 ns: Eff_out - direct ratio in the real direction, n 40 median 3.25 range -2.83 35.13 |.| > 0.5 pp: 40
+                               label     P_LV     P_HV  Eff_out   eta  Eff_min  Eff_max
+ E SPS 100W 84V HV->LV L-1 T100 S100    53.18    49.76    97.57 93.57    97.57    97.57
+  E SPS 100W 84V HV->LV L0 T100 S100   -86.21   -89.64    98.55 96.17    98.55    98.55
+ E M-B* 100W 84V HV->LV L0 T100 S100   -98.38  -103.65    99.54 94.91    99.54    99.54
+ E M-B* 100W 84V HV->LV L1 T100 S100  -110.61  -116.61    99.47 94.86    99.40    99.58
+ E SPS 100W 84V LV->HV L-1 T100 S100    53.18    49.76    97.57 93.57    97.57    97.57
+ E SPS 100W 84V LV->HV L-2 T100 S100   173.93   163.70    95.15 94.07    64.68   100.00
+E M-B* 100W 84V LV->HV L-4 T100 S100    97.15    93.71    98.46 96.46    67.91    99.99
+E M-B* 100W 84V LV->HV L-5 T100 S100   126.31   120.67    93.04 95.87    75.83    99.96
+ E SPS 1000W 84V HV->LV L8 T100 S100  -931.12  -977.30    98.64 95.28    98.64    98.64
+ E SPS 1000W 84V HV->LV L9 T100 S100 -1033.92 -1087.66    98.48 95.06    98.48    98.48
+E M-B* 1000W 84V HV->LV L5 T100 S100  -873.99  -909.27    98.74 96.12    98.74    98.74
+E M-B* 1000W 84V HV->LV L6 T100 S100 -1009.10 -1054.42    98.52 95.70    98.52    98.52
+
+Eff_min, Eff_max of the block at 100 ns: min 64.68 max 100.0
+Semi = 4 HV switch + 4 LV switch (analyzer means), same input per grid
+  M-B*    84.0 V   100 W LV->HV L -5: Semi   0.511   0.544   0.570 W | L   1.638   1.157   0.876 W | L(0)   0.595 W | L(0) / Semi 1.043 | (L6 - Semi) / L6  0.35
+  M-B*    84.0 V   100 W LV->HV L -4: Semi   0.198   0.221   0.234 W | L   1.193   0.718   0.481 W | L(0)   0.244 W | L(0) / Semi 1.042 | (L6 - Semi) / L6  0.51
+  M-B*    84.0 V   100 W HV->LV L +0: Semi   0.366   0.369   0.371 W | L   1.669   1.028   0.709 W | L(0)   0.390 W | L(0) / Semi 1.051 | (L6 - Semi) / L6  0.48
+  M-B*    84.0 V   100 W HV->LV L +1: Semi   0.724   0.722   0.721 W | L   2.105   1.419   1.075 W | L(0)   0.732 W | L(0) / Semi 1.016 | (L6 - Semi) / L6  0.33
+  M-B*    84.0 V  1000 W LV->HV L-12: Semi  16.327  16.324  16.323 W | L  24.905  20.626  18.486 W | L(0)  16.347 W | L(0) / Semi 1.001 | (L6 - Semi) / L6  0.12
+  M-B*    84.0 V  1000 W LV->HV L-11: Semi  13.209  13.207  13.207 W | L  20.645  16.931  15.074 W | L(0)  13.217 W | L(0) / Semi 1.001 | (L6 - Semi) / L6  0.12
+  M-B*    84.0 V  1000 W HV->LV L +5: Semi  12.901  12.889  12.884 W | L  20.394  16.652  14.781 W | L(0)  12.910 W | L(0) / Semi 1.002 | (L6 - Semi) / L6  0.13
+  M-B*    84.0 V  1000 W HV->LV L +6: Semi  15.964  15.949  15.943 W | L  24.610  20.294  18.135 W | L(0)  15.977 W | L(0) / Semi 1.002 | (L6 - Semi) / L6  0.12
+  M-B*   109.2 V   100 W LV->HV L -1: Semi   0.810   0.809   0.808 W | L   2.621   1.743   1.304 W | L(0)   0.865 W | L(0) / Semi 1.071 | (L6 - Semi) / L6  0.38
+  M-B*   109.2 V   100 W LV->HV L +0: Semi   0.416   0.420   0.423 W | L   2.294   1.398   0.930 W | L(0)   0.462 W | L(0) / Semi 1.093 | (L6 - Semi) / L6  0.55
+  M-B*   109.2 V   100 W HV->LV L +4: Semi   0.296   0.327   0.343 W | L   1.421   0.877   0.595 W | L(0)   0.313 W | L(0) / Semi 0.914 | (L6 - Semi) / L6  0.42
+  M-B*   109.2 V   100 W HV->LV L +5: Semi   0.666   0.712   0.731 W | L   2.226   1.508   1.105 W | L(0)   0.701 W | L(0) / Semi 0.959 | (L6 - Semi) / L6  0.34
+  SPS     84.0 V   100 W LV->HV L -2: Semi   1.401   1.351   1.374 W | L   2.805   1.998   1.721 W | L(0)   1.444 W | L(0) / Semi 1.051 | (L6 - Semi) / L6  0.20
+  SPS     84.0 V   100 W LV->HV L -1: Semi   1.198   1.198   1.197 W | L   1.462   1.337   1.274 W | L(0)   1.212 W | L(0) / Semi 1.012 | (L6 - Semi) / L6  0.06
+  SPS     84.0 V   100 W HV->LV L -1: Semi   1.198   1.198   1.197 W | L   1.462   1.337   1.274 W | L(0)   1.212 W | L(0) / Semi 1.012 | (L6 - Semi) / L6  0.06
+  SPS     84.0 V   100 W HV->LV L +0: Semi   1.362   1.426   1.398 W | L   2.793   2.227   1.787 W | L(0)   1.347 W | L(0) / Semi 0.964 | (L6 - Semi) / L6  0.22
+  SPS     84.0 V  1000 W LV->HV L -9: Semi  17.014  17.008  17.007 W | L  27.547  22.304  19.682 W | L(0)  17.060 W | L(0) / Semi 1.003 | (L6 - Semi) / L6  0.14
+  SPS     84.0 V  1000 W LV->HV L -8: Semi  13.832  13.828  13.828 W | L  23.223  18.545  16.206 W | L(0)  13.866 W | L(0) / Semi 1.003 | (L6 - Semi) / L6  0.15
+  SPS     84.0 V  1000 W HV->LV L +8: Semi  13.541  13.523  13.516 W | L  22.929  18.224  15.871 W | L(0)  13.517 W | L(0) / Semi 1.000 | (L6 - Semi) / L6  0.15
+  SPS     84.0 V  1000 W HV->LV L +9: Semi  16.661  16.641  16.633 W | L  27.203  21.923  19.283 W | L(0)  16.643 W | L(0) / Semi 1.001 | (L6 - Semi) / L6  0.14
+  SPS    109.2 V   100 W LV->HV L +0: Semi   2.202   2.206   2.208 W | L   4.162   3.199   2.718 W | L(0)   2.236 W | L(0) / Semi 1.013 | (L6 - Semi) / L6  0.19
+  SPS    109.2 V   100 W LV->HV L +1: Semi   1.937   1.936   1.936 W | L   2.422   2.188   2.071 W | L(0)   1.954 W | L(0) / Semi 1.009 | (L6 - Semi) / L6  0.06
+  SPS    109.2 V   100 W HV->LV L +1: Semi   1.937   1.936   1.936 W | L   2.422   2.188   2.071 W | L(0)   1.954 W | L(0) / Semi 1.009 | (L6 - Semi) / L6  0.06
+  SPS    109.2 V   100 W HV->LV L +2: Semi   2.253   2.249   2.247 W | L   4.225   3.248   2.760 W | L(0)   2.272 W | L(0) / Semi 1.011 | (L6 - Semi) / L6  0.19
+  |Semi(25) - Semi(6.25)|: median 0.0067 max 0.0652 W; relative median 0.21 % max 15.07 %
+  |Semi(12.5) - Semi(6.25)|: median 0.0021 max 0.0278 W
+  L(0) / Semi: median 1.009 range 0.914 1.093 n 24
+
+de from Semi alone per grid (eta at |P| from the same two levels) [pp], beside de from L
+  HV->LV   84.0 V   100 W | 100: Semi   1.25   0.45 W de +0.78 (L -1.28) | 25: Semi   1.30   0.41 W de +0.88 (L +0.57) | 12.5: Semi   1.33   0.40 W de +0.91 (L +0.76) | 6.25: Semi   1.32   0.40 W de +0.90 (L +0.83)
+  LV->HV   84.0 V   100 W | 100: Semi   2.02   0.44 W de +1.59 (L +1.49) | 25: Semi   1.36   0.39 W de +0.97 (L +1.06) | 12.5: Semi   1.34   0.39 W de +0.94 (L +0.98) | 6.25: Semi   1.35   0.40 W de +0.95 (L +0.98)
+  HV->LV   84.0 V  1000 W | 100: Semi  14.22  14.14 W de +0.01 (L +0.60) | 25: Semi  13.77  13.77 W de +0.00 (L +0.16) | 12.5: Semi  13.71  13.71 W de +0.00 (L +0.08) | 6.25: Semi  13.68  13.68 W de -0.00 (L +0.04)
+  LV->HV   84.0 V  1000 W | 100: Semi  14.27  14.16 W de +0.01 (L +0.68) | 25: Semi  14.36  14.31 W de +0.01 (L +0.18) | 12.5: Semi  14.39  14.34 W de +0.00 (L +0.09) | 6.25: Semi  14.41  14.36 W de +0.00 (L +0.05)
+  HV->LV  109.2 V   100 W | 100: Semi   2.28   0.64 W de +1.59 (L +1.42) | 25: Semi   2.14   0.48 W de +1.63 (L +1.70) | 12.5: Semi   2.14   0.46 W de +1.63 (L +1.70) | 6.25: Semi   2.14   0.46 W de +1.64 (L +1.71)
+  LV->HV  109.2 V   100 W | 100: Semi   2.09   0.37 W de +1.72 (L -1.72) | 25: Semi   2.06   0.50 W de +1.56 (L +0.84) | 12.5: Semi   2.06   0.50 W de +1.56 (L +1.18) | 6.25: Semi   2.06   0.50 W de +1.56 (L +1.36)
+HV->LV    84.0 V   100 W | de25 +0.570 de12 +0.760 de6 +0.827 de0 +0.895 | |de6-de12| 0.067 |de25-de6| 0.257 | eta SPS 100/6.25 96.21 98.44, L0 SPS 1.327 eta0 98.69 ; B eta 100/6.25 94.93 99.26, L0 B 0.416 eta0 99.59
+LV->HV    84.0 V   100 W | de25 +1.062 de12 +0.981 de6 +0.978 de0 +0.975 | |de6-de12| 0.003 |de25-de6| 0.085 | eta SPS 100/6.25 93.81 98.35, L0 SPS 1.365 eta0 98.63 ; B eta 100/6.25 95.30 99.33, L0 B 0.390 eta0 99.61
+HV->LV    84.0 V  1000 W | de25 +0.159 de12 +0.079 de6 +0.038 de0 -0.003 | |de6-de12| 0.041 |de25-de6| 0.120 | eta SPS 100/6.25 95.13 98.42, L0 SPS 13.649 eta0 98.65 ; B eta 100/6.25 95.73 98.46, L0 B 13.675 eta0 98.65
+LV->HV    84.0 V  1000 W | de25 +0.179 de12 +0.093 de6 +0.050 de0 +0.007 | |de6-de12| 0.043 |de25-de6| 0.129 | eta SPS 100/6.25 94.94 98.32, L0 SPS 14.469 eta0 98.55 ; B eta 100/6.25 95.62 98.37, L0 B 14.396 eta0 98.56
+HV->LV   109.2 V   100 W | de25 +1.704 de12 +1.702 de6 +1.710 de0 +1.717 | |de6-de12| 0.007 |de25-de6| 0.006 | eta SPS 100/6.25 93.61 97.55, L0 SPS 2.152 eta0 97.89 ; B eta 100/6.25 95.03 99.26, L0 B 0.391 eta0 99.61
+LV->HV   109.2 V   100 W | de25 +0.840 de12 +1.181 de6 +1.361 de0 +1.541 | |de6-de12| 0.180 |de25-de6| 0.521 | eta SPS 100/6.25 94.71 97.63, L0 SPS 2.090 eta0 97.91 ; B eta 100/6.25 92.99 98.99, L0 B 0.549 eta0 99.45
+rows L12.5 > 0.5: 24  1 - median r: 0.134  largest drop: 0.335
+L(6.25)/L(100) on the same rows: median 0.331 range 0.103 0.521 n 24
+X runs |L(25c,6.25s) - L(6.25,6.25)| W: max 0.0077 median 0.0001 n 8
+Ipk (25c, 6.25s) vs (6.25, 6.25):
+   E SPS 1000W 84V HV->LV L8 T25 S6.25: Ipk 4.3194 vs 4.3194 vs 25/25 4.3187; |P| 994.73 vs 994.73 vs 25/25 992.38
+   E SPS 1000W 84V HV->LV L9 T25 S6.25: Ipk 4.6758 vs 4.6758 vs 25/25 4.6751; |P| 1097.55 vs 1097.55 vs 25/25 1094.74
+   E M-B* 1000W 84V HV->LV L5 T25 S6.25: Ipk 4.1992 vs 4.1992 vs 25/25 4.1985; |P| 973.37 vs 973.37 vs 25/25 971.03
+   E M-B* 1000W 84V HV->LV L6 T25 S6.25: Ipk 4.5580 vs 4.5580 vs 25/25 4.5573; |P| 1076.20 vs 1076.20 vs 25/25 1073.39
+   E SPS 100W 109.2V HV->LV L1 T25 S6.25: Ipk 1.9710 vs 1.9710 vs 25/25 1.9710; |P| 15.96 vs -15.96 vs 25/25 -18.66
+   E SPS 100W 109.2V HV->LV L2 T25 S6.25: Ipk 2.4244 vs 2.4244 vs 25/25 2.4243; |P| 165.00 vs 165.00 vs 25/25 161.69
+   E M-B* 100W 109.2V HV->LV L4 T25 S6.25: Ipk 1.2624 vs 1.2624 vs 25/25 1.1574; |P| 81.51 vs 81.50 vs 25/25 69.18
+   E M-B* 100W 109.2V HV->LV L5 T25 S6.25: Ipk 1.6841 vs 1.6841 vs 25/25 1.6804; |P| 143.67 vs 143.67 vs 25/25 132.92
+runs at 100 ns that are not periodic: M-B*, SPS; first level pairs:
+non-periodic at fine grids:
+                                   label  spread
+      E M-B* 100W 84V LV->HV L-5 T25 S25   0.036
+    E M-B* 100W 109.2V HV->LV L5 T25 S25   0.085
+    E M-B* 100W 109.2V LV->HV L0 T25 S25   0.038
+E M-B* 100W 109.2V HV->LV L4 T12.5 S12.5   0.052
+E M-B* 100W 109.2V HV->LV L5 T12.5 S12.5   0.032
+E M-B* 100W 109.2V LV->HV L0 T12.5 S12.5   0.019
+  E M-B* 100W 84V LV->HV L-5 T6.25 S6.25   0.006
+E M-B* 100W 109.2V HV->LV L4 T6.25 S6.25   0.026
+E M-B* 100W 109.2V LV->HV L0 T6.25 S6.25   0.009

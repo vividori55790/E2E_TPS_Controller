@@ -34,6 +34,7 @@ the two bus caps over the window (C V dV/dt from dV_LV, dV_HV). The same with th
      (ii) "효율로 쓸 수 없음" iff |Eff_out - 100 eta_m| > 0.5 pp in >= 50 % of them; else "쓸 수 있음".
   Q7 is the grid dependence proportional to the step? a = [L(25) - L(12.5)] / [L(12.5) - L(6.25)] over the S rows with |L(12.5) - L(6.25)| >= 0.1 W. "비례" iff median a is in [1.5, 2.5] (a first-order solver gives 2), else "비례 아님". Only "비례" allows quoting L(0) = 2 L(6.25) - L(12.5) and
      de(0) from it, and then only as an extrapolation beside the measured values, not as a measurement.
+Note 2026-11-01 04:25, after the first compare, the rules unchanged: the code of Q5 (and three reported lines) picked the 6.25 ns runs with np.isclose's default atol 1e-8, which also takes 12.5 ns: it counted 28 of 47 runs over both grids instead of the registered 6.25 ns runs. Fixed to atol = 0; the rule text was always "at 6.25 ns". Q5's answer did not change.
 What the answers mean. Q2 "확정": the 6 de values at 6.25 ns are the efficiency result, and the other points keep their 25 ns values with Q2b's sentence beside them. Q2 "미확정": no efficiency gain is claimed. Q1 "미수렴" alone: absolute efficiencies are not quoted
 as converged, whatever Q2 says. Q3 + Q4 name the cause (or say it was not separated). Q6 tells the user why their reading differed; the copy with the fix is v4/Direct_Efficiency_Analyzer_fixed.m, the user's file stays as it is.
 Reported, never a verdict: the loss table per grid, the same with the analyzer's means, L(0) and de(0), L / (P_R + P_D) per grid and L(0) / (P_R + P_D), de computed from P_R + P_D alone (the conduction part, i_rms settles early), drift terms, de with the analyzer's means, non-periodic runs (iL_pp spread), N_local against the step asked for.
@@ -201,6 +202,11 @@ def at_power(g, P, col, pcol="Pd"):
         if m[i + 1] == m[i] + 1 and min(Pd[i], Pd[i + 1]) <= P <= max(Pd[i], Pd[i + 1]) and Pd[i] != Pd[i + 1]:
             return float(y[i] + (P - Pd[i]) / (Pd[i + 1] - Pd[i]) * (y[i + 1] - y[i]))
     return np.nan
+
+
+def at_grid(S, t):
+    """the rows on grid t. np.isclose's default atol of 1e-8 cannot tell 6.25 ns from 12.5 ns, so never use it on these values (found 11-01 04:25, after the first compare: see the note under RULES)"""
+    return S[np.isclose(S["Ts"], t, rtol=1e-6, atol=0)]
 
 
 def round_no():
@@ -403,7 +409,7 @@ def compare(d=None, waves=None, spread=None, write_out=True):
     delta = float((F["L"] - F["La"]).abs().median()) if len(F) else np.nan
     lam = float((T["L25"] - T["L6.25"]).abs().median()) if len(T) else np.nan
     q3 = rule_q3(delta, lam)
-    lines += ["", f"Q3 analyzer: median |L_a - L| {delta:.3f} W (per grid " + ", ".join(f"{GRID_NAME[t]}: {(S[np.isclose(S['Ts'], t)]['L'] - S[np.isclose(S['Ts'], t)]['La']).abs().median():.3f}" for t in GRIDS) + f"), median |L(25) - L(6.25)| {lam:.3f} W -> {q3}"]
+    lines += ["", f"Q3 analyzer: median |L_a - L| {delta:.3f} W (per grid " + ", ".join(f"{GRID_NAME[t]}: {(at_grid(S, t)['L'] - at_grid(S, t)['La']).abs().median():.3f}" for t in GRIDS) + f"), median |L(25) - L(6.25)| {lam:.3f} W -> {q3}"]
     # ---- Q4
     X = d[np.isclose(d["Ts"], T25) & np.isclose(d["Ts_solver"], T6)]
     xs = []
@@ -418,7 +424,8 @@ def compare(d=None, waves=None, spread=None, write_out=True):
     q4, q4m = rule_q4(xs)
     lines.append(f"Q4 solver or controller: median X {q4m:+.3f} over {int(np.isfinite(np.array(xs, float)).sum())} runs -> {q4}")
     # ---- Q5
-    B = S[np.isclose(S["Ts"], T6) & (S["L"] > Q1_MIN_L)]
+    B = at_grid(S, T6)
+    B = B[B["L"] > Q1_MIN_L]
     q5 = rule_q5(B["bal"].to_numpy())
     lines += ["", f"Q5 balance at 6.25 ns: {int(B['bal'].sum())} of {len(B)} runs -> {q5}"]
     for r in B.itertuples():
@@ -437,9 +444,9 @@ def compare(d=None, waves=None, spread=None, write_out=True):
     y = T[(T["L12.5"] - T["L6.25"]).abs() >= Q7_DEN]
     q7, q7m = rule_q7(((y["L25"] - y["L12.5"]) / (y["L12.5"] - y["L6.25"])).to_numpy())
     lines += ["", f"Q7 proportional to the step: median a {q7m:.2f} over {len(y)} rows -> {q7}"]
-    z = S[np.isclose(S["Ts"], T6)]
+    z = at_grid(S, T6)
     n_exp = np.round(0.999e-3 / S["Ts_solver"])
-    lines.append(f"N_local / the step asked for: {(S['N_local'] / n_exp).min():.3f} ... {(S['N_local'] / n_exp).max():.3f}; drift |dE/dt| at most {S['dE'].abs().max():.3f} W; non-periodic runs (80-period spread > 5 mA) per grid: " + ", ".join(f"{GRID_NAME[t]}: {int((S[np.isclose(S['Ts'], t)]['spread'] > 0.005).sum())} of {int(np.isclose(S['Ts'], t).sum())}" for t in GRIDS) + f"; at 6.25 ns L / (P_R52 + P_D) median {(z['L'] / z['P_RD']).median():.2f}")
+    lines.append(f"N_local / the step asked for: {(S['N_local'] / n_exp).min():.3f} ... {(S['N_local'] / n_exp).max():.3f}; drift |dE/dt| at most {S['dE'].abs().max():.3f} W; non-periodic runs (80-period spread > 5 mA) per grid: " + ", ".join(f"{GRID_NAME[t]}: {int((at_grid(S, t)['spread'] > 0.005).sum())} of {len(at_grid(S, t))}" for t in GRIDS) + f"; at 6.25 ns L / (P_R52 + P_D) median {(z['L'] / z['P_RD']).median():.2f}")
     miss = int(sum(np.isnan(np.array(v, float)).sum() for v in de.values()))
     lines += ["", f"VERDICT: Q1 {q1}; Q2 {q2}; Q2b {q2b}; Q3 {q3}; Q4 {q4}; Q5 {q5}; Q6 HV->LV {q6[1]}, LV->HV {q6[-1]}; Q7 {q7}" + (f" (PROVISIONAL: {miss} de values not bracketed)" if miss else "")]
     print("\n".join(lines))
@@ -521,6 +528,8 @@ def selftest():
     w = np.zeros(400) + 2.0
     chk("diode power on a flat 2 A", round(float(diode_power(w, 10.0, 0.4, 0.4)), 3), round(float(FS * TD * (4 * vf(2.0) * 2.0 + 4 * vf(8.0) * 8.0)), 3))
     chk("no waveform -> NaN", np.isnan(diode_power(None, 0, 0.5, 0.5)), True)
+    import pandas as pd
+    chk("at_grid keeps one grid only", [len(at_grid(pd.DataFrame(dict(Ts=GRIDS)), t)) for t in GRIDS], [1, 1, 1, 1])
     chk("Q7", (rule_q7([2.0, 2.1, 1.9])[0], rule_q7([1.0, 1.1, 0.9])[0], rule_q7([])[0]), ("비례", "비례 아님", "비례 아님"))
     chk("eta conventions", (round(eta_at(100.0, 5.0, 1), 4), round(eta_at(100.0, 5.0, -1), 4)), (round(100 / 105, 4), 0.95))
     r = compare(_fake(), {}, {}, write_out=False)

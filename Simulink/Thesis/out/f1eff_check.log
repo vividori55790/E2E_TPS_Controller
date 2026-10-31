@@ -1,0 +1,102 @@
+f1_eff: efficiency on four grids, same inputs, Simulink (dataset-era model), rules in the file header. L = P_LV_d - P_HV_d - dE/dt [W], direct means at the local step, last 1 ms
+
+Same input, loss L per grid [W] (L(0) = 2 L(6.25) - L(12.5), reported only) | delivered or input |P| at 6.25 ns | L / (P_R40 + P_D) at 100, 25, 12.5, 6.25 ns
+ LV->HV   84.0 V   100 W M-B*  L -5:    5.21    1.64    1.16    0.88 | L(0)    0.59 |   133.4 W |  9.47  3.15  2.10  1.53
+ LV->HV   84.0 V   100 W M-B*  L -4:    4.65    1.19    0.72    0.48 | L(0)    0.24 |    69.0 W |  9.94  6.04  3.25  2.05
+ HV->LV   84.0 V   100 W M-B*  L +0:    5.28    1.67    1.03    0.71 | L(0)    0.39 |    95.7 W | 12.92  4.25  2.59  1.77
+ HV->LV   84.0 V   100 W M-B*  L +1:    5.78    2.10    1.42    1.08 | L(0)    0.73 |   144.6 W | 10.46  2.83  1.91  1.44
+ LV->HV   84.0 V  1000 W M-B*  L-12:   53.19   24.90   20.63   18.49 | L(0)   16.35 |  1065.1 W |  2.98  1.52  1.26  1.13
+ LV->HV   84.0 V  1000 W M-B*  L-11:   43.42   20.64   16.93   15.07 | L(0)   13.22 |   961.8 W |  3.10  1.56  1.28  1.14
+ HV->LV   84.0 V  1000 W M-B*  L +5:   35.27   20.39   16.65   14.78 | L(0)   12.91 |   973.4 W |  3.25  1.55  1.26  1.12
+ HV->LV   84.0 V  1000 W M-B*  L +6:   45.32   24.61   20.29   18.14 | L(0)   15.98 |  1076.2 W |  3.10  1.51  1.24  1.11
+ LV->HV  109.2 V   100 W M-B*  L -1:    9.58    2.62    1.74    1.30 | L(0)    0.86 |   146.6 W |  8.59  3.01  2.00  1.49
+ LV->HV  109.2 V   100 W M-B*  L +0:    7.64    2.29    1.40    0.93 | L(0)    0.46 |    87.4 W | 11.77  4.69  2.83  1.87
+ LV->HV  109.2 V   100 W M-B*  L +1:    6.90     nan     nan     nan | L(0)     nan |     nan W | 14.32   nan   nan   nan
+ HV->LV  109.2 V   100 W M-B*  L +4:    4.03    1.42    0.88    0.60 | L(0)    0.31 |    81.5 W | 31.84  5.60  3.09  1.98
+ HV->LV  109.2 V   100 W M-B*  L +5:    4.18    2.23    1.51    1.10 | L(0)    0.70 |   143.7 W | 15.82  3.69  2.29  1.63
+ HV->LV  109.2 V   100 W M-B*  L +6:    6.05     nan     nan     nan | L(0)     nan |     nan W |  9.82   nan   nan   nan
+ LV->HV   84.0 V   100 W SPS   L -2:   10.56    2.80    2.00    1.72 | L(0)    1.44 |   121.1 W |  2.84  1.98  1.46  1.24
+ LV->HV   84.0 V   100 W SPS   L -1:    3.42    1.46    1.34    1.27 | L(0)    1.21 |    -9.7 W |  2.69  1.20  1.10  1.04
+ HV->LV   84.0 V   100 W SPS   L -1:    3.42    1.46    1.34    1.27 | L(0)    1.21 |     9.7 W |  2.69  1.20  1.10  1.04
+ HV->LV   84.0 V   100 W SPS   L +0:    3.43    2.79    2.23    1.79 | L(0)    1.35 |   157.5 W |  2.72  1.95  1.48  1.21
+ HV->LV   84.0 V   100 W SPS   L +1:    8.37     nan     nan     nan | L(0)     nan |     nan W |  5.16   nan   nan   nan
+ HV->LV   84.0 V   100 W SPS   L +2:   13.61     nan     nan     nan | L(0)     nan |     nan W |  5.66   nan   nan   nan
+ HV->LV   84.0 V   100 W SPS   L +3:   18.78     nan     nan     nan | L(0)     nan |     nan W |  5.48   nan   nan   nan
+ HV->LV   84.0 V   100 W SPS   L +4:   19.32     nan     nan     nan | L(0)     nan |     nan W |  5.42   nan   nan   nan
+ HV->LV   84.0 V   100 W SPS   L +5:   25.49     nan     nan     nan | L(0)     nan |     nan W |  4.91   nan   nan   nan
+ HV->LV   84.0 V   100 W SPS   L +6:   32.04     nan     nan     nan | L(0)     nan |     nan W |  4.45   nan   nan   nan
+ HV->LV   84.0 V   100 W SPS   L +7:   38.94     nan     nan     nan | L(0)     nan |     nan W |  4.07   nan   nan   nan
+ LV->HV   84.0 V  1000 W SPS   L -9:   61.73   27.55   22.30   19.68 | L(0)   17.06 |  1084.5 W |  3.30  1.61  1.31  1.15
+ LV->HV   84.0 V  1000 W SPS   L -8:   51.71   23.22   18.54   16.21 | L(0)   13.87 |   981.2 W |  3.52  1.67  1.33  1.17
+ LV->HV   84.0 V  1000 W SPS   L -7:   41.90     nan     nan     nan | L(0)     nan |     nan W |  3.79   nan   nan   nan
+ LV->HV   84.0 V  1000 W SPS   L -6:   29.73     nan     nan     nan | L(0)     nan |     nan W |  4.27   nan   nan   nan
+ LV->HV   84.0 V  1000 W SPS   L -5:   19.34     nan     nan     nan | L(0)     nan |     nan W |  4.26   nan   nan   nan
+ LV->HV   84.0 V  1000 W SPS   L -4:   21.46     nan     nan     nan | L(0)     nan |     nan W |  5.06   nan   nan   nan
+ LV->HV   84.0 V  1000 W SPS   L -3:   15.36     nan     nan     nan | L(0)     nan |     nan W |  4.20   nan   nan   nan
+ HV->LV   84.0 V  1000 W SPS   L +8:   46.18   22.93   18.22   15.87 | L(0)   13.52 |   994.7 W |  3.76  1.66  1.32  1.15
+ HV->LV   84.0 V  1000 W SPS   L +9:   53.73   27.20   21.92   19.28 | L(0)   16.64 |  1097.6 W |  3.50  1.60  1.29  1.13
+ LV->HV  109.2 V   100 W SPS   L +0:   11.70    4.16    3.20    2.72 | L(0)    2.24 |   197.4 W |  4.60  1.85  1.42  1.20
+ LV->HV  109.2 V   100 W SPS   L +1:    5.29    2.42    2.19    2.07 | L(0)    1.95 |    16.0 W |  2.64  1.23  1.11  1.05
+ LV->HV  109.2 V   100 W SPS   L +2:    5.36     nan     nan     nan | L(0)     nan |     nan W |  2.59   nan   nan   nan
+ HV->LV  109.2 V   100 W SPS   L +1:    5.29    2.42    2.19    2.07 | L(0)    1.95 |   -16.0 W |  2.64  1.23  1.11  1.05
+ HV->LV  109.2 V   100 W SPS   L +2:    5.36    4.22    3.25    2.76 | L(0)    2.27 |   165.0 W |  2.59  1.83  1.41  1.20
+ HV->LV  109.2 V   100 W SPS   L +3:   11.87     nan     nan     nan | L(0)     nan |     nan W |  4.46   nan   nan   nan
+
+Q1 absolute loss, L(6.25) / L(12.5) over 24 rows: 미수렴, median |r - 1| 0.134, max 0.335
+   L(25) / L(100): median 0.448, range 0.257 ... 0.814, 24 rows
+   L(12.5) / L(25): median 0.796, range 0.602 ... 0.914, 24 rows
+   L(6.25) / L(12.5): median 0.866, range 0.665 ... 0.953, 24 rows
+
+Q2 efficiency at |P| per grid, HV->LV eta = P / (P + L), LV->HV eta = (P - L) / P; de = eta(M-B*) - eta(SPS) [pp]; with the analyzer's means in brackets
+ HV->LV   84.0 V   100 W | 100: SPS   3.94 B   5.34 W, eta  96.21  94.93 %, de -1.28 (-1.29) | 25: SPS   2.31 B   1.72 W, eta  97.74  98.31 %, de +0.57 (+0.57) | 12.5: SPS   1.85 B   1.07 W, eta  98.18  98.95 %, de +0.76 (+0.76) | 6.25: SPS   1.59 B   0.74 W, eta  98.44  99.26 %, de +0.83 (+0.82) | L(0) SPS 1.33 B 0.42 W, de(0) +0.89 | P_R52 + P_D at 6.25 ns: SPS 1.74 B 0.55 W, de from them +1.16
+ LV->HV   84.0 V   100 W | 100: SPS   6.19 B   4.70 W, eta  93.81  95.30 %, de +1.49 (+1.41) | 25: SPS   2.53 B   1.47 W, eta  97.47  98.53 %, de +1.06 (+1.05) | 12.5: SPS   1.93 B   0.95 W, eta  98.07  99.05 %, de +0.98 (+0.98) | 6.25: SPS   1.65 B   0.67 W, eta  98.35  99.33 %, de +0.98 (+0.98) | L(0) SPS 1.37 B 0.39 W, de(0) +0.97 | P_R52 + P_D at 6.25 ns: SPS 1.73 B 0.51 W, de from them +1.22
+ HV->LV   84.0 V  1000 W | 100: SPS  51.24 B  44.65 W, eta  95.13  95.73 %, de +0.60 (+0.60) | 25: SPS  23.25 B  21.59 W, eta  97.73  97.89 %, de +0.16 (+0.16) | 12.5: SPS  18.44 B  17.62 W, eta  98.19  98.27 %, de +0.08 (+0.08) | 6.25: SPS  16.05 B  15.65 W, eta  98.42  98.46 %, de +0.04 (+0.04) | L(0) SPS 13.65 B 13.67 W, de(0) -0.00 | P_R52 + P_D at 6.25 ns: SPS 18.07 B 18.12 W, de from them -0.00
+ LV->HV   84.0 V  1000 W | 100: SPS  50.59 B  43.77 W, eta  94.94  95.62 %, de +0.68 (+0.68) | 25: SPS  23.94 B  22.15 W, eta  97.61  97.79 %, de +0.18 (+0.18) | 12.5: SPS  19.21 B  18.28 W, eta  98.08  98.17 %, de +0.09 (+0.09) | 6.25: SPS  16.84 B  16.34 W, eta  98.32  98.37 %, de +0.05 (+0.05) | L(0) SPS 14.47 B 14.40 W, de(0) +0.01 | P_R52 + P_D at 6.25 ns: SPS 18.75 B 18.64 W, de from them +0.01
+ HV->LV  109.2 V   100 W | 100: SPS   6.83 B   5.23 W, eta  93.61  95.03 %, de +1.42 (+1.42) | 25: SPS   3.61 B   1.81 W, eta  96.52  98.22 %, de +1.70 (+1.69) | 12.5: SPS   2.87 B   1.10 W, eta  97.21  98.91 %, de +1.70 (+1.70) | 6.25: SPS   2.51 B   0.75 W, eta  97.55  99.26 %, de +1.71 (+1.71) | L(0) SPS 2.15 B 0.39 W, de(0) +1.72 | P_R52 + P_D at 6.25 ns: SPS 2.77 B 0.52 W, de from them +2.18
+ LV->HV  109.2 V   100 W | 100: SPS   5.29 B   7.01 W, eta  94.71  92.99 %, de -1.72 (-1.72) | 25: SPS   3.20 B   2.36 W, eta  96.80  97.64 %, de +0.84 (+0.84) | 12.5: SPS   2.65 B   1.47 W, eta  97.35  98.53 %, de +1.18 (+1.19) | 6.25: SPS   2.37 B   1.01 W, eta  97.63  98.99 %, de +1.36 (+1.36) | L(0) SPS 2.09 B 0.55 W, de(0) +1.54 | P_R52 + P_D at 6.25 ns: SPS 2.67 B 0.73 W, de from them +1.95
+Q2: 미확정; Q2b: 25 ns 값은 수렴값이 아니다
+
+Q3 analyzer: median |L_a - L| 0.002 W (per grid 100: 0.002, 25: 0.003, 12.5: 0.002, 6.25: 0.002), median |L(25) - L(6.25)| 1.219 W -> 분석 블록 아님
+   X E SPS 1000W 84V HV->LV L8 T25 S6.25: L(25c, 6.25s) 15.87, L(25, 25) 22.93, L(6.25, 6.25) 15.87 W -> -0.000
+   X E SPS 1000W 84V HV->LV L9 T25 S6.25: L(25c, 6.25s) 19.28, L(25, 25) 27.20, L(6.25, 6.25) 19.28 W -> -0.000
+   X E M-B* 1000W 84V HV->LV L5 T25 S6.25: L(25c, 6.25s) 14.78, L(25, 25) 20.39, L(6.25, 6.25) 14.78 W -> -0.000
+   X E M-B* 1000W 84V HV->LV L6 T25 S6.25: L(25c, 6.25s) 18.14, L(25, 25) 24.61, L(6.25, 6.25) 18.14 W -> -0.000
+   X E SPS 100W 109.2V HV->LV L1 T25 S6.25: L(25c, 6.25s) 2.07, L(25, 25) 2.42, L(6.25, 6.25) 2.07 W -> +0.000
+   X E SPS 100W 109.2V HV->LV L2 T25 S6.25: L(25c, 6.25s) 2.76, L(25, 25) 4.22, L(6.25, 6.25) 2.76 W -> +0.000
+   X E M-B* 100W 109.2V HV->LV L4 T25 S6.25: L(25c, 6.25s) 0.59, L(25, 25) 1.42, L(6.25, 6.25) 0.60 W -> -0.009
+   X E M-B* 100W 109.2V HV->LV L5 T25 S6.25: L(25c, 6.25s) 1.10, L(25, 25) 2.23, L(6.25, 6.25) 1.10 W -> +0.000
+Q4 solver or controller: median X -0.000 over 8 runs -> 솔버 스텝
+
+Q5 balance at 6.25 ns: 16 of 23 runs -> 안 맞음
+   E SPS 100W 84V HV->LV L-1 T6.25 S6.25: L    1.27  P_R40    1.05  P_R52    1.37  P_D  0.16  rho  1.04  drift +0.000 W  ok
+   E SPS 100W 84V HV->LV L0 T6.25 S6.25: L    1.79  P_R40    1.28  P_R52    1.66  P_D  0.20  rho  1.21  drift +0.000 W  ok
+   E M-B* 100W 84V HV->LV L0 T6.25 S6.25: L    0.71  P_R40    0.37  P_R52    0.48  P_D  0.03  rho  1.77  drift -0.000 W  OUT
+   E M-B* 100W 84V HV->LV L1 T6.25 S6.25: L    1.08  P_R40    0.70  P_R52    0.91  P_D  0.05  rho  1.44  drift -0.000 W  OUT
+   E SPS 100W 84V LV->HV L-1 T6.25 S6.25: L    1.27  P_R40    1.05  P_R52    1.37  P_D  0.16  rho  1.04  drift +0.000 W  ok
+   E SPS 100W 84V LV->HV L-2 T6.25 S6.25: L    1.72  P_R40    1.25  P_R52    1.63  P_D  0.14  rho  1.24  drift +0.000 W  ok
+   E M-B* 100W 84V LV->HV L-5 T6.25 S6.25: L    0.88  P_R40    0.55  P_R52    0.71  P_D  0.03  rho  1.53  drift -0.000 W  OUT
+   E SPS 1000W 84V HV->LV L8 T6.25 S6.25: L   15.87  P_R40   13.52  P_R52   17.58  P_D  0.28  rho  1.15  drift +0.001 W  ok
+   E SPS 1000W 84V HV->LV L9 T6.25 S6.25: L   19.28  P_R40   16.68  P_R52   21.69  P_D  0.33  rho  1.13  drift +0.001 W  ok
+   E M-B* 1000W 84V HV->LV L5 T6.25 S6.25: L   14.78  P_R40   12.93  P_R52   16.81  P_D  0.25  rho  1.12  drift +0.001 W  ok
+   E M-B* 1000W 84V HV->LV L6 T6.25 S6.25: L   18.14  P_R40   16.03  P_R52   20.84  P_D  0.30  rho  1.11  drift +0.001 W  ok
+   E SPS 1000W 84V LV->HV L-8 T6.25 S6.25: L   16.21  P_R40   13.66  P_R52   17.75  P_D  0.25  rho  1.17  drift -0.001 W  ok
+   E SPS 1000W 84V LV->HV L-9 T6.25 S6.25: L   19.68  P_R40   16.79  P_R52   21.82  P_D  0.29  rho  1.15  drift -0.001 W  ok
+   E M-B* 1000W 84V LV->HV L-11 T6.25 S6.25: L   15.07  P_R40   13.03  P_R52   16.94  P_D  0.21  rho  1.14  drift -0.000 W  ok
+   E M-B* 1000W 84V LV->HV L-12 T6.25 S6.25: L   18.49  P_R40   16.10  P_R52   20.93  P_D  0.25  rho  1.13  drift -0.000 W  ok
+   E SPS 100W 109.2V HV->LV L1 T6.25 S6.25: L    2.07  P_R40    1.76  P_R52    2.28  P_D  0.22  rho  1.05  drift +0.000 W  ok
+   E SPS 100W 109.2V HV->LV L2 T6.25 S6.25: L    2.76  P_R40    2.05  P_R52    2.67  P_D  0.25  rho  1.20  drift -0.000 W  ok
+   E M-B* 100W 109.2V HV->LV L4 T6.25 S6.25: L    0.60  P_R40    0.24  P_R52    0.32  P_D  0.06  rho  1.98  drift -0.004 W  OUT
+   E M-B* 100W 109.2V HV->LV L5 T6.25 S6.25: L    1.10  P_R40    0.60  P_R52    0.78  P_D  0.08  rho  1.63  drift -0.000 W  OUT
+   E SPS 100W 109.2V LV->HV L1 T6.25 S6.25: L    2.07  P_R40    1.76  P_R52    2.28  P_D  0.22  rho  1.05  drift +0.000 W  ok
+   E SPS 100W 109.2V LV->HV L0 T6.25 S6.25: L    2.72  P_R40    2.01  P_R52    2.62  P_D  0.25  rho  1.20  drift +0.000 W  ok
+   E M-B* 100W 109.2V LV->HV L0 T6.25 S6.25: L    0.93  P_R40    0.42  P_R52    0.54  P_D  0.08  rho  1.87  drift -0.018 W  OUT
+   E M-B* 100W 109.2V LV->HV L-1 T6.25 S6.25: L    1.30  P_R40    0.78  P_R52    1.01  P_D  0.10  rho  1.49  drift -0.000 W  OUT
+
+Q6 the Efficiency output against the direct ratio
+ HV->LV: 추정식 (33 of 36), 효율로 쓸 수 없음 (off by > 0.5 pp in 20 of 36); median Eff_out - eta_m +0.39 pp, range -29.33 ... +1.57 pp
+ LV->HV: 추정식 아님 (32 of 36), 효율로 쓸 수 없음 (off by > 0.5 pp in 21 of 36); median Eff_out - eta_m +0.42 pp, range -25.82 ... +1.98 pp
+
+Q7 proportional to the step: median a 2.00 over 22 rows -> 비례
+N_local / the step asked for: 1.000 ... 1.000; drift |dE/dt| at most 1.419 W; non-periodic runs (80-period spread > 5 mA) per grid: 100: 12 of 40, 25: 3 of 24, 12.5: 3 of 24, 6.25: 3 of 24; at 6.25 ns L / (P_R52 + P_D) median 0.92
+
+VERDICT: Q1 미수렴; Q2 미확정; Q2b 25 ns 값은 수렴값이 아니다; Q3 분석 블록 아님; Q4 솔버 스텝; Q5 안 맞음; Q6 HV->LV ('추정식', '효율로 쓸 수 없음'), LV->HV ('추정식 아님', '효율로 쓸 수 없음'); Q7 비례
