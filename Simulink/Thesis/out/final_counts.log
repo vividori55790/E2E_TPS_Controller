@@ -1,0 +1,64 @@
+final_counts: Simulink runs behind the final report
+
+steady-state runner lines, per job (runs, errors):
+  t6_verify         52    0
+  pi_pilot2          4    0
+  pi_pilot3          8    0
+  pi_pilot4          8    0
+  sw1               92    4
+  sw2               32    0
+  sw3               24    0
+  sw4                2    0
+  r5r6             106    0
+  opt1             290    0
+  eff1              38    0
+  optR              98    0
+  k1map             79    0
+  zvs2              70    0
+  opt5             175    0
+  msR               84    0
+  rob4             111    0
+  eff2               7    0
+  fine1            117  117
+  rob5              55    0
+  fine1b           117    0
+  fineR             25    0
+  r13a             238    0
+  r13b             369    0
+  g10               88    0
+  rob25            117    0
+  o25r             271    0
+  md1              303    0
+  g12              105   20
+  v1x               96    0
+  rev25            171    0
+  edge25           150    0
+  f1smokeb2          2    0
+  h12               48    0
+  g12a              20    0
+  v1e              132    0
+  tgt25a           242    0
+  tgt25b           192    0
+  rev6              27    0
+  f1eff            120    0
+  f1icros           67    0
+  repro6            23    0
+
+steady-state runner lines: 4375 runs, 141 failed, 4234 good
+closed-loop summaries (rows, error cells):
+  r11               53    0
+  r12               16    0
+  flip25             6    0
+  f1v3               6    0
+closed-loop: 81 runs, 0 failed
+fixed-duty staircase rows of gen_dataset_fixed (one run per combination): 363
+
+total 4819 runs, 141 failed, 4678 good
+
+failed bundles with errors:
+  sw1: 4 of 92
+  fine1: 117 of 117
+  g12: 20 of 105
+sw1: 4 failed rows (a controller copy made to fail on purpose to end an orphaned job, PROGRESS 10-26), 4 of them in a later simulink_sweep_r* file
+fine1: every run failed (MATLAB's current folder shadowed the controller copy, PROGRESS 10-30), same point file run again as fine1b: 117 runs, 0 errors
+g12: its first 20 runs failed (the runner copy, PROGRESS 10-31), run again as g12a: 20 runs, 0 errors

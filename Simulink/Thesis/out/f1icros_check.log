@@ -1,0 +1,22 @@
+f1_icros: 3.392 A at its presumed point, V2 110 V, HV -> LV, 25 ns Simulink (dataset-era model); rules in the file header
+
+|P| 150 W: 21 of 21 configurations bracketed, 21 clean
+  SPS    (0.5000, 0.5000): rule 2.505, median 2.505 A, mean i_L 0.0017 A, spread 0.000 A, D0 5.57 deg
+  M-B    (0.2390, 0.2069): rule 1.747, median 1.747 A, mean i_L 0.0003 A, spread 0.000 A, D0 14.51 deg
+  DATA   (0.1961, 0.2417): rule 2.335, median 2.335 A, mean i_L 0.0024 A, spread 0.000 A, D0 1.21 deg
+  ICROS  (0.1434, 0.1843): rule 2.228, median 2.228 A, mean i_L 0.0021 A, spread 0.000 A, D0 3.37 deg
+  IDEAL  (0.2425, 0.2025): rule 1.815, median 1.744 A, mean i_L 0.0000 A, spread 0.104 A, D0 15.32 deg
+  dataset: I_SPS 4.736 A (/ Simulink SPS 1.89), I_Opt 1.712 A at (0.1961, 0.2417); 3.392 A would need 1.344 A
+  rule: SPS 2.505 A, lowest 1.747 A at M-B, dI_max +0.759 A; B1 yes; B3 lowest above the 1.344 A needed: yes
+  med: SPS 2.505 A, lowest 1.720 A at G0.25/0.20, dI_max +0.785 A; B1 yes; B3 lowest above the 1.344 A needed: yes
+|P| 200 W: 21 of 21 configurations bracketed, 20 clean
+  SPS    (0.5000, 0.5000): rule 2.633, median 2.633 A, mean i_L 0.0013 A, spread 0.000 A, D0 6.38 deg
+  M-B    (0.2774, 0.2419): rule 2.127, median 2.082 A, mean i_L 0.0294 A, spread 0.201 A, D0 15.71 deg
+  DATA   (0.2371, 0.2725): rule 2.297, median 2.297 A, mean i_L 0.0024 A, spread 0.000 A, D0 3.34 deg
+  ICROS  (0.2552, 0.3031): rule 2.657, median 2.657 A, mean i_L 0.0028 A, spread 0.000 A, D0 0.75 deg
+  IDEAL  (0.2800, 0.2325): rule 2.094, median 1.991 A, mean i_L 0.0001 A, spread 0.104 A, D0 17.24 deg
+  dataset: I_SPS 4.907 A (/ Simulink SPS 1.86), I_Opt 2.238 A at (0.2371, 0.2725); 3.392 A would need 1.515 A
+  rule: SPS 2.633 A, lowest 2.002 A at G0.30/0.20, dI_max +0.632 A; B1 yes; B3 lowest above the 1.515 A needed: yes
+  med: SPS 2.633 A, lowest 1.991 A at IDEAL, dI_max +0.642 A; B1 yes; B3 lowest above the 1.515 A needed: yes
+
+VERDICT: unreachable

@@ -35,7 +35,7 @@
 
 | 수치 | 조건 | 출처 | 표시 |
 |---|---|---|---|
-| 튐 3.18, 1.03 A 대 0.24, 0.18 A, SPS 0.23, 0.18 A, 듀티 변화 0.125–0.170 대 0.0002–0.0004 | 폐루프 램프 100 → 900 W, 40 ms, 제어기 사본, 25 ns, 위상 래치, Kp 1, Ki 24500, 듀티는 외부 입력 | `out/r12_verdict_r2.md`, `out/r12_check_r2.csv` | [S] |
+| 튐 3.18, 1.03 A 대 0.24, 0.18 A, SPS 0.23, 0.18 A | 폐루프 램프 100 → 900 W, 40 ms, 제어기 사본, 25 ns, 위상 래치, Kp 1, Ki 24500, 듀티는 외부 입력 | `out/r12_verdict_r2.md`, `out/r12_check_r2.csv` | [S] |
 | 처음 이득에서 1.39 A | Kp 2, Ki 49000 | `out/r12_verdict.md` | [S] |
 | 계단 4.89 → 2.83 A, 3.58 → 2.42 A, 7/8, +0.18 A(+1.3 %), 정착 3.44 대 1.35 ms, 13.09·13.31·13.49 A | 폐루프, 이득 ½, 계단 직후 2 ms 최대 | `out/r11_check.log`, `out/r11_check.csv` | [S] |
 | V·I 22,619 → 4,599 VA(−80 %) | 기본 52점 합, 오프셋 이동 점검 −76 … −83 %, Coss 0 모델 | `zvs_check.py map25`, `out/zvs_map25.log`, `out/zvs_map25.csv` | [S] |
@@ -54,9 +54,8 @@
 | 차이 0.002 W | \|L_a − L\| 중앙값, 고운 세 격자 | `out/f1eff_check.log` Q3 줄 | [S] |
 | 기본 52점 평균 +0.33 pp | 25 ns, 수렴값 아님 | `out/r13_verdict.md`, REPORT 11.5 | [S] |
 | 131–181 W, 최대 0.2 pp | 6.25 ns 두 계단의 폭, 손실 ∝ P²이면 생기는 직선 보간의 어림, 판정 아님 | `f1eff_side.py` → `out/f1eff_side.log` "interpolation width" | 어림 |
-| 7회, 1.13–1.59배, 16/23 | 6.25 ns, L > 0.5 W, 34 × 52 mΩ × i² + 다이오드 | `out/f1eff_check.log` Q5 줄 | [S] |
+| 23회 중 16회 | 6.25 ns, L > 0.5 W, 34 × 52 mΩ × i² + 다이오드, 벗어난 7회는 제안 제어기 100 W, 1.13–1.59배 | `out/f1eff_check.log` Q5 줄 | [S] |
 | 효율 블록 72회 중 71회, +3.25, +0.19 pp | 실제 흐름 방향으로 계산, 판정 아님. 규칙 답은 HV→LV 33/36, LV→HV 32/36, 효율로 못 씀 20/36, 21/36 | `f1eff_side.py` → `out/f1eff_side.log`, `out/f1eff_sweep_r*.csv` 열 `Eff_out`, `Loss_out`, `dataset_era/Direct_Efficiency_Analyzer.m` 128–134, 192–195행 | 코드, [S] |
-| 84 V 1 kW SPS 95.13, 98.42 % | HV→LV, 100, 6.25 ns | `out/f1eff_eta.csv` 열 `eta_SPS_*` | [S] |
 
 ## 4. 나빠지는 조건
 
@@ -68,7 +67,7 @@
 | ±1 %, ±2 % 0.476 → 0.527 A, 0.352 → 0.534 A | 100, 200 W, V2 여섯 값, 12경우씩 | `out/v1e_verdict.md`, `out/v1e_check.csv` | [S] |
 | LV→HV 28점 +0.115 A(+0.123 A), HV→LV +0.116 A(+0.125 A) | 7 V2 × 100, 300, 600, 1000 W | `out/rev25_verdict.md`, `out/rev25_side.log`, `out/rev25_check.csv` | [S] |
 | 100.8 V 600 W +0.069 A(+0.030 A) → −0.004 A(−0.012 A); 둘레 다섯 점 0.003–0.054 A | LV→HV, 6.25 ns, 0.72° 계단 | `out/rev6_verdict.md`, `out/rev6_check.csv` | [S] |
-| SPS 방향 차 최대 0.489 A, V_LV 차 최대 1.19 V | LV→HV − HV→LV, 원인 분리는 플랜트 | `out/rev25_side.log`(S), `out/rev25_plantdir.log`([참고]) | [S], [참고] |
+| SPS 방향 차 최대 0.489 A | LV→HV − HV→LV, 109.2 V 1 kW | `out/rev25_side.log` | [S] |
 | HV→LV 위반 네 점 → 6.25 ns 0.000 … +0.098 A, 다섯 점, 나머지 91점, 판정 불가 8점 | 6.25 ns, 0.72° 계단 | `out/h12_verdict.md`, `out/h12_check.csv`, `out/r13_verdict.md`, `out/md_check.csv` | [S] |
 | 96.6 V 25, 75 W +0.053, +0.142 A(+0.025, +0.055 A) | 0.72° 계단, 실행 비주기 | `out/edge25_check.csv` | [S] |
 | 98.7 V 200 W +0.032 A(−0.014 A) | 0.72° 계단, 기준선 | `out/v1e_check.csv` | [S] |
@@ -78,7 +77,7 @@
 
 | 수치 | 조건 | 출처 | 표시 |
 |---|---|---|---|
-| 회귀를 제어기 안에서: 듀티 차 0.0027, 0.0028, 최대 피크 차 +0.036, +0.102 A | 폐루프 램프, 제어기 사본, 25 ns, 이득 ½, 입력은 측정 전압 이동평균, 90, 109.2 V × 1, 8주기, 문턱 0.106 A | `out/f1v3_verdict.md`, `out/f1v3_check.csv` | [S] |
+| 회귀를 제어기 안에서: 규칙 "같음", 최대 피크 차 +0.036, +0.102 A(듀티 차 0.0027, 0.0028은 본문 밖) | 폐루프 램프, 제어기 사본, 25 ns, 이득 ½, 입력은 측정 전압 이동평균, 90, 109.2 V × 1, 8주기, 문턱 0.106 A | `out/f1v3_verdict.md`, `out/f1v3_check.csv` | [S] |
 | 기동 0–6 ms 피크 21.9, 19.9 A → 27.1, 26.3 A | 같은 실행, 규칙 밖, 첫 듀티 (0.4473, 0.5000) | `out/r12/r2_MB_*_ramp_periods.csv`, `out/f1v3/v3_MB_*_h1_periods.csv`, 열 `Ipk`, `D1`, `D2` | [S] |
 | 84 V 100 W 1.73 A → 3.1 A | 원본 100 ns, Kp 2, Ki 49000, 35 ms | `out/simulink_pi_pilot*.csv`, REPORT 4절 | [S] |
 | −0.079 … +0.054 A(36구간), 위상 p2p 0.61° | 폐루프 이득 ½ − 상수 D0 25 ns, 주기 피크 중앙값 | `out/r11_check.log` | [S] |
@@ -92,3 +91,7 @@
 | 27구성 중앙값 0.003 A, 최대 0.024 A | 25, 12.5 ns 모두 주기적 | `out/g12_check.log`, `out/g12_verdict.md` | [S] |
 | 10/12, 9/12, TT 0 비트 단위 같음 | 10 ns 진단 | `out/g12_verdict.md`, `out/g12_check.log` | [S] |
 | 195행 비트 단위, 1.35 = 1.15 + 0.21 − 0.01 A | 데이터셋 생성 실험 재실행 | `out/staircase_compare.log`, `out/ipk_decompose.log` | [S] |
+| 3.392 A "도달 불가", SPS 2.505, 2.633 A, 최대 저감 0.759, 0.632 A(0.785, 0.642 A), 21쌍 | V2 110 V, 150, 200 W, 2.88° 계단, 깨끗하지 않은 구성은 200 W 제안 제어기 하나, 67회 오류 0, 운전점은 추정 | `f1_icros.py`, `out/f1icros_verdict.md`, `out/f1icros_check.csv`, `out/f1icros_check.log`, REPORT 6.7 | [S] |
+| 가장 큰 저감 1.376 A | 109.2 V 25 W, 기본 56점 + 25, 50, 75, 1200 W 안에서 | `out/edge25_check.csv`(`set` = E), `out/r13_points_med.csv` | [S] |
+| 실행 총수, 오류 141회의 내역과 재실행 | 러너 기록 줄과 폐루프 요약 파일의 `error` 칸, 고정 듀티 계단은 잡 로그의 조합 수. 스모크, 195행 재실행, 첫 시뮬레이션 전에 멈춘 잡은 세지 않음 | `final_counts.py`, `out/final_counts.log`, `automation/job_errors.py` | 기록 |
+| 대표 행 재현 | 84, 109.2 V × 100, 300, 1000 W, SPS와 제안 제어기의 두 계단, 새 MATLAB 세션, 같은 러너 | `repro6.py`, `out/repro6_check.log` | [S] |
